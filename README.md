@@ -88,8 +88,10 @@ git push -u origin main
 
 1. [supabase.com](https://supabase.com) 에서 프로젝트를 하나 만든다 (무료 티어로 충분하다).
    리전은 `Northeast Asia (Seoul)` 이 빠르다.
-2. 프로젝트 **Settings > General** 에서 `Reference ID` 를 복사한다 → 아래 `<프로젝트 ref>`
-3. **Settings > API** 에서 `Project URL` 과 `anon public` 키를 복사한다 → 3-3 에서 쓴다
+2. 프로젝트 ref 는 대시보드 주소에 있다 →
+   `supabase.com/dashboard/project/`**`여기가-ref`**`/settings/general`
+3. 상단 초록색 **Connect** 버튼 > App Frameworks 를 열면 `Project URL` 과 키가 한 화면에 나온다.
+   메뉴로 찾으려면 URL 은 **Settings > Data API**, 키는 **Settings > API Keys** 다.
 4. [console.anthropic.com](https://console.anthropic.com) 에서 API 키를 발급한다 → 3-2 에서 쓴다
 
 ### 3-1. 스키마 반영
@@ -161,14 +163,28 @@ SQL Editor 에서 프로젝트 주소와 서비스 키를 채워 실행하면 �
 
 ```bash
 cp .env.example .env
-# EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY 채우기
+```
+
+`.env` 에 두 줄을 채운다.
+
+```
+EXPO_PUBLIC_SUPABASE_URL=https://<프로젝트 ref>.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon public 또는 Publishable key>
+```
+
+키 이름은 프로젝트를 만든 시점에 따라 다르게 보인다. `anon public`(eyJ… 로 시작) 이든
+`Publishable key`(sb_publishable_… 로 시작) 이든 그대로 쓰면 된다.
+
+```bash
 npm run web
 ```
 
 `.env`가 채워지면 앱은 자동으로 원격 모드로 뜬다 — 이메일 OTP 로그인 → 팀 생성 또는
 초대코드 참여 → 팀원 전원이 같은 데이터를 본다.
 
-> `EXPO_PUBLIC_` 접두사가 붙은 값만 앱 번들에 들어간다. Anthropic 키는 절대 여기 넣지 말 것.
+> 이 두 값은 앱 번들에 들어가는 **공개 값**이다. 숨길 필요가 없고 권한은 RLS 가 막는다.
+> 반대로 `service_role` / `secret` 키와 Anthropic 키는 절대 `.env` 에 넣지 않는다 —
+> `EXPO_PUBLIC_` 이 붙은 값은 전부 앱에 실려 나간다. 그 둘은 Edge Function 시크릿으로만 관리한다.
 
 ### 3-4. 붙었는지 확인하기
 
