@@ -1,0 +1,154 @@
+import { useMemo, useState } from 'react';
+import { View } from 'react-native';
+import { useStore } from '@/lib/store';
+import { eventsForMatch, memberName, playerStats } from '@/lib/selectors';
+import { formatDate } from '@/lib/format';
+import {
+  Button,
+  Card,
+  Divider,
+  Empty,
+  Row,
+  Screen,
+  SectionHeader,
+  Segmented,
+  Txt,
+  space,
+} from '@/components/ui';
+import { MatchPicker } from '@/components/MatchPicker';
+import { QuickInputFab } from '@/components/QuickInputFab';
+import { usePalette } from '@/theme';
+import type { MatchEventType } from '@/lib/types';
+
+const EVENT_LABEL: Record<MatchEventType, string> = {
+  goal: '골',
+  assist: '도움',
+  save: '선방',
+  yellow: '경고',
+  red: '퇴장',
+  own_goal: '자책',
+};
+
+type Scope = 'season' | 'match';
+
+export default function StatsScreen() {
+  const p = usePalette();
+  const data = useStore((state) => state.data);
+  const activeMatchId = useStore((state) => state.activeMatchId);
+  const removeEvent = useStore((state) => state.removeEvent);
+  const [scope, setScope] = useState<Scope>('season');
+
+  const stats = useMemo(
+    () =>
+      data
+        ? playerStats(data, scope === 'match' && activeMatchId ? new Set([activeMatchId]) : undefined)
+        : [],
+    [data, scope, activeMatchId],
+  );
+
+  if (!data) return null;
+  const match = data.matches.find((item) => item.id === activeMatchId);
+  const events = match ? eventsForMatch(data, match.id) : [];
+  const ranked = stats.filter((row) => row.points > 0 || row.appearances > 0);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Screen>
+        <Segmented
+          value={scope}
+          onChange={setScope}
+          options={[
+            { value: 'season', label: '시즌 전체' },
+            { value: 'match', label: '이 경기' },
+          ]}
+        />
+        {scope === 'match' ? <MatchPicker /> : null}
+
+        <SectionHeader title="랭킹" />
+        <Card style={{ padding: space.sm, gap: 0 }}>
+          <Row justify="space-between" style={{ paddingHorizontal: space.sm, paddingBottom: space.sm }}>
+            <Txt variant="tiny" muted>
+              선수
+            </Txt>
+            <Row gap={space.lg}>
+              <Txt variant="tiny" muted>
+                출전
+              </Txt>
+              <Txt variant="tiny" muted>
+                골
+              </Txt>
+              <Txt variant="tiny" muted>
+                도움
+              </Txt>
+            </Row>
+          </Row>
+          {ranked.length === 0 ? (
+            <Empty text="아직 기록이 없습니다." />
+          ) : (
+            ranked.map((row, index) => (
+              <View key={row.member.id}>
+                <Divider />
+                <Row justify="space-between" style={{ padding: space.sm }}>
+                  <Row style={{ flexShrink: 1 }}>
+                    <Txt variant="h3" color={index < 3 ? p.primary : p.textMuted} style={{ width: 22 }}>
+                      {index + 1}
+                    </Txt>
+                    <View style={{ flexShrink: 1 }}>
+                      <Txt variant="body">{row.member.name}</Txt>
+                      {row.cards > 0 ? (
+                        <Txt variant="tiny" color={p.warn}>
+                          경고/퇴장 {row.cards}
+                        </Txt>
+                      ) : null}
+                    </View>
+                  </Row>
+                  <Row gap={space.lg}>
+                    <Txt variant="small" muted style={{ width: 24, textAlign: 'right' }}>
+                      {row.appearances}
+                    </Txt>
+                    <Txt variant="h3" style={{ width: 24, textAlign: 'right' }}>
+                      {row.goals}
+                    </Txt>
+                    <Txt variant="h3" muted style={{ width: 24, textAlign: 'right' }}>
+                      {row.assists}
+                    </Txt>
+                  </Row>
+                </Row>
+              </View>
+            ))
+          )}
+        </Card>
+
+        {scope === 'match' && match ? (
+          <>
+            <SectionHeader title={`${formatDate(match.date)} 기록`} />
+            <Card style={{ padding: space.sm, gap: 0 }}>
+              {events.length === 0 ? (
+                <Empty text={'이 경기 기록이 없습니다.\n"전반 12분 상혁이 골" 처럼 적어서 넣어보세요.'} />
+              ) : (
+                events.map((event, index) => (
+                  <View key={event.id}>
+                    {index > 0 ? <Divider /> : null}
+                    <Row justify="space-between" style={{ padding: space.sm }}>
+                      <Row>
+                        <Txt variant="small" muted style={{ width: 44 }}>
+                          {event.minute != null ? `${event.minute}'` : '-'}
+                        </Txt>
+                        <Txt variant="body">{memberName(data.members, event.memberId)}</Txt>
+                        <Txt variant="small" color={p.primary}>
+                          {EVENT_LABEL[event.type]}
+                        </Txt>
+                      </Row>
+                      <Button label="삭제" tone="danger" small onPress={() => removeEvent(event.id)} />
+                    </Row>
+                  </View>
+                ))
+              )}
+            </Card>
+          </>
+        ) : null}
+      </Screen>
+      <QuickInputFab hint="event" />
+    </View>
+  );
+}

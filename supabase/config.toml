@@ -1,0 +1,33 @@
+# Supabase CLI 설정. `supabase link --project-ref <ref>` 후 db push / functions deploy 에 쓰인다.
+project_id = "footballbanghwa"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["http://localhost:8081"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# 매직링크 대신 6자리 OTP를 쓰므로 확인 메일이 필요하다.
+enable_confirmations = true
+
+[functions.parse-text]
+# 로그인한 사용자만 AI 파서를 호출할 수 있다.
+verify_jwt = true
