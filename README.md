@@ -58,7 +58,39 @@ npm run web
 
 여기까지 되면 앱 자체는 정상이다. 이 시점의 저장은 브라우저에만 남는다.
 
-### 폰에서 보면서 고치기
+### 폰에서 보기: 웹 주소로 (맥이 꺼져 있어도 된다)
+
+맥과 폰이 같은 네트워크에 있어야 하는 방식은 공유기 설정에 자주 막힌다.
+그래서 **GitHub 이 대신 빌드해서 주소를 만들어 주도록** 해 뒀다.
+설치할 것도, 로그인할 것도 없다.
+
+저장소에서 **한 번만** 켜면 된다:
+
+1. GitHub 저장소 > **Settings** > **Pages**
+2. **Source** 를 `Deploy from a branch` 에서 **`GitHub Actions`** 로 바꾼다
+3. **Actions** 탭에 "모바일 웹 배포" 가 도는 게 보인다 (3~5분)
+4. 끝나면 주소가 뜬다 → `https://data2102.github.io/footballbanghwa/`
+
+이 뒤로는 **이 브랜치에 push 할 때마다 자동으로 다시 올라간다.**
+폰에서는 그 주소를 열고 "홈 화면에 추가" 를 하면 앱처럼 전체 화면으로 뜬다.
+
+다른 조기회에도 그대로 쓸 수 있는 주소다. 다만 Supabase 를 붙이기 전까지는
+**데모 모드**(기기 저장소)라 폰마다 데이터가 따로 논다. 진짜 서비스로 만들려면
+저장소 > Settings > Secrets and variables > Actions 에 두 개를 넣는다:
+
+| 이름 | 값 |
+|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | Supabase > Settings > API 의 Project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | 같은 화면의 `anon public` 키 |
+
+넣고 다시 push 하면 같은 주소가 로그인·팀 공유가 되는 서비스로 바뀐다.
+anon 키는 원래 브라우저에 노출되는 값이라 번들에 들어가도 된다 — 데이터는 RLS 가 막는다.
+
+> 하위 경로(`/footballbanghwa/`)에서 도는 게 이 배포의 유일한 특이점이다.
+> `app.config.js` 가 `EXPO_BASE_URL` 을 받아 처리하고, 워크플로가 `.nojekyll` 을
+> 같이 넣는다. 이게 없으면 `_expo/` 폴더를 GitHub Pages 가 통째로 버려서 흰 화면이 뜬다.
+
+### 폰에서 보면서 고치기 (맥에서 저장하면 바로 반영)
 
 화면을 다듬을 때는 이 방식이 가장 빠르다. 저장하면 폰이 바로 다시 그린다.
 
