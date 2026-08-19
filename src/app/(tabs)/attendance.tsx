@@ -12,6 +12,7 @@ import {
   Hero,
   Row,
   Screen,
+  SectionHeader,
   Segmented,
   Txt,
   radius,
@@ -88,20 +89,21 @@ export default function AttendanceScreen() {
               <Txt variant="tiny" muted>
                 {formatDate(match.date)} {match.kickoff} · {match.venue}
               </Txt>
+              {/*
+                이름을 나열하는 건 "이 사람들만 찌르면 된다"를 보여 주려는 것이다.
+                아직 전원이 미응답이면 그 목록은 아래 명단과 똑같아서 줄만 차지한다.
+              */}
+              {pending.length && pending.length < data.members.filter((m) => m.active).length ? (
+                <Txt variant="tiny" muted>
+                  아직 답 없음 · {pending.slice(0, 8).map((member) => member.name).join(', ')}
+                  {pending.length > 8 ? ` 외 ${pending.length - 8}명` : ''}
+                </Txt>
+              ) : null}
               <Txt variant="tiny" muted>
                 단톡방 투표를 그대로 복사하거나, 손으로 쓴 명단을 찍어서 오른쪽 아래 버튼에 넣으면 한 번에
                 반영돼요.
               </Txt>
             </Card>
-
-            <ShareVoteLink teamName={data.team.name} match={match} />
-
-            <AttendanceNudge
-              teamName={data.team.name}
-              match={match}
-              pending={pending}
-              attending={(tally?.attending ?? 0) + (tally?.late ?? 0)}
-            />
 
             <Segmented
               value={filter}
@@ -141,6 +143,9 @@ export default function AttendanceScreen() {
                               <Pressable
                                 key={status.value}
                                 onPress={() => setAttendance(match.id, member.id, status.value)}
+                                // 역할을 안 주면 화면 낭독기가 그냥 글자로 읽는다. 눌리는 것임을 알려야 한다.
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: active }}
                                 accessibilityLabel={`${member.name} ${status.label}`}
                                 style={{
                                   width: 30,
@@ -182,6 +187,20 @@ export default function AttendanceScreen() {
                   }
                 }
               }}
+            />
+
+            {/*
+              링크 보내기와 독촉은 주중에 한 번 하는 일이고, 명단 체크는 경기 당일 매번 하는 일이다.
+              그래서 자주 쓰는 명단을 위에 두고 이 둘을 아래로 내린다.
+            */}
+            <SectionHeader title="팀에 보내기" />
+            <ShareVoteLink teamName={data.team.name} match={match} />
+
+            <AttendanceNudge
+              teamName={data.team.name}
+              match={match}
+              pending={pending}
+              attending={(tally?.attending ?? 0) + (tally?.late ?? 0)}
             />
           </>
         )}
