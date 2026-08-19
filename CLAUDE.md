@@ -100,6 +100,9 @@ grant execute on function public.어떤함수(인자) to service_role;
 
 ## 자주 걸리는 것
 
+- **Node 20.12 이상이어야 한다.** 그 아래에서는 `.env` 가 생기는 순간
+  `util.parseEnv is not a function` 으로 터진다. `.env` 가 없을 때는 멀쩡히 돌아서
+  원인이 안 보인다. package.json 의 engines 로 막아 뒀다.
 - **`EXPO_PUBLIC_` 접두사가 붙은 값만 앱 번들에 들어간다.** Anthropic 키는 절대 `.env` 에 넣지
   않는다. Edge Function 시크릿으로만 관리한다.
 - **데모 모드를 깨뜨리지 않는다.** `.env` 없이 `npm run web` 이 그대로 떠야 한다.
