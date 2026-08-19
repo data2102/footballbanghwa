@@ -82,7 +82,7 @@ create table public.ledger (
 );
 
 create index ledger_team_idx on public.ledger (team_id, occurred_on desc);
--- 같은 사람의 같은 달 회비를 두 번 적는 사고를 막는다.
+-- 주의: 이 인덱스는 20260819160000_allow_partial_dues.sql 에서 제거된다(부분 납부를 막아서).
 create unique index ledger_due_once_idx on public.ledger (member_id, period)
   where kind = 'due' and member_id is not null and period is not null;
 

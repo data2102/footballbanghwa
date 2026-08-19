@@ -1,3 +1,5 @@
+import { randomUUID } from 'expo-crypto';
+
 /** 화면 표기용 포맷터 모음. 통화·날짜는 전부 여기서만 만든다. */
 
 export function won(amount: number): string {
@@ -60,6 +62,14 @@ export function shiftPeriod(period: string, months: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/**
+ * 새 레코드의 id.
+ *
+ * 반드시 UUID 여야 한다 — Supabase 테이블의 id 컬럼이 전부 uuid 라서,
+ * 아무 문자열이나 넣으면 insert 가 "invalid input syntax for type uuid" 로 막힌다.
+ * 서버가 만들게 두지 않는 이유는 낙관적 갱신 때문이다. 저장 응답을 기다리지 않고
+ * 화면을 먼저 바꾸려면 클라이언트가 id 를 알고 있어야 한다.
+ */
 export function uid(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+  return randomUUID();
 }
