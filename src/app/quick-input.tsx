@@ -1,24 +1,15 @@
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useStore } from '@/lib/store';
+import { blankMemberFields, useStore } from '@/lib/store';
 import { parseText } from '@/lib/ai/client';
 import { isLocalRepo } from '@/lib/repo';
+import { pickPhoto, type PickedPhoto } from '@/lib/photo';
 import { findFormation, normalizeFormationId } from '@/features/lineup/formations';
 import { formatDate, todayISO, won } from '@/lib/format';
 import { availableMembers } from '@/lib/selectors';
-import {
-  Button,
-  Card,
-  Checkbox,
-  Chip,
-  Divider,
-  Row,
-  Screen,
-  Txt,
-  radius,
-  space,
-} from '@/components/ui';
+import { Button, Card, Checkbox, Chip, Divider, Row, Screen, Txt, radius, space } from '@/components/ui';
+import { Icon } from '@/components/icons';
 import { usePalette } from '@/theme';
 import type { ParseIntent, ParseResponse, ParsedItem } from '@/lib/ai/contract';
 import type { AttendanceStatus, LineupSlot, PositionGroup } from '@/lib/types';
@@ -31,13 +22,18 @@ const HINTS: { value: Hint | 'auto'; label: string }[] = [
   { value: 'payment', label: '회비' },
   { value: 'lineup', label: '라인업' },
   { value: 'event', label: '기록' },
+  { value: 'profile', label: '회원' },
 ];
 
 const EXAMPLES: Record<Hint, string> = {
-  attendance: '이번주 일요일 조기축구\n병준이형 ㅇ\n도현 참석\n성우 불참(출장)\n민석 30분 늦게 감\n우진 ㅇ\n재영 못가요',
-  payment: '[Web발신]\n08/19 09:12 입금 30,000 이도현\n잔액 1,240,000\n\n박성우 8월 회비 3만 보냈어요\n구장비 12만원 결제',
-  lineup: '오늘 4-3-3으로 간다\n골키퍼 병준이형\n수비 도현 성우 민석 우진\n중원 재영 세훈 현수\n공격 태윤 상혁 지호',
+  attendance:
+    '이번주 일요일 조기축구\n병준이형 ㅇ\n도현 참석\n성우 불참(출장)\n민석 30분 늦게 감\n우진 ㅇ\n재영 못가요',
+  payment:
+    '[Web발신]\n08/19 09:12 입금 30,000 이도현\n잔액 1,240,000\n\n박성우 8월 회비 3만 보냈어요\n구장비 12만원 결제',
+  lineup:
+    '오늘 4-3-3으로 간다\n골키퍼 병준이형\n수비 도현 성우 민석 우진\n중원 재영 세훈 현수\n공격 태윤 상혁 지호',
   event: '전반 12분 태윤이 골, 지호 어시\n후반 10분 상혁 골\n병준이형 선방 세 번',
+  profile: '태윤이 왼발 잘 쓰고 위치선정 좋아\n병준이형은 골키퍼 고정\n민석이 작년에 발목 다쳤으니 연속 출전은 피하자',
 };
 
 const STATUS_LABEL: Record<AttendanceStatus, string> = {
@@ -68,15 +64,16 @@ export default function QuickInputScreen() {
   const addEvent = useStore((state) => state.addEvent);
   const saveLineup = useStore((state) => state.saveLineup);
   const addMember = useStore((state) => state.addMember);
+  const updateMember = useStore((state) => state.updateMember);
 
   const [hint, setHint] = useState<Hint | 'auto'>((params.hint as Hint) ?? 'auto');
   const [text, setText] = useState('');
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResponse | null>(null);
-  /** 사용자가 체크한 항목 인덱스. AI가 사람을 특정하지 못한 항목은 기본 해제. */
+  /** 사용자가 체크한 항목. AI가 사람을 특정하지 못한 항목은 기본으로 꺼둔다. */
   const [checked, setChecked] = useState<Set<number>>(new Set());
-  /** AI가 못 찾은 사람을 사용자가 직접 고른 결과. */
   const [overrides, setOverrides] = useState<Record<number, string>>({});
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
 
@@ -92,13 +89,23 @@ export default function QuickInputScreen() {
     return overrides[index] ?? item.memberId;
   }
 
+  async function attach(source: 'camera' | 'library') {
+    try {
+      const photo = await pickPhoto(source);
+      if (photo) setPhotos((prev) => [...prev, photo].slice(0, 4));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '사진을 불러오지 못했어요.');
+    }
+  }
+
   async function runParse() {
-    if (!text.trim()) return;
+    if (!text.trim() && photos.length === 0) return;
     setBusy(true);
     setError(null);
     try {
       const response = await parseText({
         text,
+        images: photos.map((photo) => ({ mediaType: photo.mediaType, data: photo.base64 })),
         members: activeMembers,
         team: data!.team,
         hint: hint === 'auto' ? undefined : hint,
@@ -109,7 +116,7 @@ export default function QuickInputScreen() {
       );
       setOverrides({});
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '분석에 실패했습니다.');
+      setError(caught instanceof Error ? caught.message : '분석하지 못했어요. 다시 시도해 주세요.');
     } finally {
       setBusy(false);
     }
@@ -133,7 +140,7 @@ export default function QuickInputScreen() {
           await setAttendance(match.id, memberId!, item.status, { note: item.note, source: 'ai' });
         } else if (item.kind === 'payment') {
           await addLedger({
-            memberId: item.ledgerKind === 'expense' ? memberId : memberId,
+            memberId,
             kind: item.ledgerKind,
             amount: item.amount,
             period: item.ledgerKind === 'due' ? item.period : null,
@@ -143,6 +150,18 @@ export default function QuickInputScreen() {
           });
         } else if (item.kind === 'event' && match) {
           await addEvent({ matchId: match.id, memberId: memberId!, type: item.type, minute: item.minute });
+        } else if (item.kind === 'profile') {
+          const member = data!.members.find((row) => row.id === memberId);
+          if (member) {
+            await updateMember({
+              ...member,
+              // 기존 태그를 지우지 않고 더한다. 문자 한 줄이 회원 카드를 날려버리면 안 된다.
+              strengths: [...new Set([...member.strengths, ...item.strengths])],
+              preferredPosition: item.position ?? member.preferredPosition,
+              backNumber: item.backNumber ?? member.backNumber,
+              note: item.note ?? member.note,
+            });
+          }
         } else if (item.kind === 'lineup') {
           lineupItems.push({ item, memberId: memberId! });
         }
@@ -150,8 +169,7 @@ export default function QuickInputScreen() {
 
       if (lineupItems.length && match) {
         const existing = data!.lineups.find((row) => row.matchId === match.id);
-        const formationId =
-          normalizeFormationId(result.formation) ?? existing?.formationId ?? '4-3-3';
+        const formationId = normalizeFormationId(result.formation) ?? existing?.formationId ?? '4-3-3';
         const formation = findFormation(formationId);
         const slots: LineupSlot[] = formation.slots.map((slot) => ({ ...slot, memberId: null }));
 
@@ -184,8 +202,21 @@ export default function QuickInputScreen() {
   }
 
   const needsMatch = result?.items.some(
-    (item, index) => checked.has(index) && item.kind !== 'payment',
+    (item, index) => checked.has(index) && (item.kind === 'attendance' || item.kind === 'event' || item.kind === 'lineup'),
   );
+
+  const inputStyle = {
+    minHeight: 180,
+    backgroundColor: p.surface,
+    borderColor: p.borderStrong,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: space.lg,
+    color: p.text,
+    fontSize: 15,
+    lineHeight: 24,
+    textAlignVertical: 'top' as const,
+  };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -205,7 +236,7 @@ export default function QuickInputScreen() {
                 ))}
               </Row>
               <Txt variant="tiny" muted>
-                자동으로 두면 내용을 보고 알아서 판단합니다. 참석과 회비가 섞여 있어도 됩니다.
+                자동으로 두면 내용을 보고 알아서 판단해요. 참석과 회비가 섞여 있어도 괜찮아요.
               </Txt>
             </Card>
 
@@ -214,20 +245,68 @@ export default function QuickInputScreen() {
               value={text}
               onChangeText={setText}
               placeholder={'카톡 대화, 은행 문자, 메모를 그대로 붙여넣으세요.\n\n예) 병준이형 ㅇ / 도현 참석 / 성우 불참'}
-              placeholderTextColor={p.textMuted}
-              style={{
-                minHeight: 200,
-                backgroundColor: p.surface,
-                borderColor: p.border,
-                borderWidth: 1,
-                borderRadius: radius.lg,
-                padding: space.lg,
-                color: p.text,
-                fontSize: 15,
-                lineHeight: 22,
-                textAlignVertical: 'top',
-              }}
+              placeholderTextColor={p.textFaint}
+              style={inputStyle}
             />
+
+            <Row gap={space.sm}>
+              <Button
+                label="사진 찍기"
+                icon="camera"
+                tone="neutral"
+                style={{ flex: 1 }}
+                onPress={() => attach('camera')}
+              />
+              <Button
+                label="사진첩에서"
+                icon="image"
+                tone="neutral"
+                style={{ flex: 1 }}
+                onPress={() => attach('library')}
+              />
+            </Row>
+            <Txt variant="tiny" muted>
+              손으로 쓴 명단, 화이트보드 작전판, 은행 앱 화면을 찍어도 읽어요. 최대 4장까지 올릴 수 있어요.
+            </Txt>
+
+            {photos.length ? (
+              <Row wrap gap={space.sm}>
+                {photos.map((photo, index) => (
+                  <Pressable
+                    key={photo.uri}
+                    accessibilityLabel={`${index + 1}번째 사진 빼기`}
+                    onPress={() => setPhotos((prev) => prev.filter((item) => item.uri !== photo.uri))}
+                    style={{ position: 'relative' }}
+                  >
+                    <Image
+                      source={{ uri: photo.uri }}
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: radius.sm,
+                        borderWidth: 1,
+                        borderColor: p.border,
+                      }}
+                    />
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: p.text,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Icon name="close" size={13} color={p.surface} />
+                    </View>
+                  </Pressable>
+                ))}
+              </Row>
+            ) : null}
 
             {hint !== 'auto' ? (
               <Button label="예시 문구 넣어보기" tone="neutral" small onPress={() => setText(EXAMPLES[hint])} />
@@ -241,25 +320,30 @@ export default function QuickInputScreen() {
               </Card>
             ) : null}
 
-            <Button label="AI로 분석하기" loading={busy} onPress={runParse} />
+            <Button
+              label={photos.length ? `사진 ${photos.length}장과 함께 분석하기` : '붙여넣은 내용 분석하기'}
+              loading={busy}
+              disabled={!text.trim() && photos.length === 0}
+              onPress={runParse}
+            />
 
             {isLocalRepo ? (
               <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
-                데모 모드에서는 간단한 규칙 파서가 대신 처리합니다. Supabase를 연결하면 Claude가 분석합니다.
+                데모 모드에서는 간단한 규칙 파서가 대신 처리해요. Supabase를 연결하면 Claude가 사진까지 읽어요.
               </Txt>
             ) : null}
           </>
         ) : (
           <>
             <Card>
-              <Txt variant="h3">{result.summary || '분석 결과'}</Txt>
+              <Txt variant="h3">{result.summary || '분석 결과예요'}</Txt>
               {match ? (
                 <Txt variant="tiny" muted>
-                  적용 대상 경기: {formatDate(match.date)} {match.kickoff}
+                  {formatDate(match.date)} 경기에 반영돼요
                 </Txt>
               ) : needsMatch ? (
                 <Txt variant="tiny" color={p.danger}>
-                  적용할 경기가 없습니다. 회비 항목만 저장됩니다.
+                  반영할 경기가 없어요. 회비와 회원 항목만 저장돼요.
                 </Txt>
               ) : null}
               {result.unmatched.length ? (
@@ -270,18 +354,9 @@ export default function QuickInputScreen() {
                   {result.unmatched.map((name) => (
                     <Chip
                       key={name}
-                      label={`${name} +`}
+                      label={`${name} 추가하기`}
                       tone={{ fg: p.warn, bg: p.warnSoft }}
-                      onPress={async () => {
-                        await addMember({
-                          name,
-                          nickname: null,
-                          role: 'player',
-                          backNumber: null,
-                          preferredPosition: null,
-                          active: true,
-                        });
-                      }}
+                      onPress={() => addMember({ name, ...blankMemberFields() })}
                     />
                   ))}
                 </Row>
@@ -291,7 +366,8 @@ export default function QuickInputScreen() {
             {result.items.length === 0 ? (
               <Card>
                 <Txt variant="small" muted>
-                  읽어낼 항목을 찾지 못했습니다. 문구를 조금 더 구체적으로 적어 보세요.
+                  읽어낼 항목을 찾지 못했어요. 문구를 조금 더 구체적으로 적거나, 사진을 더 밝은 데서 다시 찍어
+                  주세요.
                 </Txt>
               </Card>
             ) : (
@@ -327,7 +403,7 @@ export default function QuickInputScreen() {
                               onPress={() => setPickerIndex(pickerIndex === index ? null : index)}
                             />
                           ) : item.confidence === 'low' ? (
-                            <Chip label="확인 필요" tone={{ fg: p.warn, bg: p.warnSoft }} />
+                            <Chip label="확인이 필요해요" tone={{ fg: p.warn, bg: p.warnSoft }} />
                           ) : null}
                           {pickerIndex === index ? (
                             <ScrollView
@@ -367,7 +443,7 @@ export default function QuickInputScreen() {
                 }}
               />
               <Button
-                label={`${checked.size}건 저장`}
+                label={`${checked.size}건 저장하기`}
                 style={{ flex: 2 }}
                 disabled={checked.size === 0}
                 loading={busy}
@@ -389,11 +465,20 @@ function describe(item: ParsedItem, name: string): string {
     case 'payment': {
       const who = item.memberId || name !== '(미확인)' ? name : '팀';
       const label = item.ledgerKind === 'expense' ? '지출' : item.ledgerKind === 'due' ? '회비' : '수입';
-      return `${who} · ${label} ${won(item.amount)}${item.period ? ` (${item.period})` : ''}`;
+      return `${who} · ${label} ${won(item.amount)}`;
     }
     case 'lineup':
       return `${name} · ${item.slotKey ?? item.group}`;
     case 'event':
-      return `${name} · ${EVENT_LABEL[item.type] ?? item.type}${item.minute != null ? ` ${item.minute}'` : ''}`;
+      return `${name} · ${EVENT_LABEL[item.type] ?? item.type}${item.minute != null ? ` ${item.minute}분` : ''}`;
+    case 'profile': {
+      const parts = [
+        item.strengths.length ? item.strengths.join(', ') : null,
+        item.position ? `${item.position} 고정` : null,
+        item.backNumber != null ? `${item.backNumber}번` : null,
+        item.note ? '메모' : null,
+      ].filter(Boolean);
+      return `${name} · ${parts.join(' · ') || '회원 정보'}`;
+    }
   }
 }

@@ -146,3 +146,110 @@ export function eventsForMatch(data: AppData, matchId: string): MatchEvent[] {
     .filter((row) => row.matchId === matchId)
     .sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999));
 }
+
+// ------------------------------------------------------------------ 회원 카드
+
+export type MemberProfile = {
+  member: Member;
+  /** 가입 이후 치른 경기 수. 출석률의 분모. */
+  eligible: number;
+  attended: number;
+  late: number;
+  absent: number;
+  /** 0~1. eligible 이 0이면 null (아직 칠 경기가 없었다는 뜻). */
+  rate: number | null;
+  /** 최근 경기부터 앞으로 5개. 라인업 짤 때 폼을 보는 용도. */
+  recent: { matchId: string; date: string; status: AttendanceStatus }[];
+  goals: number;
+  assists: number;
+  saves: number;
+  cards: number;
+  /** 이번 달 기준 미납 금액. 0이면 완납. */
+  outstanding: number;
+  /** 회비를 낸 적 있는 달들. 최근 순. */
+  paidPeriods: string[];
+  totalPaid: number;
+};
+
+/**
+ * 회원 한 명의 모든 것을 한 번에 계산한다.
+ * 회원 목록에서 16명분을 돌리므로 전체 순회는 한 번씩만 한다.
+ */
+export function memberProfile(data: AppData, memberId: string, period = thisPeriod()): MemberProfile | null {
+  const member = data.members.find((row) => row.id === memberId);
+  if (!member) return null;
+
+  // 가입 전 경기는 출석률에서 뺀다. 새로 들어온 회원이 부당하게 낮게 잡히지 않게.
+  const played = data.matches
+    .filter((match) => match.status !== 'canceled')
+    .filter((match) => !member.joinedOn || match.date >= member.joinedOn)
+    .filter((match) => daysUntil(match.date) <= 0 || match.status === 'finished')
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const byMatch = new Map(
+    data.attendance.filter((row) => row.memberId === memberId).map((row) => [row.matchId, row]),
+  );
+
+  let attended = 0;
+  let late = 0;
+  let absent = 0;
+  for (const match of played) {
+    const status = byMatch.get(match.id)?.status ?? 'unknown';
+    if (status === 'attending') attended += 1;
+    else if (status === 'late') late += 1;
+    else if (status === 'absent') absent += 1;
+  }
+
+  const events = data.events.filter((row) => row.memberId === memberId);
+  const count = (type: MatchEvent['type']) => events.filter((row) => row.type === type).length;
+
+  const dues = data.ledger.filter((row) => row.kind === 'due' && row.memberId === memberId);
+  const paidThisPeriod = dues
+    .filter((row) => row.period === period)
+    .reduce((sum, row) => sum + row.amount, 0);
+
+  return {
+    member,
+    eligible: played.length,
+    attended,
+    late,
+    absent,
+    // 지각도 나온 것으로 친다. 안 나온 사람과 같이 묶으면 지각 표시를 할 이유가 없다.
+    rate: played.length ? (attended + late) / played.length : null,
+    recent: played.slice(0, 5).map((match) => ({
+      matchId: match.id,
+      date: match.date,
+      status: byMatch.get(match.id)?.status ?? 'unknown',
+    })),
+    goals: count('goal'),
+    assists: count('assist'),
+    saves: count('save'),
+    cards: count('yellow') + count('red'),
+    outstanding: Math.max(0, data.team.monthlyDue - paidThisPeriod),
+    paidPeriods: [...new Set(dues.map((row) => row.period).filter(Boolean) as string[])].sort().reverse(),
+    totalPaid: dues.reduce((sum, row) => sum + row.amount, 0),
+  };
+}
+
+/** 팀 전체 프로필. 회원 목록 화면용. */
+export function allProfiles(data: AppData, period = thisPeriod()): MemberProfile[] {
+  return data.members
+    .filter((member) => member.active)
+    .map((member) => memberProfile(data, member.id, period))
+    .filter((profile): profile is MemberProfile => profile !== null);
+}
+
+/** 팀에서 이미 쓰이고 있는 장점 태그. 입력할 때 추천으로 띄운다. */
+export function knownStrengths(members: Member[]): string[] {
+  const counts = new Map<string, number>();
+  for (const member of members) {
+    for (const tag of member.strengths) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
+}
+
+/** 처음 쓰는 팀을 위한 기본 추천 태그. */
+export const STRENGTH_SUGGESTIONS = [
+  '왼발', '오른발', '헤딩', '스피드', '체력', '빌드업', '수비 리딩',
+  '킥력', '중거리', '드리블', '패스', '위치선정', '리더십', '멘탈',
+];

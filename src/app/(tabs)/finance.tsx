@@ -9,11 +9,12 @@ import {
   Chip,
   Divider,
   Empty,
+  Hero,
+  Progress,
   Row,
   Screen,
   SectionHeader,
   Segmented,
-  Stat,
   Txt,
   space,
 } from '@/components/ui';
@@ -36,6 +37,7 @@ export default function FinanceScreen() {
 
   const dues = duesForPeriod(data, period);
   const unpaid = dues.filter((row) => row.outstanding > 0);
+  const outstandingTotal = unpaid.reduce((sum, row) => sum + row.outstanding, 0);
   const monthly = balance(data.ledger, period);
   const ledgerRows = [...data.ledger].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn));
 
@@ -43,10 +45,22 @@ export default function FinanceScreen() {
     <View style={{ flex: 1 }}>
       <Screen>
         <Card>
-          <Row gap={space.sm} wrap>
-            <Stat label="팀 잔고" value={`${wonShort(treasury(data.ledger))}원`} />
-            <Stat label={`${formatPeriod(period)} 수입`} value={`${wonShort(monthly.income)}원`} tone={p.ok} />
-            <Stat label={`${formatPeriod(period)} 지출`} value={`${wonShort(monthly.expense)}원`} tone={p.danger} />
+          <Hero
+            label="아직 못 걷은 회비"
+            value={won(outstandingTotal)}
+            tone={outstandingTotal > 0 ? p.danger : p.ok}
+            caption={`${dues.length - unpaid.length} / ${dues.length}명이 냈어요 · 팀 잔고 ${wonShort(
+              treasury(data.ledger),
+            )}원`}
+          />
+          <Progress value={dues.length ? (dues.length - unpaid.length) / dues.length : 0} />
+          <Row justify="space-between">
+            <Txt variant="tiny" muted tabular>
+              {formatPeriod(period)} 수입 {wonShort(monthly.income)}원
+            </Txt>
+            <Txt variant="tiny" muted tabular>
+              지출 {wonShort(monthly.expense)}원
+            </Txt>
           </Row>
         </Card>
 
@@ -65,7 +79,7 @@ export default function FinanceScreen() {
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'dues', label: `회비 (미납 ${unpaid.length})` },
+            { value: 'dues', label: `회비 · 미납 ${unpaid.length}` },
             { value: 'ledger', label: '장부' },
           ]}
         />
@@ -82,15 +96,16 @@ export default function FinanceScreen() {
                       <Txt variant="h3" color={done ? p.textMuted : p.text}>
                         {row.member.name}
                       </Txt>
-                      <Txt variant="tiny" muted>
-                        {done ? `완납 · ${won(row.paid)}` : `미납 ${won(row.outstanding)}`}
+                      <Txt variant="tiny" muted tabular>
+                        {done ? `${won(row.paid)} 냈어요` : `${won(row.outstanding)} 아직이에요`}
                       </Txt>
                     </View>
                     {done ? (
                       <Chip label="완납" tone={{ fg: p.ok, bg: p.okSoft }} />
                     ) : (
                       <Button
-                        label={`${wonShort(row.outstanding)}원 입금`}
+                        label="입금 처리"
+                        tone="neutral"
                         small
                         onPress={() =>
                           addLedger({
@@ -109,12 +124,12 @@ export default function FinanceScreen() {
                 </View>
               );
             })}
-            {dues.length === 0 ? <Empty text="회원이 없습니다." /> : null}
+            {dues.length === 0 ? <Empty text="아직 회원이 없어요." /> : null}
           </Card>
         ) : (
           <Card style={{ padding: space.sm, gap: 0 }}>
             {ledgerRows.length === 0 ? (
-              <Empty text="장부가 비어 있습니다." />
+              <Empty text={'장부가 비어 있어요.\n입금 문자를 붙여넣으면 바로 채워져요.'} />
             ) : (
               ledgerRows.map((row, index) => (
                 <View key={row.id}>
@@ -133,7 +148,7 @@ export default function FinanceScreen() {
                       </Txt>
                     </View>
                     <Row gap={space.sm}>
-                      <Txt variant="h3" color={row.kind === 'expense' ? p.danger : p.ok}>
+                      <Txt variant="h3" tabular color={row.kind === 'expense' ? p.danger : p.ok}>
                         {row.kind === 'expense' ? '-' : '+'}
                         {won(row.amount)}
                       </Txt>
@@ -146,11 +161,11 @@ export default function FinanceScreen() {
           </Card>
         )}
 
-        <SectionHeader title="빠른 입력" />
+        <SectionHeader title="빠르게 넣기" />
         <Card>
           <Txt variant="small" muted>
-            은행 입금 문자를 통째로 붙여넣으면 이름과 금액을 뽑아 회비로 처리합니다. 구장비·조끼값
-            같은 지출도 &ldquo;구장비 12만원 결제&rdquo; 한 줄이면 됩니다.
+            은행 입금 문자를 통째로 붙여넣으면 이름과 금액만 뽑아 회비로 넣어요. 은행 앱 화면을 찍어서
+            올려도 되고, 구장비·조끼값 같은 지출은 &ldquo;구장비 12만원 결제&rdquo; 한 줄이면 돼요.
           </Txt>
         </Card>
       </Screen>

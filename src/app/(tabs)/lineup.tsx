@@ -134,7 +134,7 @@ export default function LineupScreen() {
         <MatchPicker />
         {!match ? (
           <Card>
-            <Empty text="경기를 먼저 만들어 주세요." />
+            <Empty text={'경기를 먼저 만들어 주세요.\n설정에서 추가할 수 있어요.'} />
           </Card>
         ) : (
           <>
@@ -151,12 +151,12 @@ export default function LineupScreen() {
 
             <Pitch slots={slots} members={members} selectedKey={selectedKey} onSelectSlot={handleSlotPress} />
 
-            <Txt variant="small" muted>
-              자리를 누른 뒤 아래 선수를 누르면 배치됩니다. 자리 두 곳을 차례로 누르면 서로 바뀝니다.
+            <Txt variant="tiny" muted>
+              자리를 누른 뒤 아래 선수를 누르면 배치돼요. 자리 두 곳을 차례로 누르면 서로 바뀌어요.
             </Txt>
 
             <Row gap={space.sm}>
-              <Button label="참석자로 자동 채우기" tone="neutral" small style={{ flex: 1 }} onPress={autoFill} />
+              <Button label="참석자로 채우기" tone="neutral" small style={{ flex: 1 }} onPress={autoFill} />
               <Button
                 label="전부 비우기"
                 tone="neutral"
@@ -172,15 +172,17 @@ export default function LineupScreen() {
             <SectionHeader title={`대기 (${bench.length}명)`} />
             <Card>
               {available.length === 0 ? (
-                <Empty text={'참석으로 표시된 인원이 없습니다.\n참석 탭에서 먼저 집계해 주세요.'} />
+                <Empty text={'참석으로 표시된 인원이 없어요.\n참석 탭에서 먼저 집계해 주세요.'} />
               ) : bench.length === 0 ? (
-                <Empty text="참석자 전원이 배치되었습니다." />
+                <Empty text="참석자 전원을 배치했어요." />
               ) : (
                 <Row wrap gap={space.sm}>
                   {bench.map((member) => (
                     <Chip
                       key={member.id}
-                      label={`${member.name}${member.preferredPosition ? ` · ${member.preferredPosition}` : ''}`}
+                      label={`${member.name}${member.preferredPosition ? ` · ${member.preferredPosition}` : ''}${
+                        member.strengths.length ? ` · ${member.strengths[0]}` : ''
+                      }`}
                       onPress={() => assign(member.id)}
                     />
                   ))}
@@ -189,7 +191,7 @@ export default function LineupScreen() {
             </Card>
 
             <Button
-              label={dirty ? '라인업 저장' : '저장됨'}
+              label={dirty ? '라인업 저장하기' : '저장했어요'}
               disabled={!dirty}
               onPress={async () => {
                 await saveLineup({
@@ -201,9 +203,9 @@ export default function LineupScreen() {
                 setDirty(false);
               }}
             />
-            <Txt variant="tiny" muted style={{ textAlign: 'center', color: p.textMuted }}>
-              &ldquo;4-3-3으로 가고 골키퍼 병준이형, 수비 도현 성우…&rdquo; 처럼 적어서 문자로 입력해도
-              그대로 배치됩니다.
+            <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
+              &ldquo;4-3-3으로 가고 골키퍼 병준이형, 수비 도현 성우…&rdquo; 처럼 적거나, 화이트보드 작전판을
+              찍어서 올려도 그대로 배치돼요.
             </Txt>
           </>
         )}

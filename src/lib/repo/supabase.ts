@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
   Attendance,
@@ -48,6 +49,9 @@ export class SupabaseRepo implements Repo {
       if (result.error) throw result.error;
     }
 
+    const memberRows = (members.data ?? []).map(fromMemberRow);
+    await this.attachPhotoUrls(memberRows);
+
     return {
       team: {
         id: teamRow.id,
@@ -55,13 +59,49 @@ export class SupabaseRepo implements Repo {
         monthlyDue: teamRow.monthly_due,
         inviteCode: teamRow.invite_code,
       },
-      members: (members.data ?? []).map(fromMemberRow),
+      members: memberRows,
       matches: (matches.data ?? []).map(fromMatchRow),
       attendance: (attendance.data ?? []).map(fromAttendanceRow),
       ledger: (ledger.data ?? []).map(fromLedgerRow),
       events: (events.data ?? []).map(fromEventRow),
       lineups: (lineups.data ?? []).map(fromLineupRow),
     };
+  }
+
+  /**
+   * 버킷이 비공개라 경로만으로는 그릴 수 없다. 한 번에 모아서 서명 URL 로 바꾼다.
+   * 실패해도 앱 전체를 막지 않고 사진만 비운다.
+   */
+  private async attachPhotoUrls(members: Member[]): Promise<void> {
+    const paths = members.map((member) => member.photoPath).filter(Boolean) as string[];
+    if (!paths.length) return;
+
+    const { data, error } = await this.client.storage
+      .from(PHOTO_BUCKET)
+      .createSignedUrls(paths, SIGNED_URL_TTL);
+    if (error || !data) return;
+
+    const byPath = new Map(data.map((row) => [row.path, row.signedUrl]));
+    for (const member of members) {
+      if (member.photoPath) member.photoUri = byPath.get(member.photoPath) ?? null;
+    }
+  }
+
+  async saveMemberPhoto(member: Member, photo: PickedPhoto) {
+    const teamId = this.assertLoaded();
+    // 회원당 한 장만 둔다. 같은 경로에 덮어써서 지난 사진이 쌓이지 않게 한다.
+    const path = `${teamId}/${member.id}.jpg`;
+
+    const { error } = await this.client.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, base64ToBytes(photo.base64), {
+        contentType: photo.mediaType,
+        upsert: true,
+      });
+    if (error) throw error;
+
+    const { data } = await this.client.storage.from(PHOTO_BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
+    return { photoUri: data?.signedUrl ?? '', photoPath: path };
   }
 
   private assertLoaded(): string {
@@ -89,6 +129,10 @@ export class SupabaseRepo implements Repo {
         role: member.role,
         back_number: member.backNumber,
         preferred_position: member.preferredPosition,
+        strengths: member.strengths,
+        note: member.note,
+        photo_url: member.photoPath,
+        joined_on: member.joinedOn,
         active: member.active,
       }),
     );
@@ -176,6 +220,18 @@ export class SupabaseRepo implements Repo {
     );
 }
 
+const PHOTO_BUCKET = 'member-photos';
+/** 한 시간. 앱을 다시 열면 새로 서명한다. */
+const SIGNED_URL_TTL = 60 * 60;
+
+/** RN 에는 Buffer 가 없고 atob 는 바이너리 문자열만 준다. 업로드용 바이트 배열로 직접 바꾼다. */
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 // ------------------------------------------------------------ row -> 도메인
 
 type Row = Record<string, any>;
@@ -188,6 +244,11 @@ const fromMemberRow = (row: Row): Member => ({
   role: row.role,
   backNumber: row.back_number,
   preferredPosition: row.preferred_position,
+  strengths: row.strengths ?? [],
+  note: row.note,
+  photoUri: null,
+  photoPath: row.photo_url,
+  joinedOn: row.joined_on,
   active: row.active,
 });
 

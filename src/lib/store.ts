@@ -3,6 +3,7 @@ import { repo } from '@/lib/repo';
 import { supabase } from '@/lib/supabase';
 import { todayISO, uid } from '@/lib/format';
 import { focusMatch } from '@/lib/selectors';
+import type { PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
   Attendance,
@@ -44,6 +45,7 @@ type Store = {
   removeEvent: (id: string) => Promise<void>;
   saveLineup: (lineup: Omit<Lineup, 'id'>) => Promise<void>;
   addMember: (member: Omit<Member, 'id' | 'teamId'>) => Promise<Member | null>;
+  setMemberPhoto: (memberId: string, photo: PickedPhoto) => Promise<void>;
   updateMember: (member: Member) => Promise<void>;
   saveMatch: (match: Omit<Match, 'id' | 'teamId'> & { id?: string }) => Promise<void>;
   updateTeam: (patch: Partial<Team>) => Promise<void>;
@@ -172,6 +174,18 @@ export const useStore = create<Store>((set, get) => ({
     return row;
   },
 
+  setMemberPhoto: async (memberId, photo) => {
+    const data = get().data;
+    const member = data?.members.find((row) => row.id === memberId);
+    if (!data || !member) return;
+    try {
+      const saved = await repo.saveMemberPhoto(member, photo);
+      await get().updateMember({ ...member, ...saved });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : '사진을 저장하지 못했어요.' });
+    }
+  },
+
   updateMember: async (member) => {
     const data = get().data;
     if (!data) return;
@@ -206,6 +220,22 @@ export const useStore = create<Store>((set, get) => ({
     await persist(set, () => repo.saveTeam(team));
   },
 }));
+
+/** 이름만 알고 추가하는 회원의 나머지 기본값. 신규 회원을 만드는 곳마다 반복하지 않게 모아 둔다. */
+export function blankMemberFields(): Omit<Member, 'id' | 'teamId' | 'name'> {
+  return {
+    nickname: null,
+    role: 'player',
+    backNumber: null,
+    preferredPosition: null,
+    strengths: [],
+    note: null,
+    photoUri: null,
+    photoPath: null,
+    joinedOn: todayISO(),
+    active: true,
+  };
+}
 
 /** 오늘 날짜의 빈 장부 항목을 만들 때 쓰는 기본값. */
 export function blankLedger(): Omit<Ledger, 'id' | 'teamId'> {

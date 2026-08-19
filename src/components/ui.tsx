@@ -11,7 +11,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CONTENT_MAX_WIDTH, font, Palette, radius, space, usePalette } from '@/theme';
+import { CONTENT_MAX_WIDTH, font, numeric, Palette, radius, space, usePalette } from '@/theme';
+import { Icon, type IconName } from '@/components/icons';
 
 /** 화면 공통 래퍼. 가로 폭 제한 + 하단 탭에 가리지 않을 만큼의 여백. */
 export function Screen({
@@ -37,7 +38,8 @@ export function Screen({
   return (
     <ScrollView
       style={{ backgroundColor: p.bg }}
-      contentContainerStyle={[styles.screen, { paddingBottom: insets.bottom + space.xxl * 2 }]}
+      // 떠 있는 입력 버튼(약 44px)과 그 여백만큼 아래를 비워 둔다.
+      contentContainerStyle={[styles.screen, { paddingBottom: insets.bottom + 88 }]}
       keyboardShouldPersistTaps="handled"
     >
       {refreshing ? <ActivityIndicator color={p.primary} /> : null}
@@ -77,6 +79,7 @@ export function Txt({
   variant = 'body',
   muted,
   color,
+  tabular,
   style,
   numberOfLines,
 }: {
@@ -84,14 +87,23 @@ export function Txt({
   variant?: keyof typeof font;
   muted?: boolean;
   color?: string;
+  /** 숫자가 세로로 줄 맞아야 하는 곳(장부·랭킹)에 켠다. */
+  tabular?: boolean;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
 }) {
   const p = usePalette();
+  // tiny 는 캡션·메타 전용이라, muted 를 켜면 한 단계 더 옅은 회색으로 간다.
+  const mutedColor = variant === 'tiny' ? p.textFaint : p.textMuted;
   return (
     <Text
       numberOfLines={numberOfLines}
-      style={[font[variant], { color: color ?? (muted ? p.textMuted : p.text) }, style]}
+      style={[
+        font[variant],
+        tabular && numeric,
+        { color: color ?? (muted ? mutedColor : p.text) },
+        style,
+      ]}
     >
       {children}
     </Text>
@@ -132,6 +144,7 @@ export function Button({
   label,
   onPress,
   tone = 'primary',
+  icon,
   disabled,
   loading,
   small,
@@ -140,29 +153,39 @@ export function Button({
   label: string;
   onPress: () => void;
   tone?: ButtonTone;
+  icon?: IconName;
   disabled?: boolean;
   loading?: boolean;
   small?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const p = usePalette();
-  const bg = { primary: p.primary, neutral: p.surfaceAlt, danger: p.dangerSoft }[tone];
+  // 채운 파란 버튼은 화면당 하나만. 나머지는 테두리(neutral)로 둔다.
+  const bg = { primary: p.primaryStrong, neutral: 'transparent', danger: 'transparent' }[tone];
   const fg = { primary: p.onPrimary, neutral: p.text, danger: p.danger }[tone];
+  const borderColor = { primary: 'transparent', neutral: p.borderStrong, danger: p.dangerSoft }[tone];
   const off = disabled || loading;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: off }}
       disabled={off}
       onPress={onPress}
       style={({ pressed }) => [
         {
           backgroundColor: bg,
+          borderWidth: 1,
+          borderColor,
           borderRadius: radius.md,
-          paddingVertical: small ? space.sm : space.md,
+          // 터치 타겟 44px 을 맞추려고 세로 여백을 넉넉히 둔다.
+          paddingVertical: small ? space.sm : 13,
           paddingHorizontal: small ? space.md : space.lg,
+          flexDirection: 'row',
+          gap: space.sm,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: off ? 0.45 : pressed ? 0.8 : 1,
+          opacity: off ? 0.45 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
         style,
       ]}
@@ -170,7 +193,10 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
-        <Text style={[small ? font.small : font.h3, { color: fg, fontWeight: '700' }]}>{label}</Text>
+        <>
+          {icon ? <Icon name={icon} size={small ? 15 : 17} color={fg} /> : null}
+          <Text style={[small ? font.small : font.h3, { color: fg, fontWeight: '500' }]}>{label}</Text>
+        </>
       )}
     </Pressable>
   );
@@ -188,23 +214,27 @@ export function Chip({
   tone?: { fg: string; bg: string };
 }) {
   const p = usePalette();
-  const fg = tone ? tone.fg : selected ? p.onPrimary : p.textMuted;
-  const bg = tone ? tone.bg : selected ? p.primary : p.surfaceAlt;
+  const fg = tone ? tone.fg : selected ? p.primaryStrong : p.textMuted;
+  const bg = tone ? tone.bg : selected ? p.primarySoft : p.surface;
   return (
     <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityState={{ selected }}
       disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [
         {
           backgroundColor: bg,
+          borderWidth: 1,
+          borderColor: tone ? tone.bg : selected ? p.primarySoft : p.border,
           borderRadius: radius.pill,
           paddingVertical: 6,
           paddingHorizontal: space.md,
-          opacity: pressed ? 0.75 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}
     >
-      <Text style={[font.small, { color: fg, fontWeight: '600' }]}>{label}</Text>
+      <Text style={[font.small, { color: fg, fontWeight: '500' }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -278,7 +308,7 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
         borderRadius: radius.md,
         padding: space.md,
         gap: 2,
-        minWidth: 72,
+        minWidth: 68,
       }}
     >
       <Txt variant="tiny" muted>
@@ -304,7 +334,7 @@ export function Checkbox({ checked, onToggle }: { checked: boolean; onToggle: ()
         height: 24,
         borderRadius: radius.sm,
         borderWidth: 2,
-        borderColor: checked ? p.primary : p.border,
+        borderColor: checked ? p.primary : p.borderStrong,
         backgroundColor: checked ? p.primary : 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
@@ -329,12 +359,12 @@ export function Avatar({ name, size = 34, tone }: { name: string; size?: number;
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: tone ?? p.primarySoft,
+        backgroundColor: tone ?? p.surfaceAlt,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ color: p.primary, fontWeight: '800', fontSize: size * 0.38 }}>
+      <Text style={{ color: p.textMuted, fontWeight: '500', fontSize: size * 0.36 }}>
         {name.slice(-2)}
       </Text>
     </View>
@@ -345,4 +375,54 @@ const styles = StyleSheet.create({
   screen: { padding: space.lg, gap: space.md, flexGrow: 1 },
 });
 
-export { space, radius, font, usePalette };
+/** 진행률 막대. 회비 걷힌 비율처럼 "몇 분의 몇"이 한눈에 보여야 할 때. */
+export function Progress({ value }: { value: number }) {
+  const p = usePalette();
+  const ratio = Math.max(0, Math.min(1, value));
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityValue={{ now: Math.round(ratio * 100), min: 0, max: 100 }}
+      style={{ height: 8, backgroundColor: p.surfaceAlt, borderRadius: radius.pill, overflow: 'hidden' }}
+    >
+      <View style={{ width: `${ratio * 100}%`, height: '100%', backgroundColor: p.primary }} />
+    </View>
+  );
+}
+
+/** 화면 안에서 큰 숫자 하나를 주인공으로 쓸 때. 화면당 한 번만. */
+export function Hero({
+  label,
+  value,
+  suffix,
+  tone,
+  caption,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  tone?: string;
+  caption?: string;
+}) {
+  const p = usePalette();
+  return (
+    <View style={{ gap: space.xs }}>
+      <Txt variant="tiny" muted>
+        {label}
+      </Txt>
+      <Row gap={space.xs} align="baseline">
+        <Text style={[font.display, { color: tone ?? p.text }]}>{value}</Text>
+        {suffix ? (
+          <Text style={[font.body, { color: p.textFaint }]}>{suffix}</Text>
+        ) : null}
+      </Row>
+      {caption ? (
+        <Txt variant="tiny" muted>
+          {caption}
+        </Txt>
+      ) : null}
+    </View>
+  );
+}
+
+export { space, radius, font, numeric, usePalette };

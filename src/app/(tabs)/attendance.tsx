@@ -9,10 +9,10 @@ import {
   Card,
   Divider,
   Empty,
+  Hero,
   Row,
   Screen,
   Segmented,
-  Stat,
   Txt,
   radius,
   space,
@@ -51,11 +51,11 @@ export default function AttendanceScreen() {
     .filter((member) => member.active)
     .filter((member) => filter === 'all' || (rows.get(member.id)?.status ?? 'unknown') === filter);
 
-  const tone: Record<AttendanceStatus, { fg: string; bg: string }> = {
-    attending: { fg: p.ok, bg: p.okSoft },
-    late: { fg: p.warn, bg: p.warnSoft },
-    absent: { fg: p.danger, bg: p.dangerSoft },
-    unknown: { fg: p.textMuted, bg: p.surfaceAlt },
+  const tone: Record<AttendanceStatus, { fg: string; bg: string; line: string }> = {
+    attending: { fg: p.ok, bg: p.okSoft, line: p.okLine },
+    late: { fg: p.warn, bg: p.warnSoft, line: p.warnLine },
+    absent: { fg: p.danger, bg: p.dangerSoft, line: p.dangerLine },
+    unknown: { fg: p.textMuted, bg: p.surfaceAlt, line: p.borderStrong },
   };
 
   return (
@@ -64,23 +64,27 @@ export default function AttendanceScreen() {
         <MatchPicker />
         {!match ? (
           <Card>
-            <Empty text="경기를 먼저 만들어 주세요." />
+            <Empty text={'경기를 먼저 만들어 주세요.\n설정에서 추가할 수 있어요.'} />
           </Card>
         ) : (
           <>
             <Card>
-              <Txt variant="h3">
+              <Hero
+                label="뛸 수 있는 인원"
+                value={`${(tally?.attending ?? 0) + (tally?.late ?? 0)}명`}
+                suffix={`/ ${data.members.filter((m) => m.active).length}명`}
+                caption={
+                  tally?.unknown
+                    ? `지각 ${tally.late}명 포함이에요. ${tally.unknown}명은 아직 답이 없어요.`
+                    : `지각 ${tally?.late ?? 0}명 포함이에요. 전원 응답했어요.`
+                }
+              />
+              <Txt variant="tiny" muted>
                 {formatDate(match.date)} {match.kickoff} · {match.venue}
               </Txt>
-              <Row gap={space.sm} wrap>
-                <Stat label="참석" value={`${tally?.attending ?? 0}`} tone={p.ok} />
-                <Stat label="지각" value={`${tally?.late ?? 0}`} tone={p.warn} />
-                <Stat label="불참" value={`${tally?.absent ?? 0}`} tone={p.danger} />
-                <Stat label="미정" value={`${tally?.unknown ?? 0}`} />
-              </Row>
-              <Txt variant="small" muted>
-                단톡방 투표 결과를 그대로 복사해서 오른쪽 아래 &ldquo;문자로 입력&rdquo; 버튼에
-                붙여넣으면 한 번에 반영됩니다.
+              <Txt variant="tiny" muted>
+                단톡방 투표를 그대로 복사하거나, 손으로 쓴 명단을 찍어서 오른쪽 아래 버튼에 넣으면 한 번에
+                반영돼요.
               </Txt>
             </Card>
 
@@ -95,7 +99,7 @@ export default function AttendanceScreen() {
 
             <Card style={{ padding: space.sm, gap: 0 }}>
               {members.length === 0 ? (
-                <Empty text="해당하는 회원이 없습니다." />
+                <Empty text="여기 해당하는 회원이 없어요." />
               ) : (
                 members.map((member, index) => {
                   const current = (rows.get(member.id)?.status ?? 'unknown') as AttendanceStatus;
@@ -105,7 +109,7 @@ export default function AttendanceScreen() {
                       {index > 0 ? <Divider /> : null}
                       <Row justify="space-between" style={{ paddingVertical: space.sm, paddingHorizontal: space.sm }}>
                         <Row style={{ flexShrink: 1 }}>
-                          <Avatar name={member.name} tone={tone[current].bg} />
+                          <Avatar name={member.name} size={32} tone={tone[current].bg} />
                           <View style={{ flexShrink: 1 }}>
                             <Txt variant="h3">{member.name}</Txt>
                             <Txt variant="tiny" muted numberOfLines={1}>
@@ -124,20 +128,20 @@ export default function AttendanceScreen() {
                                 onPress={() => setAttendance(match.id, member.id, status.value)}
                                 accessibilityLabel={`${member.name} ${status.label}`}
                                 style={{
-                                  width: 34,
-                                  height: 34,
+                                  width: 30,
+                                  height: 30,
                                   borderRadius: radius.sm,
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   backgroundColor: active ? tone[status.value].bg : 'transparent',
                                   borderWidth: 1,
-                                  borderColor: active ? tone[status.value].fg : p.border,
+                                  borderColor: active ? tone[status.value].line : p.border,
                                 }}
                               >
                                 <Txt
                                   variant="small"
-                                  color={active ? tone[status.value].fg : p.textMuted}
-                                  style={{ fontWeight: '700' }}
+                                  color={active ? tone[status.value].fg : p.textFaint}
+                                  style={{ fontWeight: '500' }}
                                 >
                                   {status.short}
                                 </Txt>
@@ -153,7 +157,7 @@ export default function AttendanceScreen() {
             </Card>
 
             <Button
-              label="미정 인원 전부 불참 처리"
+              label="아직 답 없는 사람 전부 불참 처리하기"
               tone="neutral"
               onPress={() => {
                 for (const member of data.members) {

@@ -1,12 +1,13 @@
 import { Pressable, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { radius, space, usePalette } from '@/theme';
+import { Icon } from '@/components/icons';
+import { font, radius, space, usePalette } from '@/theme';
 import type { ParseIntent } from '@/lib/ai/contract';
 
 /**
- * 어느 화면에서든 같은 자리에 뜨는 "문자로 입력" 버튼.
- * 화면마다 hint를 넘겨서 AI가 무엇을 읽어야 하는지 알려준다.
+ * 어느 화면에서든 같은 자리에 뜨는 입력 버튼.
+ * 화면당 채운 파란 버튼은 이것 하나뿐이라, 이 앱에서 가장 자주 하는 일이 무엇인지가 색으로 드러난다.
  */
 export function QuickInputFab({ hint }: { hint?: Exclude<ParseIntent, 'mixed' | 'unknown'> }) {
   const p = usePalette();
@@ -16,29 +17,29 @@ export function QuickInputFab({ hint }: { hint?: Exclude<ParseIntent, 'mixed' | 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="문자로 입력하기"
+      accessibilityLabel="문자나 사진으로 입력하기"
       onPress={() => router.push({ pathname: '/quick-input', params: hint ? { hint } : {} })}
       style={({ pressed }) => ({
         position: 'absolute',
         right: space.lg,
         bottom: insets.bottom + space.lg,
-        backgroundColor: p.primary,
+        backgroundColor: p.primaryStrong,
         borderRadius: radius.pill,
-        paddingVertical: space.md,
+        paddingVertical: 11,
         paddingHorizontal: space.lg,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: space.sm,
-        opacity: pressed ? 0.85 : 1,
+        gap: 7,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
         shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 3,
       })}
     >
-      <Text style={{ fontSize: 16 }}>✨</Text>
-      <Text style={{ color: p.onPrimary, fontWeight: '700', fontSize: 14 }}>문자로 입력</Text>
+      <Icon name="message" size={17} color={p.onPrimary} />
+      <Text style={[font.small, { color: p.onPrimary, fontWeight: '500' }]}>문자·사진 입력</Text>
     </Pressable>
   );
 }

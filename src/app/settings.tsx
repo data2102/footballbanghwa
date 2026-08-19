@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TextInput, View } from 'react-native';
-import { useStore } from '@/lib/store';
+import { useRouter } from 'expo-router';
+import { blankMemberFields, useStore } from '@/lib/store';
 import { isLocalRepo } from '@/lib/repo';
 import { formatDate, todayISO } from '@/lib/format';
 import {
@@ -60,6 +61,7 @@ function Field({
 
 export default function SettingsScreen() {
   const p = usePalette();
+  const router = useRouter();
   const data = useStore((state) => state.data);
   const updateTeam = useStore((state) => state.updateTeam);
   const addMember = useStore((state) => state.addMember);
@@ -131,12 +133,9 @@ export default function SettingsScreen() {
             disabled={!newName.trim()}
             onPress={async () => {
               await addMember({
+                ...blankMemberFields(),
                 name: newName.trim(),
-                nickname: null,
-                role: 'player',
-                backNumber: null,
                 preferredPosition: newPosition,
-                active: true,
               });
               setNewName('');
               setNewPosition(null);
@@ -169,12 +168,7 @@ export default function SettingsScreen() {
                     {member.preferredPosition ?? '포지션 미정'} · {roleLabel(member.role)}
                   </Txt>
                 </View>
-                <Button
-                  label="제외"
-                  tone="danger"
-                  small
-                  onPress={() => updateMember({ ...member, active: false })}
-                />
+                <Button label="열기" tone="neutral" small onPress={() => router.push(`/member/${member.id}`)} />
               </Row>
             </View>
           ))}
@@ -215,8 +209,8 @@ export default function SettingsScreen() {
             데모 모드
           </Txt>
           <Txt variant="small" color={p.warn}>
-            지금 데이터는 이 기기에만 저장됩니다. .env에 EXPO_PUBLIC_SUPABASE_URL과
-            EXPO_PUBLIC_SUPABASE_ANON_KEY를 넣고 다시 실행하면 팀 전체가 같은 데이터를 보게 됩니다.
+            지금 데이터는 이 기기에만 저장돼요. .env에 EXPO_PUBLIC_SUPABASE_URL과
+            EXPO_PUBLIC_SUPABASE_ANON_KEY를 넣고 다시 실행하면 팀 전체가 같은 데이터를 봐요.
           </Txt>
         </Card>
       ) : null}

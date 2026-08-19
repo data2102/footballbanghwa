@@ -13,6 +13,9 @@ import { SYSTEM_PROMPT } from '../_shared/prompt.ts';
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-5';
 const MAX_TEXT_LENGTH = 8000;
 const MAX_ROSTER = 200;
+const MAX_IMAGES = 4;
+/** base64 기준. 1568px·품질 0.7 로 줄여 보내면 보통 이 아래로 떨어진다. */
+const MAX_IMAGE_BYTES = 4_000_000;
 
 type RosterEntry = {
   id: string;
@@ -22,13 +25,18 @@ type RosterEntry = {
   position: string | null;
 };
 
+type ParseImage = { mediaType: string; data: string };
+
 type ParseRequest = {
   text?: string;
+  images?: ParseImage[];
   hint?: string;
   roster?: RosterEntry[];
   today?: string;
   monthlyDue?: number;
 };
+
+const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 /** 스키마가 평평한 객체 하나로 오므로, kind 별로 필요한 필드만 남겨 좁힌다. */
 function normalizeItem(raw: Record<string, unknown>) {
@@ -71,6 +79,15 @@ function normalizeItem(raw: Record<string, unknown>) {
         type: (raw.eventType as string) ?? 'goal',
         minute: typeof raw.minute === 'number' ? raw.minute : null,
       };
+    case 'profile':
+      return {
+        kind: 'profile' as const,
+        ...base,
+        strengths: Array.isArray(raw.strengths) ? (raw.strengths as string[]).filter(Boolean) : [],
+        position: (raw.group as string | null) ?? null,
+        backNumber: typeof raw.backNumber === 'number' ? raw.backNumber : null,
+        note: (raw.note as string | null) ?? null,
+      };
     default:
       return null;
   }
@@ -91,30 +108,51 @@ Deno.serve(async (req) => {
   }
 
   const text = (body.text ?? '').trim();
-  if (!text) return json({ error: '분석할 텍스트가 비어 있습니다.' }, 400);
+  const images = (body.images ?? []).slice(0, MAX_IMAGES);
+
+  if (!text && images.length === 0) {
+    return json({ error: '분석할 내용이 없습니다. 글을 쓰거나 사진을 올려주세요.' }, 400);
+  }
   if (text.length > MAX_TEXT_LENGTH) {
-    return json({ error: `텍스트가 너무 깁니다. ${MAX_TEXT_LENGTH}자 이하로 나눠서 보내주세요.` }, 400);
+    return json({ error: `글이 너무 깁니다. ${MAX_TEXT_LENGTH}자 이하로 나눠서 보내주세요.` }, 400);
+  }
+  for (const image of images) {
+    if (!ALLOWED_MEDIA.includes(image.mediaType)) {
+      return json({ error: `지원하지 않는 이미지 형식입니다: ${image.mediaType}` }, 400);
+    }
+    // base64 4글자가 원본 3바이트다.
+    if ((image.data?.length ?? 0) * 0.75 > MAX_IMAGE_BYTES) {
+      return json({ error: '사진 용량이 너무 큽니다. 앱에서 줄여서 다시 보내주세요.' }, 400);
+    }
   }
 
   const roster = (body.roster ?? []).slice(0, MAX_ROSTER);
   const today = body.today ?? new Date().toISOString().slice(0, 10);
 
   // 가변 정보는 전부 user 메시지로. system은 고정이라 프롬프트 캐시가 걸린다.
-  const userContent = [
+  const prompt = [
     `오늘 날짜: ${today}`,
     body.monthlyDue ? `팀 기본 월 회비: ${body.monthlyDue}원` : null,
     body.hint ? `사용자가 연 화면: ${body.hint} (힌트일 뿐, 내용이 다르면 내용을 따르십시오)` : null,
+    images.length ? `첨부한 사진 ${images.length}장도 함께 읽으십시오.` : null,
     '',
     '## 팀 명단 (JSON)',
     JSON.stringify(roster),
     '',
-    '## 분석할 원문',
-    '<<<',
-    text,
-    '>>>',
+    text ? '## 분석할 원문' : '## 글 없이 사진만 왔습니다',
+    ...(text ? ['<<<', text, '>>>'] : []),
   ]
     .filter((line) => line !== null)
     .join('\n');
+
+  // 이미지를 글보다 앞에 두면 모델이 사진을 먼저 훑고 지시를 읽는다.
+  const userContent = [
+    ...images.map((image) => ({
+      type: 'image' as const,
+      source: { type: 'base64' as const, media_type: image.mediaType, data: image.data },
+    })),
+    { type: 'text' as const, text: prompt },
+  ];
 
   const client = new Anthropic({ apiKey });
 

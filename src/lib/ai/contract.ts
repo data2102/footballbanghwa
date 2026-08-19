@@ -9,7 +9,14 @@ import type {
   PositionGroup,
 } from '@/lib/types';
 
-export type ParseIntent = 'attendance' | 'payment' | 'lineup' | 'event' | 'mixed' | 'unknown';
+export type ParseIntent =
+  | 'attendance'
+  | 'payment'
+  | 'lineup'
+  | 'event'
+  | 'profile'
+  | 'mixed'
+  | 'unknown';
 
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -62,7 +69,17 @@ export type EventItem = ItemBase & {
   minute: number | null;
 };
 
-export type ParsedItem = AttendanceItem | PaymentItem | LineupItem | EventItem;
+/** 회원 카드 갱신. "태윤이 왼발 좋고 체력 짱" 같은 문장에서 나온다. */
+export type ProfileItem = ItemBase & {
+  kind: 'profile';
+  /** 새로 붙일 장점 태그. 기존 태그를 지우지 않고 더한다. */
+  strengths: string[];
+  position: PositionGroup | null;
+  backNumber: number | null;
+  note: string | null;
+};
+
+export type ParsedItem = AttendanceItem | PaymentItem | LineupItem | EventItem | ProfileItem;
 
 export type ParseResponse = {
   intent: ParseIntent;
@@ -75,8 +92,18 @@ export type ParseResponse = {
   summary: string;
 };
 
+/** 카메라로 찍었거나 사진첩에서 고른 이미지. Claude 가 그대로 읽는다. */
+export type ParseImage = {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  /** data: 접두사 없는 base64. */
+  data: string;
+};
+
 export type ParseRequest = {
+  /** 사진만 보낼 수도 있어서 비어 있을 수 있다. */
   text: string;
+  /** 손으로 쓴 명단, 화이트보드 포메이션, 은행 앱 캡처 등. */
+  images?: ParseImage[];
   /** 특정 기능에서 호출했다면 힌트로 넘긴다. 없으면 AI가 판단. */
   hint?: Exclude<ParseIntent, 'mixed' | 'unknown'>;
   roster: RosterEntry[];

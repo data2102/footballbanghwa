@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildSeed } from '@/lib/seed';
+import { toDataUri, type PickedPhoto } from '@/lib/photo';
 import type { AppData, Attendance, Ledger, Lineup, Match, MatchEvent, Member, Team } from '@/lib/types';
 import type { Repo } from './types';
 
@@ -54,6 +55,11 @@ export class LocalRepo implements Repo {
 
   saveMember = (member: Member) =>
     this.mutate((data) => void (data.members = LocalRepo.upsert(data.members, [member])));
+
+  /** 기기 저장소에는 스토리지가 없으니 data URI 를 그대로 들고 있는다. */
+  async saveMemberPhoto(_member: Member, photo: PickedPhoto) {
+    return { photoUri: toDataUri(photo), photoPath: null };
+  }
 
   removeMember = (id: string) =>
     this.mutate((data) => void (data.members = data.members.filter((m) => m.id !== id)));

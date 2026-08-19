@@ -10,12 +10,16 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.footballbanghwa.app"
+      "bundleIdentifier": "com.footballbanghwa.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "화이트보드나 손으로 쓴 명단을 바로 찍어서 올리려면 카메라 접근이 필요해요.",
+        "NSPhotoLibraryUsageDescription": "명단 사진이나 프로필 사진을 올리려면 사진첩 접근이 필요해요."
+      }
     },
     "android": {
       "package": "com.footballbanghwa.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0B6E4F",
+        "backgroundColor": "#F2F4F6",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -32,9 +36,16 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0B6E4F",
+          "backgroundColor": "#F2F4F6",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 96
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "명단 사진이나 프로필 사진을 올리려면 사진첩 접근이 필요해요.",
+          "cameraPermission": "화이트보드나 손으로 쓴 명단을 바로 찍어서 올리려면 카메라 접근이 필요해요."
         }
       ]
     ],

@@ -8,6 +8,7 @@ import {
   Card,
   Divider,
   Empty,
+  Hero,
   Row,
   Screen,
   SectionHeader,
@@ -48,6 +49,7 @@ export default function StatsScreen() {
 
   if (!data) return null;
   const match = data.matches.find((item) => item.id === activeMatchId);
+  const leader = stats.find((row) => row.points > 0) ?? null;
   const events = match ? eventsForMatch(data, match.id) : [];
   const ranked = stats.filter((row) => row.points > 0 || row.appearances > 0);
 
@@ -64,7 +66,21 @@ export default function StatsScreen() {
         />
         {scope === 'match' ? <MatchPicker /> : null}
 
-        <SectionHeader title="랭킹" />
+        {leader ? (
+          <Card>
+            <Hero
+              label={scope === 'season' ? '시즌 득점 선두' : '이 경기 최다 공격포인트'}
+              value={`${leader.member.name} ${leader.goals}골`}
+              caption={
+                leader.assists
+                  ? `도움 ${leader.assists}개도 있어요 · ${leader.appearances}경기 출전`
+                  : `${leader.appearances}경기 출전`
+              }
+            />
+          </Card>
+        ) : null}
+
+        <SectionHeader title="선수별 기록" />
         <Card style={{ padding: space.sm, gap: 0 }}>
           <Row justify="space-between" style={{ paddingHorizontal: space.sm, paddingBottom: space.sm }}>
             <Txt variant="tiny" muted>
@@ -83,14 +99,14 @@ export default function StatsScreen() {
             </Row>
           </Row>
           {ranked.length === 0 ? (
-            <Empty text="아직 기록이 없습니다." />
+            <Empty text={'아직 기록이 없어요.\n경기 끝나고 한 줄 적어 보세요.'} />
           ) : (
             ranked.map((row, index) => (
               <View key={row.member.id}>
                 <Divider />
                 <Row justify="space-between" style={{ padding: space.sm }}>
                   <Row style={{ flexShrink: 1 }}>
-                    <Txt variant="h3" color={index < 3 ? p.primary : p.textMuted} style={{ width: 22 }}>
+                    <Txt variant="h3" tabular color={index < 3 ? p.primaryStrong : p.textFaint} style={{ width: 22 }}>
                       {index + 1}
                     </Txt>
                     <View style={{ flexShrink: 1 }}>
@@ -103,13 +119,13 @@ export default function StatsScreen() {
                     </View>
                   </Row>
                   <Row gap={space.lg}>
-                    <Txt variant="small" muted style={{ width: 24, textAlign: 'right' }}>
+                    <Txt variant="small" muted tabular style={{ width: 24, textAlign: 'right' }}>
                       {row.appearances}
                     </Txt>
-                    <Txt variant="h3" style={{ width: 24, textAlign: 'right' }}>
+                    <Txt variant="h3" tabular style={{ width: 24, textAlign: 'right' }}>
                       {row.goals}
                     </Txt>
-                    <Txt variant="h3" muted style={{ width: 24, textAlign: 'right' }}>
+                    <Txt variant="h3" muted tabular style={{ width: 24, textAlign: 'right' }}>
                       {row.assists}
                     </Txt>
                   </Row>
@@ -124,7 +140,7 @@ export default function StatsScreen() {
             <SectionHeader title={`${formatDate(match.date)} 기록`} />
             <Card style={{ padding: space.sm, gap: 0 }}>
               {events.length === 0 ? (
-                <Empty text={'이 경기 기록이 없습니다.\n"전반 12분 상혁이 골" 처럼 적어서 넣어보세요.'} />
+                <Empty text={'이 경기 기록이 없어요.\n"전반 12분 상혁이 골" 처럼 적어서 넣어 보세요.'} />
               ) : (
                 events.map((event, index) => (
                   <View key={event.id}>

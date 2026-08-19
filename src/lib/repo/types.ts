@@ -1,3 +1,4 @@
+import type { PickedPhoto } from '@/lib/photo';
 import type { Attendance, AppData, Ledger, Lineup, Match, MatchEvent, Member, Team } from '@/lib/types';
 
 /**
@@ -9,6 +10,8 @@ export interface Repo {
   load(): Promise<AppData>;
   saveTeam(team: Team): Promise<void>;
   saveMember(member: Member): Promise<void>;
+  /** 프로필 사진을 저장하고, 회원 레코드에 반영할 값을 돌려준다. */
+  saveMemberPhoto(member: Member, photo: PickedPhoto): Promise<{ photoUri: string; photoPath: string | null }>;
   removeMember(id: string): Promise<void>;
   saveMatch(match: Match): Promise<void>;
   saveAttendance(rows: Attendance[]): Promise<void>;

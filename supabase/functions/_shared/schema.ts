@@ -17,7 +17,7 @@ export const PARSE_SCHEMA = {
   properties: {
     intent: {
       type: 'string',
-      enum: ['attendance', 'payment', 'lineup', 'event', 'mixed', 'unknown'],
+      enum: ['attendance', 'payment', 'lineup', 'event', 'profile', 'mixed', 'unknown'],
       description: '입력 전체가 무엇에 관한 것인지. 여러 종류가 섞였으면 mixed.',
     },
     formation: {
@@ -56,9 +56,11 @@ export const PARSE_SCHEMA = {
           'group',
           'eventType',
           'minute',
+          'strengths',
+          'backNumber',
         ],
         properties: {
-          kind: { type: 'string', enum: ['attendance', 'payment', 'lineup', 'event'] },
+          kind: { type: 'string', enum: ['attendance', 'payment', 'lineup', 'event', 'profile'] },
           memberId: {
             ...nullable('string'),
             description: '명단에서 확실히 특정한 경우에만 그 id. 애매하면 반드시 null.',
@@ -73,7 +75,8 @@ export const PARSE_SCHEMA = {
           },
           note: {
             ...nullable('string'),
-            description: "kind=attendance 일 때 사유나 예상 도착시각. 예: '30분 늦음', '출장'.",
+            description:
+              "kind=attendance 일 때 사유나 예상 도착시각(예: '30분 늦음', '출장'), kind=profile 일 때 감독 메모.",
           },
 
           ledgerKind: {
@@ -97,7 +100,7 @@ export const PARSE_SCHEMA = {
           },
           group: {
             ...nullableEnum(['GK', 'DF', 'MF', 'FW']),
-            description: 'kind=lineup 일 때 포지션 그룹.',
+            description: 'kind=lineup 일 때 배치할 포지션, kind=profile 일 때 주 포지션.',
           },
 
           eventType: {
@@ -105,6 +108,17 @@ export const PARSE_SCHEMA = {
             description: 'kind=event 일 때 기록 종류.',
           },
           minute: { ...nullable('integer'), description: 'kind=event 일 때 경기 시작 후 분. 모르면 null.' },
+
+          strengths: {
+            type: ['array', 'null'],
+            items: { type: 'string' },
+            description:
+              "kind=profile 일 때 새로 붙일 장점 태그. 짧은 명사구로. 예: ['왼발','헤딩','체력']. 그 외에는 null.",
+          },
+          backNumber: {
+            ...nullable('integer'),
+            description: 'kind=profile 일 때 등번호를 새로 정해준 경우에만. 그 외에는 null.',
+          },
         },
       },
     },

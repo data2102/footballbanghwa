@@ -14,6 +14,22 @@ export type Member = {
   role: MemberRole;
   backNumber: number | null;
   preferredPosition: PositionGroup | null;
+  /**
+   * 감독·코치가 기억해 둘 장점 태그. 예: ['왼발', '헤딩', '체력', '빌드업'].
+   * 라인업을 짤 때 이 사람을 왜 쓰는지가 한 줄로 보여야 해서 자유 문자열로 둔다.
+   */
+  strengths: string[];
+  /** 감독 메모. 부상 이력, 성향 등 태그로 담기 어려운 것. */
+  note: string | null;
+  /**
+   * 화면에 그릴 사진 주소. Supabase 모드에서는 서명된 임시 URL 이라 저장하지 않고 매번 새로 만든다.
+   * 데모 모드에서는 data URI 를 그대로 넣고 저장한다.
+   */
+  photoUri: string | null;
+  /** 스토리지 안의 경로(<team_id>/<member_id>.jpg). 실제로 DB에 저장되는 값. */
+  photoPath: string | null;
+  /** 팀에 들어온 날. YYYY-MM-DD. 출석률 계산의 시작점이 된다. */
+  joinedOn: string | null;
   /** 탈퇴/휴면 회원은 false. 명단·회비 집계에서 제외된다. */
   active: boolean;
 };

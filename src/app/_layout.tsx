@@ -40,9 +40,10 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
               name="quick-input"
-              options={{ presentation: 'modal', title: '문자로 입력하기' }}
+              options={{ presentation: 'modal', title: '문자·사진으로 입력하기' }}
             />
             <Stack.Screen name="settings" options={{ title: '팀 설정' }} />
+            <Stack.Screen name="member/[id]" options={{ title: '회원' }} />
           </Stack>
         ) : (
           <View
@@ -57,11 +58,11 @@ export default function RootLayout() {
           >
             {status === 'error' ? (
               <>
-                <Txt variant="h2">데이터를 불러오지 못했습니다</Txt>
+                <Txt variant="h2">데이터를 불러오지 못했어요</Txt>
                 <Txt variant="small" muted style={{ textAlign: 'center' }}>
                   {error}
                 </Txt>
-                <Button label="다시 시도" onPress={load} />
+                <Button label="다시 시도하기" onPress={load} />
               </>
             ) : (
               <ActivityIndicator color={p.primary} size="large" />

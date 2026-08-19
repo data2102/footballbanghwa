@@ -135,6 +135,8 @@ h2:first-of-type { margin-top:var(--sp-8); }
 /* 떠 있는 버튼이 마지막 행을 덮지 않도록 그만큼 아래를 비워둔다. */
 .view:has(.fab) { padding-bottom:60px; }
 .view.plain { background:var(--surface); }
+/* 세로 flex 컨테이너 안에서 내용이 많은 카드가 눌리면 겹쳐 보인다. */
+.view > * { flex-shrink:0; }
 
 .tabbar { display:flex; border-top:1px solid var(--border); background:var(--surface); }
 .tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
@@ -176,6 +178,7 @@ h2:first-of-type { margin-top:var(--sp-8); }
 .btn-sm { padding:7px var(--sp-3); font-size:11.5px; border-radius:var(--radius-sm); }
 
 .chips { display:flex; gap:6px; overflow:hidden; }
+.chips + .chips { margin-top:-6px; }
 .chip { font-size:11.5px; font-weight:var(--fw-medium); padding:6px 11px;
         border-radius:var(--radius-pill); background:var(--surface); color:var(--text-secondary);
         border:1px solid var(--border); white-space:nowrap; }
@@ -305,6 +308,8 @@ footer { margin-top:var(--sp-10); padding-top:var(--sp-5); border-top:1px solid 
     <g id="i-close"><path d="M6 6l12 12M18 6 6 18"/></g>
     <g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
     <g id="i-chev"><path d="M9 5.5 15.5 12 9 18.5"/></g>
+    <g id="i-person"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/></g>
+    <g id="i-img"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="m4 17 4.5-4.5L12 16l3-2.8L20 18"/></g>
     <g id="i-swap"><path d="M4 8h13M13.5 4.5 17 8l-3.5 3.5"/><path d="M20 16H7M10.5 12.5 7 16l3.5 3.5"/></g>
   </defs>
 </svg>
@@ -316,8 +321,8 @@ footer { margin-top:var(--sp-10); padding-top:var(--sp-5); border-top:1px solid 
     <h1>방화 FC — 조기축구 팀 관리 앱 화면</h1>
     <p class="lede">
       토큰·컴포넌트 규칙은 <code style="font-family:var(--font-mono);font-size:12px">tokens.css</code>·<code style="font-family:var(--font-mono);font-size:12px">components.css</code>를 그대로 따랐어요.
-      지금 코드에 들어 있는 초록 브랜드색, 이모지 탭 아이콘, 초록 잔디 필드는 디자인 시스템과 정면으로 부딪혀서 셋 다 바꿨고,
-      아래에 무엇을 왜 바꿨는지 같이 적어뒀어요.
+      초록 브랜드색·이모지 탭 아이콘·초록 잔디 필드는 디자인 시스템과 정면으로 부딪혀서 셋 다 바꿨고, <b>지금은 실제 앱 코드에도 반영돼 있어요</b>.
+      여기에 회원 관리와 사진 입력 화면을 새로 더했어요.
     </p>
   </header>
 
@@ -342,6 +347,10 @@ footer { margin-top:var(--sp-10); padding-top:var(--sp-5); border-top:1px solid 
     <div class="rule">
       <div class="k">아이콘은 한 벌로</div>
       <p class="v">🏟️ 💰 같은 이모지 탭을 <b>아웃라인 아이콘 한 세트</b>(24px 그리드, stroke 1.75)로 교체했어요. 안드로이드·iOS·웹에서 모양이 갈리던 문제도 같이 사라져요.</p>
+    </div>
+    <div class="rule">
+      <div class="k">사진도 같은 파이프라인</div>
+      <p class="v">손으로 쓴 명단, 화이트보드 작전판, 은행 앱 화면을 찍으면 <b>글로 붙여넣은 것과 똑같은 검토 화면</b>으로 들어와요. 새 흐름을 만들지 않았어요.</p>
     </div>
     <div class="rule">
       <div class="k">여백이 곧 고급스러움</div>
@@ -573,7 +582,7 @@ footer { margin-top:var(--sp-10); padding-top:var(--sp-5); border-top:1px solid 
             <span>임현수를 골랐어요. 다른 자리를 누르면 서로 바뀌어요.</span>
           </div>
 
-          <div class="chips" style="flex-wrap:wrap">
+          <div class="chips">
             <span class="chip">배준영 · FW</span><span class="chip">신동찬 · MF</span><span class="chip">조현우 · GK</span>
           </div>
 
@@ -670,34 +679,200 @@ footer { margin-top:var(--sp-10); padding-top:var(--sp-5); border-top:1px solid 
       <figcaption><b>기록</b>숫자가 세로로 줄 맞게 모노 폰트 + tabular-nums를 썼어요. 순위 색은 3위까지만 들어가고 그 아래는 회색이에요.</figcaption>
     </figure>
 
+
+    <!-- ================================================= 8. 회원 목록 -->
+    <figure class="slot">
+      <div class="phone">
+        <div class="statusbar"><span class="num">7:41</span><span>방화 FC</span></div>
+        <div class="appbar"><div class="t">회원</div><span class="badge b-mute">16명</span></div>
+        <div class="view">
+          <div class="c tight">
+            <div class="lab">팀 평균 출석률</div>
+            <div class="hero"><span class="num">81</span>%<small> · 16명</small></div>
+            <div class="meta" style="color:var(--text-tertiary)">이번 달 회비는 5명이 아직이에요</div>
+          </div>
+
+          <div class="chips">
+            <span class="chip on">전체</span><span class="chip">GK</span><span class="chip">DF</span><span class="chip">MF</span><span class="chip">FW</span>
+          </div>
+          <div class="seg"><span class="on">출석률 순</span><span>미납 순</span><span>이름 순</span></div>
+
+          <div class="c flush">
+            <div class="rowlist">
+              <div class="r"><span class="avatar">병준</span><span class="grow"><span class="name">김병준 <span class="sub2" style="display:inline">GK · 1번</span></span><div class="sub2">선방 · 리더십 · 빌드업</div></span>
+                <span style="text-align:right"><div class="name num">100%</div><div class="sub2">완납</div></span></div>
+              <div class="r"><span class="avatar">태윤</span><span class="grow"><span class="name">강태윤 <span class="sub2" style="display:inline">FW · 9번</span></span><div class="sub2">위치선정 · 마무리</div></span>
+                <span style="text-align:right"><div class="name num">100%</div><div class="sub2">완납</div></span></div>
+              <div class="r"><span class="avatar">민석</span><span class="grow"><span class="name">최민석 <span class="sub2" style="display:inline">DF · 4번</span></span><div class="sub2">헤딩 · 몸싸움</div></span>
+                <span style="text-align:right"><div class="name num" style="color:var(--warning-strong)">63%</div><div class="sub2">완납</div></span></div>
+              <div class="r"><span class="avatar">준영</span><span class="grow"><span class="name">배준영 <span class="sub2" style="display:inline">FW · 13번</span></span><div class="sub2">헤딩</div></span>
+                <span style="text-align:right"><div class="name num" style="color:var(--danger-strong)">38%</div><div class="sub2" style="color:var(--danger-strong)">-3만</div></span></div>
+              <div class="r"><span class="avatar">지환</span><span class="grow"><span class="name">문지환 <span class="sub2" style="display:inline">FW · 19번</span></span><div class="sub2">스피드 · 오른발</div></span>
+                <span style="text-align:right"><div class="name num" style="color:var(--danger-strong)">25%</div><div class="sub2" style="color:var(--danger-strong)">-3만</div></span></div>
+            </div>
+          </div>
+          <span class="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg>문자·사진 입력</span>
+        </div>
+        <nav class="tabbar">
+          <span class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal"/></svg>오늘</span>
+          <span class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg>참석</span>
+          <span class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-field"/></svg>라인업</span>
+          <span class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-wallet"/></svg>회비</span>
+          <span class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-person"/></svg>회원</span>
+        </nav>
+      </div>
+      <figcaption><b>회원</b>출석률은 <b>낮을 때만</b> 색이 붙어요. 잘 나오는 사람까지 초록으로 칠하면 신호가 죽으니까요. 이름 아래 장점이 바로 보여서 라인업 짤 때 여기까지 안 들어와도 돼요.</figcaption>
+    </figure>
+
+    <!-- ================================================= 9. 회원 상세 -->
+    <figure class="slot">
+      <div class="phone">
+        <div class="statusbar"><span class="num">7:42</span><span>방화 FC</span></div>
+        <div class="appbar">
+          <div class="rowx"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="var(--accent-strong)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg)"><use href="#i-chev"/></svg><span class="t">최민석</span></div>
+        </div>
+        <div class="view plain">
+          <div class="rowx" style="gap:var(--sp-4)">
+            <span class="avatar" style="width:60px;height:60px;font-size:17px">민석</span>
+            <div class="grow">
+              <div style="font-size:var(--fs-heading);font-weight:var(--fw-medium)">최민석</div>
+              <div class="sub2">DF · 4번 · 선수 · 작년 7월 합류</div>
+              <div class="chips" style="margin-top:6px">
+                <span class="chip">사진 찍기</span><span class="chip">사진첩에서</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="c tight">
+            <div class="lab">출석률</div>
+            <div class="hero" style="color:var(--warning-strong)"><span class="num">63</span>%<small> · 8경기 중 5번</small></div>
+            <div class="lab" style="margin-top:2px">최근 5경기 · 오른쪽이 최신</div>
+            <div class="rowx" style="gap:6px">
+              <span class="stog"><i class="no">불</i></span><span class="stog"><i class="ok">참</i></span>
+              <span class="stog"><i class="ok">참</i></span><span class="stog"><i class="no">불</i></span>
+              <span class="stog"><i class="late">늦</i></span>
+            </div>
+          </div>
+
+          <div class="c tight">
+            <div class="lab">장점</div>
+            <div class="chips">
+              <span class="chip on">헤딩 &times;</span><span class="chip on">몸싸움 &times;</span>
+              <span class="chip">+ 체력</span>
+            </div>
+            <div class="chips">
+              <span class="chip">+ 위치선정</span><span class="chip">+ 리더십</span>
+            </div>
+          </div>
+
+          <div class="c tight">
+            <div class="between"><span class="lab">감독 메모</span></div>
+            <div class="meta">작년에 발목 다쳤어요. 연속 출전은 피하는 게 좋아요.</div>
+          </div>
+
+          <div class="c tight">
+            <div class="between">
+              <span><div class="name">2026년 8월</div><div class="sub2">30,000원 아직이에요</div></span>
+              <span class="btn btn-sec btn-sm">입금 처리</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>회원 상세</b>장점·출석률·회비·메모가 한 장에 있어요. 최근 5경기를 색과 <b>글자</b>로 같이 보여줘서, 요즘 폼이 어떤지 숫자를 읽지 않아도 알 수 있어요.</figcaption>
+    </figure>
+
+    <!-- ================================================= 10. 사진으로 입력 -->
+    <figure class="slot">
+      <div class="phone">
+        <div class="statusbar"><span class="num">7:05</span><span>방화 FC</span></div>
+        <div class="appbar">
+          <div class="t">문자·사진으로 입력</div>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--text-tertiary)" stroke-width="1.75" stroke-linecap="round"><use href="#i-close"/></svg>
+        </div>
+        <div class="view plain">
+          <div class="chips">
+            <span class="chip on">자동</span><span class="chip">참석</span><span class="chip">회비</span><span class="chip">라인업</span><span class="chip">기록</span>
+          </div>
+
+          <div class="textarea" style="flex:none;min-height:64px;color:var(--text-tertiary)">오늘 명단 화이트보드에 적어둔 거<span class="caret"></span></div>
+
+          <div class="rowx" style="gap:var(--sp-2)">
+            <span class="btn btn-sec btn-sm" style="flex:1">사진 찍기</span>
+            <span class="btn btn-sec btn-sm" style="flex:1">사진첩에서</span>
+          </div>
+
+          <div class="rowx" style="gap:var(--sp-2)">
+            <div style="position:relative">
+              <div style="width:68px;height:68px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-sunken);display:flex;align-items:center;justify-content:center">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-img"/></svg>
+              </div>
+              <div style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--text-primary);display:flex;align-items:center;justify-content:center">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="var(--surface)" stroke-width="2.5" stroke-linecap="round"><use href="#i-close"/></svg>
+              </div>
+            </div>
+            <div class="sub2" style="flex:1;white-space:normal">손글씨 명단 1장</div>
+          </div>
+
+          <div class="banner ban-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert"/></svg>
+            <span>이름 옆 O·V·체크는 참석, X나 빈칸은 불참으로 읽어요. 글씨가 흐리면 “확인 필요”로 표시해요.</span>
+          </div>
+
+          <button class="btn btn-primary" style="margin-top:auto">사진 1장과 함께 분석하기</button>
+        </div>
+      </div>
+      <figcaption><b>사진으로 입력</b>운동장에서 화이트보드나 손글씨 명단을 그대로 찍어요. 결과는 글을 붙여넣었을 때와 <b>똑같은 검토 화면</b>으로 들어와서, 새로 배울 게 없어요.</figcaption>
+    </figure>
   </div>
 
-  <h2>코드에 반영할 것</h2>
+  <h2>코드에 반영한 것</h2>
+  <div class="card">
+    <div class="todo">
+      <div class="r">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+        <p><b>토큰 교체</b> — <code>src/theme.ts</code>가 여백 토큰만 들고 있어요. 접근성 때문에 이름을 두 벌로 나눴어요: <code>-Line</code>은 테두리·아이콘 같은 비텍스트 UI, <code>-Strong</code>은 글자를 얹는 곳.</p>
+      </div>
+      <div class="r">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+        <p><b>이모지 탭 제거</b> — <code>src/components/icons.tsx</code>에 아웃라인 세트를 넣고 탭·버튼이 전부 여기서 가져다 써요.</p>
+      </div>
+      <div class="r">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+        <p><b>전술판 리디자인</b> — <code>Pitch.tsx</code>에서 하드코딩 HEX가 사라졌어요. 이제 앱 전체에 토큰을 안 거치는 색이 없어요.</p>
+      </div>
+      <div class="r">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+        <p><b>주인공 숫자</b> — 화면마다 통계 타일 4개를 늘어놓던 걸 하나만 <code>--fs-display</code>로 키웠어요. 오늘은 남은 날짜, 참석은 뛸 수 있는 인원, 회비는 못 걷은 금액, 회원은 평균 출석률.</p>
+      </div>
+      <div class="r">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+        <p><b>말투</b> — 화면 문구를 “~했어요” 체로 통일하고 버튼을 동사로 시작하게 바꿨어요.</p>
+      </div>
+      <div class="r">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>
+        <p><b>폰트</b> — 웹은 Noto Sans KR을 CSS로 불러오고, 네이티브는 시스템 한글 폰트를 써요. 한글 TTF는 한 벌이 수 MB라 번들에 넣으면 모바일 웹이 느려져요. 숫자가 세로로 줄 맞아야 하는 표·장부에만 모노 + <code>tabular-nums</code>를 켰어요.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>다음에 붙일 만한 것</h2>
   <div class="card">
     <div class="todo">
       <div class="r">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
-        <p><b>토큰 교체</b> — <code>src/theme.ts</code>의 초록 팔레트를 여백 토큰으로 갈아끼워요. 색은 전부 이 파일 한 곳에서만 나오게 돼 있어서, 화면 코드는 손댈 게 거의 없어요.</p>
+        <p><b>경기 전날 미응답자 푸시</b> — 지금 데이터로 바로 되고, 총무 손이 제일 많이 가는 일이에요.</p>
       </div>
       <div class="r">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
-        <p><b>이모지 탭 제거</b> — <code>src/app/(tabs)/_layout.tsx</code>의 🏟️💰 대신 위 아웃라인 아이콘 5개를 <code>react-native-svg</code> 컴포넌트로 넣어요.</p>
+        <p><b>미납 리마인드 문구 생성</b> — 이름 넣어 보내기 좋은 한 줄을 만들어 주는 것까지.</p>
       </div>
       <div class="r">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
-        <p><b>전술판 리디자인</b> — <code>src/features/lineup/Pitch.tsx</code>의 <code>PITCH_GREEN</code> 하드코딩을 지우고 눌린 표면 + 헤어라인으로 바꿔요. 하드코딩 HEX는 이 파일에만 남아 있어요.</p>
+        <p><b>음성 입력</b> — 운동장에서 말로. 받아쓴 뒤 지금 파이프라인을 그대로 태우면 돼요.</p>
       </div>
       <div class="r">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
-        <p><b>말투 정리</b> — 화면 문구를 “~했어요” 체로 통일하고, 버튼은 동사로 시작하게 바꿔요. “저장” → “<b>라인업 저장하기</b>”, “5건 저장” → “<b>9건 저장하기</b>”.</p>
-      </div>
-      <div class="r">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
-        <p><b>주인공 숫자 도입</b> — 지금은 화면마다 통계 타일 4개가 나란히 있어요. 화면당 하나를 <code>--fs-display</code>로 키우고 나머지는 캡션으로 낮춰요.</p>
-      </div>
-      <div class="r">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plus"/></svg>
-        <p><b>폰트</b> — Noto Sans KR을 <code>expo-font</code>로 번들하고, 숫자에는 모노 + <code>tabular-nums</code>를 적용해요.</p>
+        <p><b>카톡 공유시트</b> — 대화를 길게 눌러 앱으로 바로 보내기. 네이티브 빌드가 필요해요.</p>
       </div>
     </div>
   </div>
