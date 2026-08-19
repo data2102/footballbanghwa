@@ -50,6 +50,11 @@ npm run typecheck && npm run build:web
 
 간격은 4의 배수만(`space`), 둥글기는 인풋 8 / 버튼 12 / 카드 16(`radius`).
 
+**라이트로 고정했다.** 쓰는 자리가 일요일 아침 운동장이라, 직사광선 아래에서 어두운 화면은
+잘 안 보인다. `usePalette()` 는 시스템 설정을 보지 않는다. 다크 팔레트(`dark`)는 남겨 뒀으니
+나중에 설정에 스위치를 붙이면 여기서 고르기만 하면 된다 — `useColorScheme()` 분기를
+화면 코드에 새로 만들지 않는다.
+
 ### AI 계약은 파일 두 개가 짝이다
 
 `src/lib/ai/contract.ts`(앱 타입)와 `supabase/functions/_shared/schema.ts`(Claude JSON Schema)는

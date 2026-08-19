@@ -19,8 +19,9 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
-        <meta name="theme-color" content="#F2F4F6" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#0F1117" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#F2F4F6" />
+        {/* 앱을 라이트로 고정했으니 스크롤바·기본 폼 같은 브라우저 UI 도 같이 맞춘다. */}
+        <meta name="color-scheme" content="light" />
         {/* 홈 화면에 추가했을 때 주소창 없이 앱처럼 뜨게 한다. */}
         <link rel="manifest" href={`${base}/manifest.json`} />
         <link rel="apple-touch-icon" href={`${base}/icon.png`} />
@@ -35,8 +36,7 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: `
-          html, body { background: #F2F4F6; }
-          @media (prefers-color-scheme: dark) { html, body { background: #0F1117; } }
+          html, body { background: #F2F4F6; color-scheme: light; }
 
           /*
            * 모바일 브라우저는 아래 주소창·툴바가 덮은 만큼까지 height:100% 에 넣어서 잰다.

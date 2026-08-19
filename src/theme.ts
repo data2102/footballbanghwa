@@ -1,4 +1,4 @@
-import { Platform, useColorScheme } from 'react-native';
+import { Platform } from 'react-native';
 
 /**
  * 여백(Yeobaek) 디자인 시스템 토큰.
@@ -37,7 +37,7 @@ const light = {
   dangerSoft: '#FFF0F0',
 };
 
-const dark: typeof light = {
+export const dark: typeof light = {
   bg: '#0F1117',
   surface: '#181B24',
   surfaceAlt: '#12141B',
@@ -67,8 +67,17 @@ const dark: typeof light = {
 
 export type Palette = typeof light;
 
+/**
+ * 라이트로 고정한다.
+ *
+ * 일요일 아침 운동장은 밝다. 폰이 다크 모드면 앱도 어둡게 떴는데, 직사광선 아래
+ * 어두운 화면은 잘 안 보인다. 쓰는 자리가 야외라서 시스템 설정을 따라가지 않는다.
+ *
+ * 다크 팔레트(dark)는 지우지 않고 남겨 뒀다. 나중에 설정에 스위치를 붙이면
+ * 여기서 고르기만 하면 된다.
+ */
 export function usePalette(): Palette {
-  return useColorScheme() === 'dark' ? dark : light;
+  return light;
 }
 
 /** 인풋·태그 8 / 버튼 12 / 카드 16 / 큰 카드 20. 한 화면에서 섞지 않는다. */
