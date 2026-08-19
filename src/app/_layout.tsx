@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useStore } from '@/lib/store';
-import { Notifications, registerForReminders, routeFromNotification } from '@/lib/notifications';
+import { onNotificationTap, registerForReminders } from '@/lib/notifications';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { TeamGate } from '@/features/auth/TeamGate';
 import { Button, Txt, space } from '@/components/ui';
@@ -32,13 +32,7 @@ export default function RootLayout() {
   }, [status]);
 
   // 알림을 눌러서 앱이 열렸을 때 해당 화면으로 보낸다.
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const path = routeFromNotification(response);
-      if (path) router.push(path);
-    });
-    return () => subscription.remove();
-  }, [router]);
+  useEffect(() => onNotificationTap((path) => router.push(path)), [router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

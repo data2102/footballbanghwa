@@ -11,15 +11,25 @@ import { supabase } from '@/lib/supabase';
  * 알림을 끄고 싶으면 OS 설정에서 권한을 빼면 되고, 팀 전체는 설정 화면에서 끈다.
  */
 
-// 앱이 떠 있을 때도 배너를 띄운다. 조기축구 알림은 놓치면 의미가 없다.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+/**
+ * 앱이 떠 있을 때도 배너를 띄운다. 조기축구 알림은 놓치면 의미가 없다.
+ *
+ * Expo Go 는 SDK 53 부터 알림 기능을 뺐다(안드로이드는 아예 없다).
+ * 이 호출은 모듈을 불러오는 순간 실행되므로, 여기서 터지면 앱이 시작조차 못 한다.
+ * 알림은 없어도 되는 기능이라 실패를 삼킨다.
+ */
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch {
+  // Expo Go 등 알림을 지원하지 않는 환경.
+}
 
 /** 안드로이드는 채널이 없으면 알림이 조용히 사라진다. */
 async function ensureAndroidChannel(): Promise<void> {
@@ -97,6 +107,22 @@ export function routeFromNotification(
 ): '/attendance' | null {
   const data = response.notification.request.content.data as { screen?: string } | undefined;
   return data?.screen === 'attendance' ? '/attendance' : null;
+}
+
+/**
+ * 알림 탭을 듣는다. 지원하지 않는 환경에서는 아무것도 하지 않는 해제 함수를 돌려준다.
+ * 화면 쪽에서 매번 try/catch 를 쓰지 않게 여기서 감싼다.
+ */
+export function onNotificationTap(handler: (path: '/attendance') => void): () => void {
+  try {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const path = routeFromNotification(response);
+      if (path) handler(path);
+    });
+    return () => subscription.remove();
+  } catch {
+    return () => {};
+  }
 }
 
 export { Notifications };
