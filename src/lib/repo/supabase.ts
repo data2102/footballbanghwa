@@ -2,12 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
+  Appearance,
   Attendance,
   Ledger,
   Lineup,
   Match,
   MatchEvent,
   Member,
+  PotmVote,
   Team,
 } from '@/lib/types';
 import type { Repo } from './types';
@@ -44,14 +46,17 @@ export class SupabaseRepo implements Repo {
 
     const matchIds = (matches.data ?? []).map((row: { id: string }) => row.id);
     // 경기가 하나도 없으면 in() 호출을 건너뛴다(빈 배열 in은 불필요한 왕복이다).
-    const [attendance, events, lineups] = matchIds.length
+    const empty = { data: [] as Row[], error: null };
+    const [attendance, events, lineups, appearances, potmVotes] = matchIds.length
       ? await Promise.all([
           this.client.from('attendance').select('*').in('match_id', matchIds),
           this.client.from('match_events').select('*').in('match_id', matchIds),
           this.client.from('lineups').select('*').in('match_id', matchIds),
+          this.client.from('appearances').select('*').in('match_id', matchIds),
+          this.client.from('potm_votes').select('*').in('match_id', matchIds),
         ])
-      : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
-    for (const result of [attendance, events, lineups]) {
+      : [empty, empty, empty, empty, empty];
+    for (const result of [attendance, events, lineups, appearances, potmVotes]) {
       if (result.error) throw result.error;
     }
 
@@ -72,6 +77,8 @@ export class SupabaseRepo implements Repo {
       ledger: (ledger.data ?? []).map(fromLedgerRow),
       events: (events.data ?? []).map(fromEventRow),
       lineups: (lineups.data ?? []).map(fromLineupRow),
+      appearances: (appearances.data ?? []).map(fromAppearanceRow),
+      potmVotes: (potmVotes.data ?? []).map(fromPotmRow),
     };
   }
 
@@ -166,6 +173,7 @@ export class SupabaseRepo implements Repo {
         opponent: match.opponent,
         status: match.status,
         note: match.note,
+        share_token: match.shareToken,
       }),
     );
 
@@ -232,6 +240,43 @@ export class SupabaseRepo implements Repo {
         { onConflict: 'match_id' },
       ),
     );
+
+  /**
+   * 쿼터 기록은 지우고 다시 넣는다.
+   * 3쿼터 뛰던 사람을 2쿼터로 줄이는 경우가 잦은데, upsert 로는 남는 행이 생긴다.
+   */
+  setAppearances = async (matchId: string, memberId: string, rows: Appearance[]) => {
+    await this.run(
+      this.client.from('appearances').delete().eq('match_id', matchId).eq('member_id', memberId),
+    );
+    if (!rows.length) return;
+    await this.run(
+      this.client.from('appearances').insert(
+        rows.map((row) => ({
+          id: row.id,
+          match_id: row.matchId,
+          member_id: row.memberId,
+          quarter: row.quarter,
+          source: row.source,
+        })),
+      ),
+    );
+  };
+
+  setPotmVote = async (matchId: string, ballot: string, vote: PotmVote | null) => {
+    await this.run(
+      this.client.from('potm_votes').delete().eq('match_id', matchId).eq('ballot', ballot),
+    );
+    if (!vote) return;
+    await this.run(
+      this.client.from('potm_votes').insert({
+        id: vote.id,
+        match_id: vote.matchId,
+        member_id: vote.memberId,
+        ballot: vote.ballot,
+      }),
+    );
+  };
 }
 
 const PHOTO_BUCKET = 'member-photos';
@@ -275,6 +320,7 @@ const fromMatchRow = (row: Row): Match => ({
   opponent: row.opponent,
   status: row.status,
   note: row.note,
+  shareToken: row.share_token ?? null,
 });
 
 const fromAttendanceRow = (row: Row): Attendance => ({
@@ -305,6 +351,21 @@ const fromEventRow = (row: Row): MatchEvent => ({
   memberId: row.member_id,
   type: row.type,
   minute: row.minute,
+});
+
+const fromAppearanceRow = (row: Row): Appearance => ({
+  id: row.id,
+  matchId: row.match_id,
+  memberId: row.member_id,
+  quarter: row.quarter,
+  source: row.source ?? 'manual',
+});
+
+const fromPotmRow = (row: Row): PotmVote => ({
+  id: row.id,
+  matchId: row.match_id,
+  memberId: row.member_id,
+  ballot: row.ballot,
 });
 
 const fromLineupRow = (row: Row): Lineup => ({

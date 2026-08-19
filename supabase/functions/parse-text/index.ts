@@ -79,6 +79,14 @@ function normalizeItem(raw: Record<string, unknown>) {
         type: (raw.eventType as string) ?? 'goal',
         minute: typeof raw.minute === 'number' ? raw.minute : null,
       };
+    case 'appearance':
+      return {
+        kind: 'appearance' as const,
+        ...base,
+        // 음수나 터무니없이 큰 값은 오타로 본다. 조기축구는 6쿼터를 넘지 않는다.
+        quarters:
+          typeof raw.quarters === 'number' ? Math.max(0, Math.min(6, Math.round(raw.quarters))) : 0,
+      };
     case 'profile':
       return {
         kind: 'profile' as const,
@@ -133,6 +141,7 @@ Deno.serve(async (req) => {
   const prompt = [
     `오늘 날짜: ${today}`,
     body.monthlyDue ? `팀 기본 월 회비: ${body.monthlyDue}원` : null,
+    body.quarters ? `이 경기는 ${body.quarters}쿼터로 돕니다. "풀타임"은 ${body.quarters}쿼터입니다.` : null,
     body.hint ? `사용자가 연 화면: ${body.hint} (힌트일 뿐, 내용이 다르면 내용을 따르십시오)` : null,
     images.length ? `첨부한 사진 ${images.length}장도 함께 읽으십시오.` : null,
     '',

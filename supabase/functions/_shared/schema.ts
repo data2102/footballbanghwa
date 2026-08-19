@@ -17,7 +17,7 @@ export const PARSE_SCHEMA = {
   properties: {
     intent: {
       type: 'string',
-      enum: ['attendance', 'payment', 'lineup', 'event', 'profile', 'mixed', 'unknown'],
+      enum: ['attendance', 'payment', 'lineup', 'event', 'profile', 'appearance', 'mixed', 'unknown'],
       description: '입력 전체가 무엇에 관한 것인지. 여러 종류가 섞였으면 mixed.',
     },
     formation: {
@@ -58,9 +58,13 @@ export const PARSE_SCHEMA = {
           'minute',
           'strengths',
           'backNumber',
+          'quarters',
         ],
         properties: {
-          kind: { type: 'string', enum: ['attendance', 'payment', 'lineup', 'event', 'profile'] },
+          kind: {
+            type: 'string',
+            enum: ['attendance', 'payment', 'lineup', 'event', 'profile', 'appearance'],
+          },
           memberId: {
             ...nullable('string'),
             description: '명단에서 확실히 특정한 경우에만 그 id. 애매하면 반드시 null.',
@@ -118,6 +122,12 @@ export const PARSE_SCHEMA = {
           backNumber: {
             ...nullable('integer'),
             description: 'kind=profile 일 때 등번호를 새로 정해준 경우에만. 그 외에는 null.',
+          },
+
+          quarters: {
+            ...nullable('integer'),
+            description:
+              'kind=appearance 일 때 그 사람이 이 경기에서 뛴 쿼터 수(0 이상). 그 외에는 null.',
           },
         },
       },

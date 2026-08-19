@@ -1,28 +1,64 @@
 import { supabase } from '@/lib/supabase';
-import { formatPeriod, won } from '@/lib/format';
+import { formatDate, formatPeriod, won } from '@/lib/format';
 
 /**
- * 회비 안내 문구 만들기.
+ * 단톡방에 그대로 붙여넣을 문구 만들기.
  * parse-text 와 달리 읽는 게 아니라 쓰는 쪽이라, Edge Function 을 따로 둔다.
  */
 
-export type ComposeKind = 'dues_reminder' | 'dues_reminder_dm';
+export type ComposeKind = 'dues_reminder' | 'dues_reminder_dm' | 'attendance_nudge';
+
+export type ComposeMatch = {
+  /** YYYY-MM-DD */
+  date: string;
+  /** HH:mm */
+  kickoff: string;
+  venue: string;
+  opponent: string | null;
+};
 
 export type ComposeOptions = {
   kind: ComposeKind;
   teamName: string;
-  /** YYYY-MM */
-  period: string;
-  monthlyDue: number;
-  unpaid: { name: string; amount: number }[];
+  /** 단톡방에 이름을 적을지. 끄면 인원수만 쓴다. */
   includeNames: boolean;
   note?: string;
+
+  /** 회비 문구용 — YYYY-MM */
+  period?: string;
+  monthlyDue?: number;
+  unpaid?: { name: string; amount: number }[];
+
+  /** 참석 독촉용 */
+  match?: ComposeMatch;
+  /** 아직 답이 없는 사람들. */
+  pending?: { name: string }[];
+  attending?: number;
 };
 
 /** 데모 모드에서 쓰는 틀. AI 없이도 화면 흐름을 볼 수 있게 한다. */
 function template(options: ComposeOptions): string {
-  const { unpaid, period, includeNames, kind, note } = options;
-  const label = formatPeriod(period);
+  const { includeNames, kind, note } = options;
+
+  if (kind === 'attendance_nudge') {
+    const match = options.match;
+    const pending = options.pending ?? [];
+    return [
+      match ? `${formatDate(match.date)} ${match.kickoff} ${match.venue} 경기 있어요.` : '다음 경기 참석 확인이에요.',
+      match?.opponent ? `상대는 ${match.opponent}예요.` : '',
+      includeNames
+        ? `아직 답 안 주신 분: ${pending.map((row) => row.name).join(', ')}`
+        : `${pending.length}명이 아직 답이 없어요.`,
+      typeof options.attending === 'number' ? `지금까지 ${options.attending}명 참석이에요.` : '',
+      '참석 여부만 남겨 주시면 라인업 짜기가 훨씬 수월해요.',
+      note ?? '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  const unpaid = options.unpaid ?? [];
+  const label = formatPeriod(options.period ?? '');
 
   if (kind === 'dues_reminder_dm') {
     const one = unpaid[0];
@@ -56,17 +92,7 @@ export async function composeMessage(options: ComposeOptions): Promise<string> {
 
   const { data, error } = await supabase.functions.invoke<{ message?: string; error?: string }>(
     'compose-message',
-    {
-      body: {
-        kind: options.kind,
-        teamName: options.teamName,
-        period: options.period,
-        monthlyDue: options.monthlyDue,
-        unpaid: options.unpaid,
-        includeNames: options.includeNames,
-        note: options.note,
-      },
-    },
+    { body: options },
   );
 
   if (error) throw new Error(error.message || '문구를 만들지 못했어요.');

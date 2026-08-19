@@ -22,6 +22,8 @@ export type ParseOptions = {
   members: Member[];
   team: Team;
   hint?: Exclude<ParseIntent, 'mixed' | 'unknown'>;
+  /** 이 경기가 몇 쿼터로 도는지. "풀타임"을 몇 쿼터로 셀지 정한다. */
+  quarters?: number;
 };
 
 /**
@@ -34,11 +36,13 @@ export async function parseText({
   members,
   team,
   hint,
+  quarters,
 }: ParseOptions): Promise<ParseResponse> {
   const request: ParseRequest = {
     text,
     images,
     hint,
+    quarters,
     roster: toRoster(members),
     today: todayISO(),
     monthlyDue: team.monthlyDue,

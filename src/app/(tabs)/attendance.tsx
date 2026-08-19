@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useStore } from '@/lib/store';
-import { attendanceForMatch, tallyAttendance } from '@/lib/selectors';
+import { attendanceForMatch, tallyAttendance, unrespondedMembers } from '@/lib/selectors';
 import { formatDate } from '@/lib/format';
 import {
   Avatar,
@@ -17,6 +17,8 @@ import {
   radius,
   space,
 } from '@/components/ui';
+import { AttendanceNudge } from '@/features/attendance/AttendanceNudge';
+import { ShareVoteLink } from '@/features/attendance/ShareVoteLink';
 import { MatchPicker } from '@/components/MatchPicker';
 import { QuickInputFab } from '@/components/QuickInputFab';
 import { usePalette } from '@/theme';
@@ -40,6 +42,10 @@ export default function AttendanceScreen() {
 
   const rows = useMemo(
     () => (data && activeMatchId ? attendanceForMatch(data, activeMatchId) : new Map()),
+    [data, activeMatchId],
+  );
+  const pending = useMemo(
+    () => (data && activeMatchId ? unrespondedMembers(data, activeMatchId) : []),
     [data, activeMatchId],
   );
 
@@ -87,6 +93,15 @@ export default function AttendanceScreen() {
                 반영돼요.
               </Txt>
             </Card>
+
+            <ShareVoteLink teamName={data.team.name} match={match} />
+
+            <AttendanceNudge
+              teamName={data.team.name}
+              match={match}
+              pending={pending}
+              attending={(tally?.attending ?? 0) + (tally?.late ?? 0)}
+            />
 
             <Segmented
               value={filter}

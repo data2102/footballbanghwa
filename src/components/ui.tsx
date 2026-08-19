@@ -239,6 +239,73 @@ export function Chip({
   );
 }
 
+/**
+ * 작은 수를 올리고 내리는 조작. 출전 쿼터처럼 0~6 사이를 오가는 값에 쓴다.
+ *
+ * 운동장에서 숫자를 타이핑하게 두지 않는다. 장갑 낀 손으로도 눌리도록
+ * 터치 타겟을 36px 로 잡고, 한계에 닿으면 버튼을 흐리게 해서 더 못 누르는 걸 보여 준다.
+ */
+export function Stepper({
+  value,
+  onChange,
+  min = 0,
+  max = 9,
+  suffix,
+  accessibilityLabel,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  min?: number;
+  max?: number;
+  suffix?: string;
+  accessibilityLabel?: string;
+}) {
+  const p = usePalette();
+  const step = (delta: number) => {
+    const next = Math.min(max, Math.max(min, value + delta));
+    if (next !== value) onChange(next);
+  };
+  const key = (delta: number, label: string, disabled: boolean) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${accessibilityLabel ?? ''} ${label}`.trim()}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={() => step(delta)}
+      style={({ pressed }) => ({
+        width: 36,
+        height: 36,
+        borderRadius: radius.sm,
+        borderWidth: 1,
+        borderColor: disabled ? p.border : p.borderStrong,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: disabled ? 0.4 : 1,
+        transform: [{ scale: pressed ? 0.96 : 1 }],
+      })}
+    >
+      <Text style={[font.h3, { color: disabled ? p.textDisabled : p.text }]}>{label}</Text>
+    </Pressable>
+  );
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+      {key(-1, '−', value <= min)}
+      <Text
+        style={[
+          font.h3,
+          numeric,
+          { color: value > 0 ? p.text : p.textFaint, minWidth: 52, textAlign: 'center' },
+        ]}
+      >
+        {value}
+        {suffix ? <Text style={[font.tiny, { color: p.textFaint }]}> {suffix}</Text> : null}
+      </Text>
+      {key(1, '+', value >= max)}
+    </View>
+  );
+}
+
 /** 좌우로 나열되는 라디오형 선택. 상태 필터, 포메이션 선택 등에 쓴다. */
 export function Segmented<T extends string>({
   options,

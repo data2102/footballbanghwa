@@ -23,6 +23,7 @@ const HINTS: { value: Hint | 'auto'; label: string }[] = [
   { value: 'lineup', label: '라인업' },
   { value: 'event', label: '기록' },
   { value: 'profile', label: '회원' },
+  { value: 'appearance', label: '출전' },
 ];
 
 const EXAMPLES: Record<Hint, string> = {
@@ -34,6 +35,8 @@ const EXAMPLES: Record<Hint, string> = {
     '오늘 4-3-3으로 간다\n골키퍼 병준이형\n수비 도현 성우 민석 우진\n중원 재영 세훈 현수\n공격 태윤 상혁 지호',
   event: '전반 12분 태윤이 골, 지호 어시\n후반 10분 상혁 골\n병준이형 선방 세 번',
   profile: '태윤이 왼발 잘 쓰고 위치선정 좋아\n병준이형은 골키퍼 고정\n민석이 작년에 발목 다쳤으니 연속 출전은 피하자',
+  appearance:
+    '오늘 4쿼터 했고\n병준이형 풀타임\n도현 성우 3쿼터씩\n2쿼터에 재영 빼고 현수 넣음\n지호는 마지막 쿼터만 뛰었어',
 };
 
 const STATUS_LABEL: Record<AttendanceStatus, string> = {
@@ -63,6 +66,7 @@ export default function QuickInputScreen() {
   const addLedger = useStore((state) => state.addLedger);
   const addEvent = useStore((state) => state.addEvent);
   const saveLineup = useStore((state) => state.saveLineup);
+  const setQuarters = useStore((state) => state.setQuarters);
   const addMember = useStore((state) => state.addMember);
   const updateMember = useStore((state) => state.updateMember);
 
@@ -109,6 +113,13 @@ export default function QuickInputScreen() {
         members: activeMembers,
         team: data!.team,
         hint: hint === 'auto' ? undefined : hint,
+        // "풀타임"이 몇 쿼터인지는 팀마다 다르다. 이 경기에 이미 적어 둔 최댓값을 쓰고,
+        // 없으면 알려 주지 않는다(프롬프트가 4로 본다).
+        quarters: match
+          ? data!.appearances
+              .filter((row) => row.matchId === match.id)
+              .reduce((max, row) => Math.max(max, row.quarter), 0) || undefined
+          : undefined,
       });
       setResult(response);
       setChecked(
@@ -162,6 +173,8 @@ export default function QuickInputScreen() {
               note: item.note ?? member.note,
             });
           }
+        } else if (item.kind === 'appearance' && match) {
+          await setQuarters(match.id, memberId!, item.quarters);
         } else if (item.kind === 'lineup') {
           lineupItems.push({ item, memberId: memberId! });
         }
@@ -471,6 +484,8 @@ function describe(item: ParsedItem, name: string): string {
       return `${name} · ${item.slotKey ?? item.group}`;
     case 'event':
       return `${name} · ${EVENT_LABEL[item.type] ?? item.type}${item.minute != null ? ` ${item.minute}분` : ''}`;
+    case 'appearance':
+      return `${name} · ${item.quarters}쿼터`;
     case 'profile': {
       const parts = [
         item.strengths.length ? item.strengths.join(', ') : null,

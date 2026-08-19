@@ -57,6 +57,12 @@ export type Match = {
   opponent: string | null;
   status: MatchStatus;
   note: string | null;
+  /**
+   * 가입 없이 참석만 받는 링크의 열쇠. null 이면 아직 링크를 만들지 않은 경기다.
+   * 팀원 16명을 전부 회원가입시키는 게 도입의 가장 큰 장벽이라 이 우회로를 둔다.
+   * 토큰만 알면 그 경기의 참석을 바꿀 수 있으므로, 경기 하나 범위로만 쓴다.
+   */
+  shareToken: string | null;
 };
 
 export type AttendanceStatus = 'attending' | 'absent' | 'late' | 'unknown';
@@ -120,6 +126,36 @@ export type Lineup = {
   benchMemberIds: string[];
 };
 
+/**
+ * 쿼터 단위 출전 기록.
+ *
+ * 조기축구 라인업의 진짜 갈등은 포메이션이 아니라 "누가 더 뛰었나" 다.
+ * 출석률(왔는지)과 출전량(뛰었는지)은 다른 값이라 따로 센다.
+ */
+export type Appearance = {
+  id: string;
+  matchId: string;
+  memberId: string;
+  /** 1부터. 조기축구는 보통 3~4쿼터를 돈다. */
+  quarter: number;
+  source: EntrySource;
+};
+
+/**
+ * 경기 MVP 한 표.
+ *
+ * 누가 누구를 찍었는지는 저장하지 않는다 — 동호회에서 그게 드러나면 분란이 된다.
+ * ballot 은 기기마다 무작위로 만든 값이라 사람을 되짚을 수 없고, 한 기기가 표를
+ * 두 번 넣거나 바꾸는 것만 가려낸다.
+ */
+export type PotmVote = {
+  id: string;
+  matchId: string;
+  /** 표를 받은 사람. */
+  memberId: string;
+  ballot: string;
+};
+
 /** 데이터가 사람이 직접 입력한 것인지, AI 파싱 결과를 승인한 것인지 구분. */
 export type EntrySource = 'manual' | 'ai';
 
@@ -131,4 +167,6 @@ export type AppData = {
   ledger: Ledger[];
   events: MatchEvent[];
   lineups: Lineup[];
+  appearances: Appearance[];
+  potmVotes: PotmVote[];
 };

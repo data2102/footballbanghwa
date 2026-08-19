@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -18,6 +18,14 @@ export default function RootLayout() {
   const error = useStore((state) => state.error);
   const load = useStore((state) => state.load);
   const registered = useRef(false);
+  const segments = useSegments();
+
+  /**
+   * 참석 링크는 로그인 문을 지나지 않는다.
+   * 링크를 누르는 사람은 팀원이지 이 앱의 사용자가 아니라서, 여기서 로그인을 요구하면
+   * 링크를 만든 이유가 없어진다. 이 화면은 자기 데이터를 따로 읽는다(src/lib/vote.ts).
+   */
+  const isPublicRoute = segments[0] === 'vote';
 
   useEffect(() => {
     load();
@@ -38,7 +46,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        {status === 'signed-out' ? (
+        {isPublicRoute ? (
+          <PublicStack palette={p} />
+        ) : status === 'signed-out' ? (
           <AuthGate />
         ) : status === 'no-team' ? (
           <TeamGate />
@@ -58,6 +68,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="settings" options={{ title: '팀 설정' }} />
             <Stack.Screen name="member/[id]" options={{ title: '회원' }} />
+            <Stack.Screen name="vote" options={{ title: '참석 확인하기' }} />
           </Stack>
         ) : (
           <View
@@ -85,5 +96,21 @@ export default function RootLayout() {
         )}
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/** 로그인 없이 열리는 화면만 담는 스택. */
+function PublicStack({ palette }: { palette: ReturnType<typeof usePalette> }) {
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: palette.bg },
+        headerTitleStyle: { color: palette.text },
+        headerTintColor: palette.primary,
+        contentStyle: { backgroundColor: palette.bg },
+      }}
+    >
+      <Stack.Screen name="vote" options={{ title: '참석 확인하기' }} />
+    </Stack>
   );
 }

@@ -134,6 +134,165 @@ end $$;
 do $$ begin perform pg_temp.act_as('33333333-3333-4333-8333-333333333333'); end $$;
 select (select count(*) from storage.objects) = 0 as "남의 팀은 못 본다";
 
+-- ---------------------------------------------------------------- 8. 출전 쿼터
+\echo '8. 출전 쿼터는 운영진만 적고, 팀원은 본다'
+do $$ begin perform pg_temp.act_as('11111111-1111-4111-8111-111111111111'); end $$;
+insert into public.appearances (match_id, member_id, quarter) values
+  (:'match_id', (select id from public.members where name = '김병준'), 1),
+  (:'match_id', (select id from public.members where name = '김병준'), 2);
+select (select count(*) from public.appearances) = 2 as "운영진이 적은 두 쿼터";
+
+do $$ begin perform pg_temp.act_as('22222222-2222-4222-8222-222222222222'); end $$;
+select (select count(*) from public.appearances) = 2 as "팀원은 본다";
+do $$
+begin
+  insert into public.appearances (match_id, member_id, quarter)
+  values ((select id from public.matches limit 1), (select id from public.members where name = '이도현'), 1);
+  raise exception '선수가 출전 기록을 적을 수 있으면 안 된다';
+exception
+  when insufficient_privilege then raise notice '  통과 — 선수 입력은 막혔다';
+  when others then
+    if sqlerrm like '%row-level security%' then raise notice '  통과 — 선수 입력은 막혔다';
+    else raise; end if;
+end $$;
+
+do $$ begin perform pg_temp.act_as('33333333-3333-4333-8333-333333333333'); end $$;
+select (select count(*) from public.appearances) = 0 as "남의 팀은 못 본다";
+
+-- ---------------------------------------------------------------- 9. MVP
+\echo '9. MVP 는 팀원 누구나 한 표, 같은 기기는 한 표까지'
+do $$ begin perform pg_temp.act_as('22222222-2222-4222-8222-222222222222'); end $$;
+insert into public.potm_votes (match_id, member_id, ballot)
+values (:'match_id', (select id from public.members where name = '김병준'), 'ballot-a');
+select (select count(*) from public.potm_votes) = 1 as "선수도 표를 넣는다";
+
+do $$
+begin
+  insert into public.potm_votes (match_id, member_id, ballot)
+  values ((select id from public.matches limit 1), (select id from public.members where name = '이도현'), 'ballot-a');
+  raise exception '같은 기기가 두 표를 넣을 수 있으면 안 된다';
+exception
+  when unique_violation then raise notice '  통과 — 한 기기 한 표';
+end $$;
+
+-- ---------------------------------------------------------------- 10. 참석 링크
+\echo '10. 참석 링크는 그 경기만 열고, 회비는 못 본다'
+do $$ begin perform pg_temp.act_as('11111111-1111-4111-8111-111111111111'); end $$;
+update public.matches set share_token = 'tok-live', date = current_date + 3 where id = :'match_id';
+
+-- 로그인하지 않은 사람인 척한다. 링크를 누르는 사람에게는 JWT 가 없다.
+create or replace function pg_temp.act_as_anon() returns void
+language plpgsql as $$
+begin
+  -- 로그인하지 않은 요청에도 claims 는 있고 sub 만 없다. auth.uid() 가 null 이 된다.
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  perform set_config('role', 'anon', true);
+end $$;
+
+do $$ begin perform pg_temp.act_as_anon(); end $$;
+select
+  (select count(*) from public.ballot_by_share_token('tok-live')) = 1 as "토큰으로 경기가 열린다",
+  (select jsonb_array_length(members) from public.ballot_by_share_token('tok-live')) = 2 as "회원 2명이 보인다",
+  (select count(*) from public.ballot_by_share_token('tok-wrong')) = 0 as "틀린 토큰은 빈 결과";
+
+-- 링크를 가진 사람이 테이블을 직접 읽을 수는 없어야 한다.
+-- 권한 자체가 없어 오류가 나거나(정책이 부르는 헬퍼를 못 씀), 읽혀도 0행이어야 한다.
+-- 둘 다 "데이터가 안 나온다"는 같은 결과다.
+do $$
+declare
+  tbl text;
+  n   bigint;
+  leaked text[] := '{}';
+begin
+  foreach tbl in array array['ledger', 'members', 'matches', 'attendance', 'appearances', 'potm_votes'] loop
+    begin
+      execute format('select count(*) from public.%I', tbl) into n;
+      if n > 0 then leaked := leaked || tbl; end if;
+    exception
+      when insufficient_privilege then null; -- 아예 못 읽는다. 더 강한 차단이다.
+    end;
+  end loop;
+  if array_length(leaked, 1) is not null then
+    raise exception '링크만 가진 사람에게 % 가 보인다', array_to_string(leaked, ', ');
+  end if;
+  raise notice '  통과 — 링크로는 어떤 테이블도 읽히지 않는다';
+end $$;
+
+\echo '10-2. 링크로 참석을 남기면 저장되고, 남의 팀 회원은 막힌다'
+-- 링크를 누른 사람이 아는 회원 id 는 오직 ballot 이 준 것뿐이다. 테이블을 못 읽으니 그게 맞다.
+select (members -> 0 ->> 'id') as voter from public.ballot_by_share_token('tok-live') \gset
+
+select public.vote_by_share_token('tok-live', :'voter', 'attending');
+select
+  (select (m ->> 'status') = 'attending'
+     from public.ballot_by_share_token('tok-live'),
+          lateral jsonb_array_elements(members) m
+    where m ->> 'id' = :'voter') as "링크에도 참석으로 보인다";
+
+do $$
+begin
+  perform public.vote_by_share_token('tok-live', gen_random_uuid(), 'attending');
+  raise exception '토큰이 가리키는 팀 밖의 회원을 바꿀 수 있으면 안 된다';
+exception
+  when others then
+    if sqlerrm = 'NOT_FOUND' then raise notice '  통과 — 다른 팀 회원은 막혔다';
+    else raise; end if;
+end $$;
+
+do $$
+declare v uuid;
+begin
+  -- 링크를 가진 사람이 알 수 있는 유일한 경로로 회원 id 를 얻는다.
+  select (members -> 0 ->> 'id')::uuid into v from public.ballot_by_share_token('tok-live');
+  perform public.vote_by_share_token('tok-live', v, 'HACK');
+  raise exception '아무 상태나 넣을 수 있으면 안 된다';
+exception
+  when others then
+    if sqlerrm = 'BAD_STATUS' then raise notice '  통과 — 이상한 상태는 막혔다';
+    else raise; end if;
+end $$;
+
+\echo '10-3. 지난 경기 링크는 열리지 않는다'
+do $$ begin perform pg_temp.act_as('11111111-1111-4111-8111-111111111111'); end $$;
+update public.matches set date = current_date - 7 where id = :'match_id';
+do $$ begin perform pg_temp.act_as_anon(); end $$;
+select (select count(*) from public.ballot_by_share_token('tok-live')) = 0 as "지난 경기는 안 열린다";
+do $$
+begin
+  -- 토큰부터 확인하므로 회원 id 가 무엇이든 EXPIRED 에서 걸려야 한다.
+  perform public.vote_by_share_token('tok-live', gen_random_uuid(), 'attending');
+  raise exception '지난 경기에 참석을 남길 수 있으면 안 된다';
+exception
+  when others then
+    if sqlerrm = 'EXPIRED' then raise notice '  통과 — 만료된 링크는 막혔다';
+    else raise; end if;
+end $$;
+
+-- ---------------------------------------------------------------- 11. 링크 말고는 아무것도 못 부른다
+\echo '11. 로그인 없는 사람이 부를 수 있는 함수는 링크용 둘뿐이다'
+do $$
+declare
+  fn text;
+  blocked int := 0;
+begin
+  foreach fn in array array[
+    'select public.my_teams()',
+    'select public.is_team_member(gen_random_uuid())',
+    'select public.is_team_staff(gen_random_uuid())',
+    'select public.match_team_id(gen_random_uuid())',
+    'select public.pending_reminders(24)',
+    'select public.create_team(''x'', 0, ''y'')'
+  ] loop
+    begin
+      execute fn;
+      raise exception '로그인 없이 % 를 부를 수 있으면 안 된다', fn;
+    exception
+      when insufficient_privilege then blocked := blocked + 1;
+    end;
+  end loop;
+  raise notice '  통과 — % 개 함수 모두 막혔다', blocked;
+end $$;
+
 rollback;
 
 \echo ''

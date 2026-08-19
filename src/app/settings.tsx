@@ -151,6 +151,7 @@ export default function SettingsScreen() {
               opponent: null,
               status: 'scheduled',
               note: null,
+              shareToken: null,
             });
             setMatchVenue('');
           }}

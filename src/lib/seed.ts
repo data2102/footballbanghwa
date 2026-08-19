@@ -1,6 +1,16 @@
 import { DEFAULT_FORMATION } from '@/features/lineup/formations';
 import { shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
-import type { AppData, Attendance, Ledger, Match, MatchEvent, Member, PositionGroup } from '@/lib/types';
+import type {
+  AppData,
+  Appearance,
+  Attendance,
+  Ledger,
+  Match,
+  MatchEvent,
+  Member,
+  PositionGroup,
+  PotmVote,
+} from '@/lib/types';
 
 /**
  * 데모 모드에서 앱을 처음 열었을 때 채워 넣는 예시 팀.
@@ -83,6 +93,7 @@ export function buildSeed(): AppData {
       opponent: OPPONENTS[i % OPPONENTS.length],
       status: 'finished' as const,
       note: i % 3 === 0 ? '3-2 승' : i % 3 === 1 ? '1-1 무' : '0-2 패',
+      shareToken: null,
     };
   });
 
@@ -95,6 +106,7 @@ export function buildSeed(): AppData {
     opponent: OPPONENTS[0],
     status: 'scheduled',
     note: null,
+    shareToken: null,
   };
 
   // ------------------------------------------------------------ 참석
@@ -113,6 +125,49 @@ export function buildSeed(): AppData {
         note: status === 'late' ? '조금 늦게 왔어요' : null,
         source: 'manual',
         updatedAt: match.date,
+      });
+    }
+  }
+
+  // ------------------------------------------------------------ 출전 쿼터
+  // 공정성 화면이 읽히려면 "왔는데 덜 뛴 사람"이 실제로 있어야 한다.
+  // 뒤쪽 번호(후보)일수록 쿼터가 적게 잡히도록 결정적으로 만든다.
+  const appearances: Appearance[] = [];
+  for (const [matchIndex, match] of past.entries()) {
+    for (const [memberIndex, member] of members.entries()) {
+      const came = attendance.find(
+        (row) => row.matchId === match.id && row.memberId === member.id,
+      );
+      if (!came || came.status === 'absent') continue;
+      // 주전(앞 11명)은 3~4쿼터, 후보는 0~2쿼터.
+      const base = memberIndex < 11 ? 3 : 0;
+      const extra = Math.floor(noise(memberIndex + 7, matchIndex + 3) * 2);
+      const played = Math.min(4, base + extra);
+      for (let q = 1; q <= played; q += 1) {
+        appearances.push({
+          id: `app-${match.id}-${member.id}-${q}`,
+          matchId: match.id,
+          memberId: member.id,
+          quarter: q,
+          source: 'manual',
+        });
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ MVP
+  // 가장 최근 세 경기에만 표가 있다. "아직 투표 전"인 경기도 보여야 화면이 다 확인된다.
+  // past 는 오래된 순이라 뒤에서 세 개를 고른다.
+  const potmVotes: PotmVote[] = [];
+  for (const [matchIndex, match] of past.slice(-3).entries()) {
+    // 한 경기에 6표. 표를 몰아주지 않고 두세 명에게 갈리게 둔다.
+    for (let v = 0; v < 6; v += 1) {
+      const pick = Math.floor(noise(matchIndex + 11, v + 5) * 11);
+      potmVotes.push({
+        id: `potm-${match.id}-${v}`,
+        matchId: match.id,
+        memberId: members[pick].id,
+        ballot: `seed-ballot-${matchIndex}-${v}`,
       });
     }
   }
@@ -232,6 +287,8 @@ export function buildSeed(): AppData {
     attendance,
     ledger,
     events,
+    appearances,
+    potmVotes,
     lineups: [
       {
         id: 'lineup-last',

@@ -2,6 +2,7 @@
 import { daysUntil, shiftPeriod, thisPeriod } from '@/lib/format';
 import type {
   AppData,
+  Appearance,
   Attendance,
   AttendanceStatus,
   Ledger,
@@ -45,6 +46,19 @@ export function tallyAttendance(data: AppData, matchId: string): AttendanceTally
     tally[rows.get(member.id)?.status ?? 'unknown'] += 1;
   }
   return tally;
+}
+
+/**
+ * 아직 참석 여부를 안 밝힌 사람.
+ *
+ * 총무가 알고 싶은 건 "몇 명 왔나"가 아니라 "누구를 찔러야 하나"다.
+ * 숫자만 보여 주면 결국 명단을 눈으로 훑어야 한다.
+ */
+export function unrespondedMembers(data: AppData, matchId: string): Member[] {
+  const rows = attendanceForMatch(data, matchId);
+  return data.members.filter(
+    (member) => member.active && (rows.get(member.id)?.status ?? 'unknown') === 'unknown',
+  );
 }
 
 /** 참석 + 지각. 라인업을 짤 수 있는 인원. */
@@ -253,3 +267,268 @@ export const STRENGTH_SUGGESTIONS = [
   '왼발', '오른발', '헤딩', '스피드', '체력', '빌드업', '수비 리딩',
   '킥력', '중거리', '드리블', '패스', '위치선정', '리더십', '멘탈',
 ];
+
+
+// ------------------------------------------------------------------ 출전 시간
+
+/** 경기 하나에서 각자 몇 쿼터를 뛰었는지. */
+export function quartersForMatch(data: AppData, matchId: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const row of data.appearances) {
+    if (row.matchId !== matchId) continue;
+    counts.set(row.memberId, (counts.get(row.memberId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export type PlayingTime = {
+  member: Member;
+  /** 최근 경기들에서 뛴 쿼터 합. */
+  quarters: number;
+  /** 그 사이 참석한 경기 수. 분모. */
+  attended: number;
+  /** 경기당 평균 쿼터. attended 가 0이면 null. */
+  perMatch: number | null;
+};
+
+/**
+ * 최근 경기 기준 출전량. 라인업 배정의 공정성 근거가 된다.
+ *
+ * 시즌 전체로 재면 최근에 계속 빠진 사람이 영원히 앞자리를 차지한다.
+ * 기본 6경기로 끊어서 "요즘 덜 뛴 사람"을 본다.
+ */
+export function playingTime(data: AppData, recentMatches = 6, excludeMatchId?: string): PlayingTime[] {
+  const scope = new Set(
+    [...data.matches]
+      .filter((match) => match.status !== 'canceled' && match.id !== excludeMatchId)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, recentMatches)
+      .map((match) => match.id),
+  );
+
+  const quarters = new Map<string, number>();
+  for (const row of data.appearances) {
+    if (!scope.has(row.matchId)) continue;
+    quarters.set(row.memberId, (quarters.get(row.memberId) ?? 0) + 1);
+  }
+
+  const attended = new Map<string, number>();
+  for (const row of data.attendance) {
+    if (!scope.has(row.matchId)) continue;
+    if (row.status === 'attending' || row.status === 'late') {
+      attended.set(row.memberId, (attended.get(row.memberId) ?? 0) + 1);
+    }
+  }
+
+  return data.members
+    .filter((member) => member.active)
+    .map((member) => {
+      const played = quarters.get(member.id) ?? 0;
+      const came = attended.get(member.id) ?? 0;
+      return { member, quarters: played, attended: came, perMatch: came ? played / came : null };
+    });
+}
+
+/**
+ * 덜 뛴 사람이 앞에 오는 순서.
+ *
+ * 왔는데 못 뛴 사람(perMatch 가 0)이 가장 앞이고, 아직 기록이 없는 사람은
+ * 그 다음이다. 같은 값이면 이름순으로 고정해 매번 같은 결과가 나오게 한다.
+ */
+export function fairnessOrder(data: AppData, pool: Member[], excludeMatchId?: string): Member[] {
+  const time = new Map(playingTime(data, 6, excludeMatchId).map((row) => [row.member.id, row]));
+  return [...pool].sort((a, b) => {
+    const left = time.get(a.id);
+    const right = time.get(b.id);
+    // 기록이 아예 없으면 판단 근거가 없으니 중간(1쿼터)으로 놓는다.
+    const lv = left?.perMatch ?? 1;
+    const rv = right?.perMatch ?? 1;
+    if (lv !== rv) return lv - rv;
+    return a.name.localeCompare(b.name, 'ko');
+  });
+}
+
+// ------------------------------------------------------------------ MVP
+
+export type PotmResult = { member: Member; votes: number };
+
+/** 경기 MVP 집계. 표가 하나도 없으면 빈 배열. */
+export function potmTally(data: AppData, matchId: string): PotmResult[] {
+  const counts = new Map<string, number>();
+  for (const row of data.potmVotes) {
+    if (row.matchId !== matchId) continue;
+    counts.set(row.memberId, (counts.get(row.memberId) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([memberId, votes]) => ({
+      member: data.members.find((m) => m.id === memberId),
+      votes,
+    }))
+    .filter((row): row is PotmResult => Boolean(row.member))
+    .sort((a, b) => b.votes - a.votes || a.member.name.localeCompare(b.member.name, 'ko'));
+}
+
+/** 시즌 동안 MVP 로 뽑힌 횟수(경기별 1위 기준). */
+export function potmWins(data: AppData): Map<string, number> {
+  const wins = new Map<string, number>();
+  for (const match of data.matches) {
+    const tally = potmTally(data, match.id);
+    if (!tally.length) continue;
+    // 동률이면 아무도 1위로 세지 않는다. 억지로 한 명을 고르면 그게 분란이 된다.
+    if (tally.length > 1 && tally[1].votes === tally[0].votes) continue;
+    wins.set(tally[0].member.id, (wins.get(tally[0].member.id) ?? 0) + 1);
+  }
+  return wins;
+}
+
+// ------------------------------------------------------------------ 랭킹
+
+export type RankingKey = 'points' | 'goals' | 'assists' | 'attendance' | 'quarters' | 'potm';
+
+export type RankingRow = {
+  member: Member;
+  /** 순위를 매기는 값. */
+  value: number;
+  /** 화면에 쓸 표시값. "8골", "92%" 처럼 단위까지 들어간다. */
+  display: string;
+};
+
+export type Ranking = {
+  key: RankingKey;
+  title: string;
+  /** 값이 0인 사람만 남으면 순위표를 띄우지 않는다. */
+  rows: RankingRow[];
+};
+
+/**
+ * 랭킹 여섯 가지.
+ *
+ * 하나만 두면 골 못 넣는 사람은 평생 이름이 안 나온다. 골 말고도
+ * 도움·개근·출전량·MVP 로 이름이 불릴 자리를 만든다.
+ */
+export function rankings(data: AppData): Ranking[] {
+  const stats = playerStats(data);
+  const time = playingTime(data, 99);
+  const profiles = allProfiles(data);
+  const wins = potmWins(data);
+
+  const trim = (rows: RankingRow[]) => rows.filter((row) => row.value > 0).slice(0, 10);
+
+  return [
+    {
+      key: 'points',
+      title: '공격 포인트',
+      rows: trim(
+        stats.map((row) => ({
+          member: row.member,
+          value: row.points,
+          display: `${row.points}P`,
+        })),
+      ),
+    },
+    {
+      key: 'goals',
+      title: '득점',
+      rows: trim(
+        [...stats]
+          .sort((a, b) => b.goals - a.goals)
+          .map((row) => ({ member: row.member, value: row.goals, display: `${row.goals}골` })),
+      ),
+    },
+    {
+      key: 'assists',
+      title: '도움',
+      rows: trim(
+        [...stats]
+          .sort((a, b) => b.assists - a.assists)
+          .map((row) => ({ member: row.member, value: row.assists, display: `${row.assists}개` })),
+      ),
+    },
+    {
+      key: 'attendance',
+      title: '개근',
+      rows: trim(
+        profiles
+          .filter((profile) => profile.eligible > 0)
+          .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0))
+          .map((profile) => ({
+            member: profile.member,
+            value: Math.round((profile.rate ?? 0) * 100),
+            display: `${Math.round((profile.rate ?? 0) * 100)}%`,
+          })),
+      ),
+    },
+    {
+      key: 'quarters',
+      title: '출전 쿼터',
+      rows: trim(
+        [...time]
+          .sort((a, b) => b.quarters - a.quarters)
+          .map((row) => ({
+            member: row.member,
+            value: row.quarters,
+            display: `${row.quarters}쿼터`,
+          })),
+      ),
+    },
+    {
+      key: 'potm',
+      title: 'MVP',
+      rows: trim(
+        data.members
+          .filter((member) => member.active)
+          .map((member) => ({
+            member,
+            value: wins.get(member.id) ?? 0,
+            display: `${wins.get(member.id) ?? 0}회`,
+          }))
+          .sort((a, b) => b.value - a.value),
+      ),
+    },
+  ];
+}
+
+// ------------------------------------------------------------------ 승패
+
+export type MatchResult = { us: number; them: number; outcome: 'win' | 'draw' | 'lose' };
+
+/**
+ * 우리 득점만 기록에서 세고, 상대 득점은 경기 메모에 적힌 스코어에서 읽는다.
+ * 조기축구에서 상대 팀 득점자까지 적는 팀은 없다.
+ */
+export function matchResult(data: AppData, matchId: string): MatchResult | null {
+  const match = data.matches.find((row) => row.id === matchId);
+  if (!match || match.status !== 'finished') return null;
+
+  const us =
+    data.events.filter((row) => row.matchId === matchId && row.type === 'goal').length -
+    data.events.filter((row) => row.matchId === matchId && row.type === 'own_goal').length;
+
+  // "3-2", "3:2", "3 대 2" 를 모두 읽는다. 앞이 우리 점수라고 본다.
+  const scored = match.note?.match(/(\d{1,2})\s*(?:[-:]|대)\s*(\d{1,2})/);
+  const them = scored ? Number(scored[2]) : null;
+  if (them === null) return null;
+
+  const ours = scored ? Number(scored[1]) : us;
+  return {
+    us: ours,
+    them,
+    outcome: ours > them ? 'win' : ours === them ? 'draw' : 'lose',
+  };
+}
+
+export type TeamRecord = { win: number; draw: number; lose: number };
+
+export function teamRecord(data: AppData): TeamRecord {
+  const record: TeamRecord = { win: 0, draw: 0, lose: 0 };
+  for (const match of data.matches) {
+    const result = matchResult(data, match.id);
+    if (result) record[result.outcome] += 1;
+  }
+  return record;
+}
+
+/** 이 경기에서 뛴 쿼터를 한 명분 세는 작은 도우미. 화면에서 자주 쓴다. */
+export function quartersOf(appearances: Appearance[], matchId: string, memberId: string): number {
+  return appearances.filter((row) => row.matchId === matchId && row.memberId === memberId).length;
+}

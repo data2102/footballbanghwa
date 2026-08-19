@@ -12,6 +12,8 @@ import type { AttendanceStatus } from '@/lib/types';
 const ATTEND = /(^|[\s(])(ㅇ+|o+|O+|참석|참여|참|가요|갑니다|출석|콜|ㄱㄱ)([\s).,!]|$)/;
 const ABSENT = /(불참|못\s?가|못\s?감|빠집니다|빠져|패스|결석|스킵|담에|ㄴㄴ|^x$|^X$)/;
 const LATE = /(늦참|늦게|늦어|지각|후반|하프타임)/;
+/** "3쿼터", "풀타임", "벤치만" 처럼 출전량을 말하는 줄. */
+const QUARTERS = /(\d)\s*쿼터|풀\s?타임|끝까지|다\s?뛰|벤치만|안\s?뛰/;
 
 /** 이름 뒤 호칭을 떼고 비교한다. */
 function stripHonorific(token: string): string {
@@ -68,6 +70,8 @@ export function demoParse(request: ParseRequest): ParseResponse {
   const unmatched = new Set<string>();
   let sawPayment = false;
   let sawAttendance = false;
+  let sawAppearance = false;
+  const totalQuarters = request.quarters ?? 4;
 
   for (const line of lines) {
     // 은행 입금 문자: "입금 30,000 홍길동" / "홍길동 3만원 입금"
@@ -101,6 +105,33 @@ export function demoParse(request: ParseRequest): ParseResponse {
       continue;
     }
 
+    // 출전 쿼터: "도현 3쿼터", "병준이형 풀타임", "지호 벤치만"
+    const quarterHit = line.match(QUARTERS);
+    if (quarterHit && !isPayment) {
+      const spoken = quarterHit[1]
+        ? Number(quarterHit[1])
+        : /벤치만|안\s?뛰/.test(line)
+          ? 0
+          : totalQuarters;
+      let matchedAny = false;
+      for (const token of tokens) {
+        const hit = matchMember(token, roster);
+        if (hit.length !== 1) continue;
+        matchedAny = true;
+        sawAppearance = true;
+        items.push({
+          kind: 'appearance',
+          memberId: hit[0].id,
+          memberName: hit[0].name,
+          confidence: 'medium',
+          quote: line,
+          quarters: Math.max(0, Math.min(6, spoken)),
+        });
+      }
+      // 사람을 못 찾았으면 참석 해석으로 넘어가지 않고 이 줄은 버린다.
+      if (matchedAny) continue;
+    }
+
     for (const token of tokens) {
       const hit = matchMember(token, roster);
       if (hit.length !== 1) continue;
@@ -126,16 +157,21 @@ export function demoParse(request: ParseRequest): ParseResponse {
     }
   }
 
-  // 같은 사람이 여러 번 나오면 마지막 것만 남긴다.
+  // 같은 사람이 같은 종류로 여러 번 나오면 마지막 것만 남긴다.
   const deduped = items.filter((item, index) => {
-    if (item.kind !== 'attendance') return true;
+    if (item.kind !== 'attendance' && item.kind !== 'appearance') return true;
     return !items.some(
       (other, otherIndex) =>
-        otherIndex > index && other.kind === 'attendance' && other.memberId === item.memberId,
+        otherIndex > index && other.kind === item.kind && other.memberId === item.memberId,
     );
   });
 
-  const intent = sawPayment && sawAttendance ? 'mixed' : sawPayment ? 'payment' : sawAttendance ? 'attendance' : 'unknown';
+  const kinds = [
+    sawPayment ? 'payment' : null,
+    sawAttendance ? 'attendance' : null,
+    sawAppearance ? 'appearance' : null,
+  ].filter((kind): kind is 'payment' | 'attendance' | 'appearance' => kind !== null);
+  const intent = kinds.length > 1 ? 'mixed' : (kinds[0] ?? 'unknown');
 
   return {
     intent,

@@ -1,7 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildSeed } from '@/lib/seed';
 import { toDataUri, type PickedPhoto } from '@/lib/photo';
-import type { AppData, Attendance, Ledger, Lineup, Match, MatchEvent, Member, Team } from '@/lib/types';
+import type {
+  AppData,
+  Appearance,
+  Attendance,
+  Ledger,
+  Lineup,
+  Match,
+  MatchEvent,
+  Member,
+  PotmVote,
+  Team,
+} from '@/lib/types';
 import type { Repo } from './types';
 
 const KEY = 'footballbanghwa:data:v1';
@@ -30,7 +41,18 @@ export class LocalRepo implements Repo {
 
     if (raw) {
       try {
-        this.cache = JSON.parse(raw) as AppData;
+        // 예전 버전이 저장해 둔 값에는 새로 생긴 배열이 없다. 없으면 빈 배열로 채운다 —
+        // 여기서 안 막으면 화면들이 undefined 를 순회하다 터진다.
+        const parsed = JSON.parse(raw) as AppData;
+        this.cache = {
+          ...parsed,
+          appearances: parsed.appearances ?? [],
+          potmVotes: parsed.potmVotes ?? [],
+          matches: (parsed.matches ?? []).map((match) => ({
+            ...match,
+            shareToken: match.shareToken ?? null,
+          })),
+        };
         return this.cache;
       } catch {
         // 저장된 값이 깨졌으면 시드로 되돌린다.
@@ -104,6 +126,22 @@ export class LocalRepo implements Repo {
     this.mutate((data) => {
       // 경기당 라인업은 하나다.
       data.lineups = [...data.lineups.filter((row) => row.matchId !== lineup.matchId), lineup];
+    });
+
+  setAppearances = (matchId: string, memberId: string, rows: Appearance[]) =>
+    this.mutate((data) => {
+      data.appearances = [
+        ...data.appearances.filter((row) => !(row.matchId === matchId && row.memberId === memberId)),
+        ...rows,
+      ];
+    });
+
+  setPotmVote = (matchId: string, ballot: string, vote: PotmVote | null) =>
+    this.mutate((data) => {
+      const rest = data.potmVotes.filter(
+        (row) => !(row.matchId === matchId && row.ballot === ballot),
+      );
+      data.potmVotes = vote ? [...rest, vote] : rest;
     });
 
   /** 데모 데이터를 초기 상태로 되돌린다. 설정 화면에서 쓴다. */

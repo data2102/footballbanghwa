@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import { repo } from '@/lib/repo';
 import { supabase } from '@/lib/supabase';
 import { todayISO, uid } from '@/lib/format';
+import { ballotId } from '@/lib/ballot';
 import { focusMatch } from '@/lib/selectors';
 import type { PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
+  Appearance,
   Attendance,
   AttendanceStatus,
   EntrySource,
@@ -14,6 +16,7 @@ import type {
   Match,
   MatchEvent,
   Member,
+  PotmVote,
   Team,
 } from '@/lib/types';
 
@@ -44,6 +47,12 @@ type Store = {
   addEvent: (entry: Omit<MatchEvent, 'id'>) => Promise<void>;
   removeEvent: (id: string) => Promise<void>;
   saveLineup: (lineup: Omit<Lineup, 'id'>) => Promise<void>;
+  /** 한 사람이 이 경기에서 뛴 쿼터 수를 정한다. 0이면 기록을 지운다. */
+  setQuarters: (matchId: string, memberId: string, count: number) => Promise<void>;
+  /** MVP 한 표. 같은 사람을 다시 누르면 표를 거둔다. */
+  togglePotmVote: (matchId: string, memberId: string) => Promise<void>;
+  /** 이 경기의 참석 링크 토큰. 없으면 만들어서 저장한다. */
+  ensureShareToken: (matchId: string) => Promise<string | null>;
   addMember: (member: Omit<Member, 'id' | 'teamId'>) => Promise<Member | null>;
   setMemberPhoto: (memberId: string, photo: PickedPhoto) => Promise<void>;
   updateMember: (member: Member) => Promise<void>;
@@ -165,6 +174,60 @@ export const useStore = create<Store>((set, get) => ({
     await persist(set, () => repo.saveLineup(row));
   },
 
+  setQuarters: async (matchId, memberId, count) => {
+    const data = get().data;
+    if (!data) return;
+    const capped = Math.max(0, Math.min(count, MAX_QUARTERS));
+    const rows: Appearance[] = Array.from({ length: capped }, (_, index) => ({
+      id: uid(),
+      matchId,
+      memberId,
+      quarter: index + 1,
+      source: 'manual',
+    }));
+    set({
+      data: {
+        ...data,
+        appearances: [
+          ...data.appearances.filter(
+            (row) => !(row.matchId === matchId && row.memberId === memberId),
+          ),
+          ...rows,
+        ],
+      },
+    });
+    await persist(set, () => repo.setAppearances(matchId, memberId, rows));
+  },
+
+  togglePotmVote: async (matchId, memberId) => {
+    const data = get().data;
+    if (!data) return;
+    const ballot = await ballotId();
+    const mine = data.potmVotes.find((row) => row.matchId === matchId && row.ballot === ballot);
+    const next: PotmVote | null =
+      mine?.memberId === memberId ? null : { id: mine?.id ?? uid(), matchId, memberId, ballot };
+    set({
+      data: {
+        ...data,
+        potmVotes: [
+          ...data.potmVotes.filter((row) => !(row.matchId === matchId && row.ballot === ballot)),
+          ...(next ? [next] : []),
+        ],
+      },
+    });
+    await persist(set, () => repo.setPotmVote(matchId, ballot, next));
+  },
+
+  ensureShareToken: async (matchId) => {
+    const data = get().data;
+    const match = data?.matches.find((row) => row.id === matchId);
+    if (!data || !match) return null;
+    if (match.shareToken) return match.shareToken;
+    const token = uid();
+    await get().saveMatch({ ...match, shareToken: token });
+    return token;
+  },
+
   addMember: async (member) => {
     const data = get().data;
     if (!data) return null;
@@ -220,6 +283,9 @@ export const useStore = create<Store>((set, get) => ({
     await persist(set, () => repo.saveTeam(team));
   },
 }));
+
+/** 조기축구는 보통 3~4쿼터를 돈다. 그보다 큰 값은 오타로 본다. */
+export const MAX_QUARTERS = 6;
 
 /** 이름만 알고 추가하는 회원의 나머지 기본값. 신규 회원을 만드는 곳마다 반복하지 않게 모아 둔다. */
 export function blankMemberFields(): Omit<Member, 'id' | 'teamId' | 'name'> {

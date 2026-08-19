@@ -48,7 +48,32 @@ export const FORMATIONS: Formation[] = [
   build('3-3-1', '3-3-1 (8인)', [['DF', 3, 0.28], ['MF', 3, 0.56], ['FW', 1, 0.84]]),
   build('2-3-2', '2-3-2 (8인)', [['DF', 2, 0.28], ['MF', 3, 0.56], ['FW', 2, 0.84]]),
   build('3-3-2', '3-3-2 (9인)', [['DF', 3, 0.28], ['MF', 3, 0.56], ['FW', 2, 0.84]]),
+  build('3-4-1', '3-4-1 (9인)', [['DF', 3, 0.28], ['MF', 4, 0.56], ['FW', 1, 0.84]]),
+  build('3-3-3', '3-3-3 (10인)', [['DF', 3, 0.28], ['MF', 3, 0.55], ['FW', 3, 0.82]]),
+  build('4-3-2', '4-3-2 (10인)', [['DF', 4, 0.27], ['MF', 3, 0.55], ['FW', 2, 0.82]]),
+  build('3-4-2', '3-4-2 (10인)', [['DF', 3, 0.28], ['MF', 4, 0.55], ['FW', 2, 0.82]]),
 ];
+
+/** 골키퍼 포함 인원이 같은 포메이션들. 인원이 안 맞는 날이 절반이라 크기로 먼저 고른다. */
+export function formationsForSize(size: number): Formation[] {
+  return FORMATIONS.filter((formation) => formation.size === size);
+}
+
+/** 포메이션 카탈로그에 있는 인원 규격. 큰 것부터. */
+export const FORMATION_SIZES: number[] = [...new Set(FORMATIONS.map((f) => f.size))].sort(
+  (a, b) => b - a,
+);
+
+/**
+ * 참석 인원에 맞는 규격을 고른다.
+ *
+ * 참석자보다 큰 규격을 고르면 빈 자리가 생기므로, 넘지 않는 선에서 가장 큰 것을 쓴다.
+ * 8명도 안 되면 가장 작은 규격을 주고 빈 자리를 남긴다 — 인원을 더 부르는 게 먼저다.
+ */
+export function sizeForCount(count: number): number {
+  const fit = FORMATION_SIZES.find((size) => size <= count);
+  return fit ?? FORMATION_SIZES[FORMATION_SIZES.length - 1];
+}
 
 export const DEFAULT_FORMATION = FORMATIONS[0];
 
