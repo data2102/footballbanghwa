@@ -91,7 +91,12 @@ export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 }
  * 네이티브는 안드로이드 기본 폰트가 이미 Noto Sans CJK KR 이고 iOS 는 Apple SD Gothic Neo 라,
  * 수 MB짜리 한글 TTF를 번들에 넣는 대신 시스템 폰트를 그대로 쓴다.
  */
-const sans = Platform.select({ web: '"Noto Sans KR", "Pretendard", sans-serif', default: undefined });
+// 웹폰트가 늦게 와도 첫 화면은 시스템 한글 폰트로 제대로 보여야 한다.
+// sans-serif 하나만 두면 브라우저마다 엉뚱한 글꼴이 잡힌다.
+const sans = Platform.select({
+  web: '"Noto Sans KR", "Pretendard", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", sans-serif',
+  default: undefined,
+});
 const mono = Platform.select({
   web: '"JetBrains Mono", "D2Coding", Consolas, monospace',
   ios: 'Menlo',

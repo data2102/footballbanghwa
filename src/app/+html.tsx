@@ -1,6 +1,9 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
+const FONT_CSS =
+  'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap';
+
 /** GitHub Pages 처럼 하위 경로에 올릴 때를 위해 앞에 붙일 경로. 루트 배포면 빈 문자열이다. */
 const base = (process.env.EXPO_BASE_URL ?? '').replace(/\/$/, '');
 
@@ -30,10 +33,22 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="우리팀" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        {/*
+          폰트를 <link rel="stylesheet"> 로 걸면 그 파일이 도착할 때까지 브라우저가 화면을
+          아예 안 그린다. 구글이 느리거나 안 닿는 망에서는 흰 화면만 몇 초씩 보인다 —
+          측정해 보니 12.8초였다. 참석 링크를 누른 팀원은 그냥 창을 닫는다.
+
+          그래서 스크립트로 나중에 붙인다. 글자는 시스템 한글 폰트로 바로 그려지고,
+          Noto Sans KR 이 도착하면 그때 바뀐다(URL 의 display=swap).
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var l=document.createElement('link');l.rel='stylesheet';l.href=${JSON.stringify(FONT_CSS)};document.head.appendChild(l);})();`,
+          }}
         />
+        <noscript>
+          <link rel="stylesheet" href={FONT_CSS} />
+        </noscript>
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: `
           html, body { background: #F2F4F6; color-scheme: light; }

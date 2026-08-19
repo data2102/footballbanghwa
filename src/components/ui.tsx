@@ -432,7 +432,8 @@ export function Avatar({ name, size = 34, tone }: { name: string; size?: number;
       }}
     >
       <Text style={{ color: p.textMuted, fontWeight: '500', fontSize: size * 0.36 }}>
-        {name.slice(-2)}
+        {/* 가려진 이름(강*순)에서 별표를 빼고 남은 글자를 쓴다. 동그라미 안에 별표만 보이면 못 알아본다. */}
+        {name.replace(/\*/g, '').slice(-2)}
       </Text>
     </View>
   );
