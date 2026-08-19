@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { isRemoteConfigured, SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
@@ -34,8 +35,13 @@ export const supabase: SupabaseClient | null = isRemoteConfigured
         // 미리 렌더링 단계에서는 토큰을 새로 받아 올 이유가 없다.
         autoRefreshToken: !isServerRender,
         persistSession: !isServerRender,
-        // RN에는 URL 콜백이 없다. 웹에서도 6자리 코드로 로그인하므로 켤 필요가 없다.
-        detectSessionInUrl: false,
+        /**
+         * 로그인은 6자리 코드가 기본이다 — 딥링크 설정 없이 웹·iOS·안드로이드에서 똑같이 돈다.
+         * 다만 메일에는 링크도 함께 오고, 그걸 누르면 토큰이 URL 해시에 실려 돌아온다.
+         * 웹에서는 그것도 받아 준다. 코드를 옮겨 적기 귀찮으면 링크를 눌러도 되게.
+         * 네이티브는 딥링크가 있어야 해서 끈다.
+         */
+        detectSessionInUrl: !isServerRender && Platform.OS === 'web',
       },
     })
   : null;
