@@ -40,6 +40,8 @@ export type Team = {
   /** 월 회비 기본액(원). 미납자 계산의 기준. */
   monthlyDue: number;
   inviteCode: string | null;
+  /** 경기 전날 미응답자에게 알림을 보낼지. 팀 단위 스위치. */
+  reminderEnabled: boolean;
 };
 
 export type MatchStatus = 'scheduled' | 'finished' | 'canceled';

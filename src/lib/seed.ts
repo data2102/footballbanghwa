@@ -220,7 +220,13 @@ export function buildSeed(): AppData {
   const lastMatch = past[past.length - 1];
 
   return {
-    team: { id: TEAM_ID, name: '방화 FC', monthlyDue: 30000, inviteCode: 'DEMO24' },
+    team: {
+      id: TEAM_ID,
+      name: '방화 FC',
+      monthlyDue: 30000,
+      inviteCode: 'DEMO24',
+      reminderEnabled: true,
+    },
     members,
     matches: [upcoming, ...past],
     attendance,

@@ -47,6 +47,13 @@
           "photosPermission": "명단 사진이나 프로필 사진을 올리려면 사진첩 접근이 필요해요.",
           "cameraPermission": "화이트보드나 손으로 쓴 명단을 바로 찍어서 올리려면 카메라 접근이 필요해요."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#3182F6",
+          "defaultChannel": "reminders"
+        }
       ]
     ],
     "experiments": {

@@ -24,7 +24,13 @@ export class SupabaseRepo implements Repo {
     if (teamError) throw teamError;
     if (!teams?.length) throw new Error('NO_TEAM');
 
-    const teamRow = teams[0] as { id: string; name: string; monthly_due: number; invite_code: string };
+    const teamRow = teams[0] as {
+      id: string;
+      name: string;
+      monthly_due: number;
+      invite_code: string;
+      reminder_enabled?: boolean;
+    };
     this.teamId = teamRow.id;
 
     const [members, matches, ledger] = await Promise.all([
@@ -58,6 +64,7 @@ export class SupabaseRepo implements Repo {
         name: teamRow.name,
         monthlyDue: teamRow.monthly_due,
         inviteCode: teamRow.invite_code,
+        reminderEnabled: teamRow.reminder_enabled ?? true,
       },
       members: memberRows,
       matches: (matches.data ?? []).map(fromMatchRow),
@@ -116,7 +123,14 @@ export class SupabaseRepo implements Repo {
 
   saveTeam = (team: Team) =>
     this.run(
-      this.client.from('teams').update({ name: team.name, monthly_due: team.monthlyDue }).eq('id', team.id),
+      this.client
+        .from('teams')
+        .update({
+          name: team.name,
+          monthly_due: team.monthlyDue,
+          reminder_enabled: team.reminderEnabled,
+        })
+        .eq('id', team.id),
     );
 
   saveMember = (member: Member) =>

@@ -132,6 +132,20 @@ supabase functions deploy parse-text
 
 기본 모델은 `claude-opus-5`. 바꾸려면 `supabase secrets set ANTHROPIC_MODEL=...`.
 
+### 3-2-1. 경기 전날 알림 (선택)
+
+경기 전날, **아직 참석 여부를 안 남긴 사람에게만** 알림이 간다. 이미 답한 사람은 받지 않는다.
+
+```bash
+supabase functions deploy send-reminders --no-verify-jwt
+```
+
+그다음 `supabase/schedule_reminders.sql` 을 대시보드 SQL Editor 에서 프로젝트 주소와
+서비스 키를 채워 한 번 실행하면 매일 저녁 8시에 돈다. 켜고 끄는 건 앱 설정 화면의 스위치다.
+
+알림은 **앱에서만** 받는다(웹 푸시는 미구현). 기기 등록은 로그인하면 자동으로 되고,
+설정 화면의 "이 기기 등록" 버튼으로 다시 시도할 수 있다.
+
 ### 3-3. 앱 환경변수
 
 ```bash
@@ -178,6 +192,7 @@ src/
     ai/client.ts          parse-text 호출 / 데모 모드 분기
     ai/demoParser.ts      키 없이 쓰는 규칙 파서
     photo.ts              카메라·사진첩 → 1568px 리사이즈 → base64
+    notifications.ts      푸시 토큰 등록 / 알림 탭 라우팅
     repo/                 저장소 추상화 (local | supabase)
     store.ts              zustand 상태 + 낙관적 갱신
     selectors.ts          집계 (미납자, 랭킹, 참석 통계)
@@ -191,9 +206,12 @@ src/
     lineup/Pitch.tsx      전술판 (잔디 초록 대신 무채색 + 헤어라인)
     auth/                 로그인·팀 연결
 supabase/
-  migrations/             스키마 + RLS
-  functions/parse-text/   Claude 프록시
-  functions/_shared/      프롬프트 · JSON Schema · CORS
+  migrations/                스키마 + RLS
+  tests/rls_test.sql         권한이 의도대로 걸렸는지 확인
+  functions/parse-text/      Claude 프록시
+  functions/send-reminders/  경기 전날 미응답자 알림
+  functions/_shared/         프롬프트 · JSON Schema · CORS
+  schedule_reminders.sql     알림 스케줄 (값을 채워 대시보드에서 실행)
 ```
 
 ### AI 파싱이 도는 방식
@@ -290,6 +308,7 @@ Claude Code 를 쓰면 자동으로 읽는다.
 | supabase-js ↔ 호스팅 프로젝트 왕복 | 실제 프로젝트와 키가 있어야 한다 |
 | Claude Edge Function 호출 | API 키가 있어야 한다 |
 | iOS/Android 스토어 빌드 | Expo Go 로는 확인 가능하지만 EAS 빌드는 안 돌려봤다 |
+| 푸시 알림 실제 전송 | 대상 선정 로직은 검증했지만 Expo 게이트웨이 왕복은 못 해봤다 |
 
 **확인된 것**
 
@@ -299,6 +318,8 @@ Claude Code 를 쓰면 자동으로 읽는다.
 - RLS 전체 — 팀 격리, 운영진/선수 쓰기 권한, 참석은 본인 것만 수정,
   `create_team`/`join_team` RPC, 회비 부분 납부, 사진 버킷 정책
   (`supabase/tests/rls_test.sql`, 위 3-1-1 참고)
+- 알림 대상 선정 — 미응답자만 뽑히는지, 이미 답한 사람은 빠지는지, 중복 발송이
+  막히는지, 팀 스위치가 먹는지, 앱에서는 대상 조회가 막히는지
 
 ## 8. 막혔을 때
 
@@ -326,7 +347,6 @@ Supabase **Authentication > Providers > Email** 에서 Email 이 켜져 있는�
 
 ## 9. 다음에 붙일 만한 것
 
-- 경기 전날 미응답자에게 푸시 알림 (`expo-notifications` + Supabase 스케줄러)
 - 회비 미납자 자동 리마인드 문구 생성
 - 음성 입력 — 운동장에서 말로 기록. 받아쓴 뒤 같은 파이프라인 재사용
 - 카톡 공유시트 연동 — 대화를 길게 눌러 앱으로 바로 보내기 (네이티브 빌드 필요)

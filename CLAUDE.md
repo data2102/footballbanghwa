@@ -15,6 +15,7 @@
 
 ```bash
 npm run web        # 모바일 웹 개발 서버 (가장 자주 쓴다)
+npm run db:test    # 로컬 Supabase 에 RLS 테스트 (supabase start 필요)
 npm start          # Expo 개발 서버, QR 찍어 Expo Go 로 실기기 확인
 npm run typecheck  # tsc --noEmit
 npm run build:web  # 정적 웹 번들 (dist/)
@@ -84,6 +85,19 @@ npm run typecheck && npm run build:web
 - 화면당 채운 파란 버튼은 하나. 나머지는 `tone="neutral"`.
 - 화면당 큰 숫자(`Hero`)는 하나. 그 화면에서 제일 알고 싶은 것 하나만 키운다.
 
+### 함수 권한은 PUBLIC 부터 걷어낸다
+
+Postgres 는 새 함수의 EXECUTE 를 **PUBLIC 에 기본으로 준다.** `revoke ... from anon` 만
+해서는 아무것도 막히지 않는다. security definer 함수를 만들면 반드시:
+
+```sql
+revoke all on function public.어떤함수(인자) from public, anon, authenticated;
+grant execute on function public.어떤함수(인자) to service_role;
+```
+
+이걸 빠뜨려서 모든 팀의 기기 토큰이 열린 적이 있다. `supabase/tests/rls_test.sql` 에
+"앱에서는 못 부른다" 케이스를 넣어 두면 다음에 잡힌다.
+
 ## 자주 걸리는 것
 
 - **`EXPO_PUBLIC_` 접두사가 붙은 값만 앱 번들에 들어간다.** Anthropic 키는 절대 `.env` 에 넣지
@@ -94,6 +108,8 @@ npm run typecheck && npm run build:web
   네이티브 번들에 넣으면 모바일 웹이 느려진다. 네이티브는 시스템 한글 폰트를 쓴다.
 - **`app.json` 을 직접 고치되 `app.config.js` 는 건드리지 않는다.** 후자는 데모 빌드에서
   웹 출력 방식만 바꾸는 얇은 껍데기다.
+- **새 레코드의 id 는 UUID 여야 한다.** 테이블의 id 컬럼이 전부 `uuid` 라서 아무 문자열이나
+  넣으면 insert 가 막힌다. `uid()`(`src/lib/format.ts`)를 쓰고 직접 만들지 않는다.
 - 시드 데이터(`src/lib/seed.ts`)는 결정적이어야 한다. `Math.random()` 을 쓰면 앱을 열 때마다
   출석률이 달라져서 화면 확인이 안 된다.
 

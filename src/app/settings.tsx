@@ -12,10 +12,12 @@ import {
   Row,
   Screen,
   SectionHeader,
+  Toggle,
   Txt,
   radius,
   space,
 } from '@/components/ui';
+import { registerForReminders } from '@/lib/notifications';
 import { usePalette } from '@/theme';
 import type { PositionGroup } from '@/lib/types';
 
@@ -73,6 +75,7 @@ export default function SettingsScreen() {
   const [matchDate, setMatchDate] = useState(todayISO());
   const [matchVenue, setMatchVenue] = useState('');
   const [matchKickoff, setMatchKickoff] = useState('07:00');
+  const [deviceNote, setDeviceNote] = useState<string | null>(null);
 
   if (!data) return null;
 
@@ -96,6 +99,37 @@ export default function SettingsScreen() {
               {data.team.inviteCode}
             </Txt>
           </Row>
+        ) : null}
+      </Card>
+
+      <SectionHeader title="알림" />
+      <Card>
+        <Toggle
+          label="경기 전날 알림 보내기"
+          help="아직 참석 여부를 안 남긴 사람에게만 갑니다. 이미 답한 사람은 받지 않아요."
+          value={data.team.reminderEnabled}
+          onChange={(next) => updateTeam({ reminderEnabled: next })}
+        />
+        {data.team.reminderEnabled ? (
+          <>
+            <Divider />
+            <Row justify="space-between">
+              <View style={{ flex: 1 }}>
+                <Txt variant="small" muted>
+                  {deviceNote ?? '이 기기에서 알림을 받으려면 권한을 켜주세요.'}
+                </Txt>
+              </View>
+              <Button
+                label="이 기기 등록"
+                tone="neutral"
+                small
+                onPress={async () => {
+                  const result = await registerForReminders();
+                  setDeviceNote(result.ok ? '이 기기로 알림이 와요.' : result.reason ?? null);
+                }}
+              />
+            </Row>
+          </>
         ) : null}
       </Card>
 

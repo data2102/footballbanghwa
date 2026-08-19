@@ -375,6 +375,59 @@ const styles = StyleSheet.create({
   screen: { padding: space.lg, gap: space.md, flexGrow: 1 },
 });
 
+/** 켜고 끄는 스위치. 라벨을 눌러도 토글된다(터치 타겟 44px 확보). */
+export function Toggle({
+  label,
+  help,
+  value,
+  onChange,
+}: {
+  label: string;
+  help?: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const p = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={label}
+      onPress={() => onChange(!value)}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg, minHeight: 44 }}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt variant="h3">{label}</Txt>
+        {help ? (
+          <Txt variant="tiny" muted>
+            {help}
+          </Txt>
+        ) : null}
+      </View>
+      <View
+        style={{
+          width: 44,
+          height: 26,
+          borderRadius: radius.pill,
+          padding: 3,
+          backgroundColor: value ? p.primary : p.borderStrong,
+          justifyContent: 'center',
+        }}
+      >
+        <View
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: 10,
+            backgroundColor: p.surface,
+            transform: [{ translateX: value ? 18 : 0 }],
+          }}
+        />
+      </View>
+    </Pressable>
+  );
+}
+
 /** 진행률 막대. 회비 걷힌 비율처럼 "몇 분의 몇"이 한눈에 보여야 할 때. */
 export function Progress({ value }: { value: number }) {
   const p = usePalette();
