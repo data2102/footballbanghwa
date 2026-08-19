@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "db:push": "supabase db push",
-    "fn:deploy": "supabase functions deploy parse-text"
+    "fn:deploy": "supabase functions deploy parse-text",
+    "build:demo": "EXPO_WEB_OUTPUT=single expo export --platform web --output-dir dist-demo && node scripts/build-demo.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
