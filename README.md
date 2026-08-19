@@ -132,6 +132,15 @@ supabase functions deploy parse-text
 
 기본 모델은 `claude-opus-5`. 바꾸려면 `supabase secrets set ANTHROPIC_MODEL=...`.
 
+### 3-2-0. 회비 안내 문구 만들기
+
+미납자에게 보낼 문구를 Claude 가 써 준다. 회비 화면에서 미납 인원을 본 자리에서 바로 누른다.
+이름을 넣을지 인원수만 쓸지 고를 수 있고, 나온 문구는 화면에서 고친 뒤 복사한다.
+
+```bash
+supabase functions deploy compose-message
+```
+
 ### 3-2-1. 경기 전날 알림 (선택)
 
 경기 전날, **아직 참석 여부를 안 남긴 사람에게만** 알림이 간다. 이미 답한 사람은 받지 않는다.
@@ -191,6 +200,7 @@ src/
     ai/contract.ts        앱 ↔ Edge Function 계약 (스키마와 짝을 이룸)
     ai/client.ts          parse-text 호출 / 데모 모드 분기
     ai/demoParser.ts      키 없이 쓰는 규칙 파서
+    ai/compose.ts         회비 안내 문구 생성 호출 / 데모 틀
     photo.ts              카메라·사진첩 → 1568px 리사이즈 → base64
     notifications.ts      푸시 토큰 등록 / 알림 탭 라우팅
     repo/                 저장소 추상화 (local | supabase)
@@ -210,6 +220,7 @@ supabase/
   tests/rls_test.sql         권한이 의도대로 걸렸는지 확인
   functions/parse-text/      Claude 프록시
   functions/send-reminders/  경기 전날 미응답자 알림
+  functions/compose-message/ 회비 안내 문구 생성
   functions/_shared/         프롬프트 · JSON Schema · CORS
   schedule_reminders.sql     알림 스케줄 (값을 채워 대시보드에서 실행)
 ```
@@ -347,7 +358,6 @@ Supabase **Authentication > Providers > Email** 에서 Email 이 켜져 있는�
 
 ## 9. 다음에 붙일 만한 것
 
-- 회비 미납자 자동 리마인드 문구 생성
 - 음성 입력 — 운동장에서 말로 기록. 받아쓴 뒤 같은 파이프라인 재사용
 - 카톡 공유시트 연동 — 대화를 길게 눌러 앱으로 바로 보내기 (네이티브 빌드 필요)
 - 팀 여러 개 전환 (스키마와 RPC는 이미 다중 팀을 지원한다)

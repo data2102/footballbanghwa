@@ -19,6 +19,7 @@ import {
   space,
 } from '@/components/ui';
 import { QuickInputFab } from '@/components/QuickInputFab';
+import { ReminderComposer } from '@/features/finance/ReminderComposer';
 import { usePalette } from '@/theme';
 
 type Tab = 'dues' | 'ledger';
@@ -85,7 +86,14 @@ export default function FinanceScreen() {
         />
 
         {tab === 'dues' ? (
-          <Card style={{ padding: space.sm, gap: 0 }}>
+          <>
+            <ReminderComposer
+              teamName={data.team.name}
+              period={period}
+              monthlyDue={data.team.monthlyDue}
+              unpaid={unpaid}
+            />
+            <Card style={{ padding: space.sm, gap: 0 }}>
             {dues.map((row, index) => {
               const done = row.outstanding === 0;
               return (
@@ -125,7 +133,8 @@ export default function FinanceScreen() {
               );
             })}
             {dues.length === 0 ? <Empty text="아직 회원이 없어요." /> : null}
-          </Card>
+            </Card>
+          </>
         ) : (
           <Card style={{ padding: space.sm, gap: 0 }}>
             {ledgerRows.length === 0 ? (
