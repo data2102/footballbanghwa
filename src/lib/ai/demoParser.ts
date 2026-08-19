@@ -144,7 +144,7 @@ export function demoParse(request: ParseRequest): ParseResponse {
     unmatched: [...unmatched],
     summary:
       deduped.length === 0
-        ? '데모 파서로는 읽어내지 못했습니다. Supabase를 연결하면 Claude가 훨씬 자유로운 문장을 처리합니다.'
-        : `데모 파서 결과 ${deduped.length}건입니다. 실제 배포 시에는 Claude가 분석합니다.`,
+        ? '데모 파서로는 못 읽었어요. Supabase를 연결하면 Claude가 훨씬 자유로운 문장도 읽어요.'
+        : `규칙 파서로 ${deduped.length}건 읽었어요. Supabase를 연결하면 Claude가 분석해요.`,
   };
 }

@@ -49,3 +49,4 @@ example
 # supabase cli
 supabase/.temp/
 supabase/.branches/
+dist-demo/

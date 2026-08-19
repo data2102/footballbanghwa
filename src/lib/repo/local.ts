@@ -14,8 +14,20 @@ export class LocalRepo implements Repo {
   readonly kind = 'local' as const;
   private cache: AppData | null = null;
 
+  /**
+   * 저장소를 쓸 수 없는 환경(사파리 프라이빗, iframe 안, 용량 초과)에서는
+   * 메모리에만 들고 간다. 저장이 안 된다고 앱이 안 뜨면 안 된다.
+   */
+  private persistent = true;
+
   async load(): Promise<AppData> {
-    const raw = await AsyncStorage.getItem(KEY);
+    let raw: string | null = null;
+    try {
+      raw = await AsyncStorage.getItem(KEY);
+    } catch {
+      this.persistent = false;
+    }
+
     if (raw) {
       try {
         this.cache = JSON.parse(raw) as AppData;
@@ -30,7 +42,13 @@ export class LocalRepo implements Repo {
   }
 
   private async flush(): Promise<void> {
-    if (this.cache) await AsyncStorage.setItem(KEY, JSON.stringify(this.cache));
+    if (!this.cache || !this.persistent) return;
+    try {
+      await AsyncStorage.setItem(KEY, JSON.stringify(this.cache));
+    } catch {
+      // 한 번 실패하면 이후로는 시도하지 않는다. 매 입력마다 예외를 던질 이유가 없다.
+      this.persistent = false;
+    }
   }
 
   private async mutate(fn: (data: AppData) => void): Promise<void> {
