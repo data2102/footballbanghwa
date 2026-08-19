@@ -3,6 +3,7 @@ import { TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { blankMemberFields, useStore } from '@/lib/store';
 import { isLocalRepo } from '@/lib/repo';
+import { supabase } from '@/lib/supabase';
 import { formatDate, todayISO } from '@/lib/format';
 import {
   Button,
@@ -237,6 +238,22 @@ export default function SettingsScreen() {
             </View>
           ))}
       </Card>
+
+      {!isLocalRepo ? (
+        <Card>
+          <Txt variant="h3">계정</Txt>
+          <Txt variant="tiny" muted>
+            로그아웃하면 이 기기에서 팀 데이터가 보이지 않아요. 데이터는 서버에 그대로 남아요.
+          </Txt>
+          <Button
+            label="로그아웃"
+            tone="neutral"
+            onPress={async () => {
+              await supabase?.auth.signOut();
+            }}
+          />
+        </Card>
+      ) : null}
 
       {isLocalRepo ? (
         <Card style={{ backgroundColor: p.warnSoft, borderColor: p.warnSoft }}>

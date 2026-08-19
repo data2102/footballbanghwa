@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { authRedirectUrl } from '@/lib/links';
 import { useStore } from '@/lib/store';
 import { Button, Card, Row, Screen, Txt, radius, space } from '@/components/ui';
 import { usePalette } from '@/theme';
@@ -15,7 +16,10 @@ function explain(message: string): string {
     return '메일을 너무 자주 보냈어요. 한 시간쯤 뒤에 다시 시도하거나, Supabase 에 자체 SMTP 를 연결해 주세요.';
   }
   if (lower.includes('invalid') && lower.includes('token')) {
-    return '코드가 맞지 않아요. 가장 최근에 온 메일의 코드인지 확인해 주세요.';
+    return '코드가 맞지 않아요. 가장 최근에 온 메일의 코드인지 확인해 주세요. 코드가 안 왔다면 메일의 링크를 눌러 주세요.';
+  }
+  if (lower.includes('redirect') || lower.includes('not allowed')) {
+    return '돌아올 주소가 Supabase 에 등록돼 있지 않아요. Authentication > URL Configuration 의 Redirect URLs 를 확인해 주세요.';
   }
   if (lower.includes('expired')) {
     return '코드가 만료됐어요. 인증코드를 다시 받아 주세요.';
@@ -30,8 +34,15 @@ function explain(message: string): string {
 }
 
 /**
- * 이메일 OTP 로그인.
- * 매직링크 대신 6자리 코드를 쓴다. 딥링크 설정 없이 웹·iOS·Android에서 똑같이 동작한다.
+ * 이메일 로그인.
+ *
+ * 길은 두 개고, 메일 한 통에 둘 다 온다.
+ *  1) 메일의 링크를 누른다 — 아무것도 옮겨 적지 않아도 된다. 대신 돌아올 주소를
+ *     Supabase 에 등록해 둬야 한다(Authentication > URL Configuration).
+ *  2) 6자리 코드를 넣는다 — 메일 템플릿에 {{ .Token }} 이 들어 있어야 코드가 온다.
+ *
+ * 링크를 먼저 안내하는 이유는, Supabase 기본 템플릿에 코드가 없어서 2번만 두면
+ * 아무리 기다려도 로그인할 수 없는 상태가 되기 때문이다. 실제로 그렇게 막혔었다.
  */
 export function AuthGate() {
   const p = usePalette();
@@ -57,7 +68,7 @@ export function AuthGate() {
     setError(null);
     const { error: caught } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: true, emailRedirectTo: authRedirectUrl() },
     });
     if (caught) setError(explain(caught.message));
     else setSent(true);
@@ -102,8 +113,12 @@ export function AuthGate() {
         />
         {sent ? (
           <>
+            <Txt variant="small">메일을 보냈어요.</Txt>
             <Txt variant="tiny" muted>
-              메일로 받은 6자리 코드
+              메일 안의 링크를 누르면 그대로 로그인돼요. 옮겨 적을 게 없어요.
+            </Txt>
+            <Txt variant="tiny" muted>
+              코드가 함께 왔다면 아래에 넣어도 돼요.
             </Txt>
             <TextInput
               value={code}
@@ -123,11 +138,17 @@ export function AuthGate() {
                   setCode('');
                 }}
               />
-              <Button label="로그인" style={{ flex: 2 }} loading={busy} onPress={verify} />
+              <Button
+                label="코드로 로그인"
+                style={{ flex: 2 }}
+                disabled={code.trim().length < 6}
+                loading={busy}
+                onPress={verify}
+              />
             </Row>
           </>
         ) : (
-          <Button label="인증코드 받기" loading={busy} onPress={send} />
+          <Button label="로그인 메일 받기" loading={busy} onPress={send} />
         )}
         {error ? (
           <Txt variant="small" color={p.danger}>

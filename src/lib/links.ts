@@ -29,5 +29,17 @@ export function voteUrl(token: string): string {
   return origin ? `${origin}/vote?t=${token}` : Linking.createURL('/vote', { queryParams: { t: token } });
 }
 
+/**
+ * 로그인 메일의 링크가 되돌아올 주소.
+ *
+ * 이 값을 안 넘기면 Supabase 가 Site URL(기본값 localhost:3000)로 보낸다.
+ * 그러면 메일의 링크를 눌러도 아무 데도 도착하지 않는다 — 실제로 그렇게 막혔었다.
+ * 이 주소는 Supabase 의 Authentication > URL Configuration 의 Redirect URLs 에도 있어야 한다.
+ */
+export function authRedirectUrl(): string {
+  const origin = webOrigin();
+  return origin ? `${origin}/` : Linking.createURL('/');
+}
+
 /** 이 링크를 눌러도 웹으로 안 열리는 상황인지. 화면에서 안내 문구를 가를 때 쓴다. */
 export const hasWebOrigin = Platform.OS === 'web' || Boolean(PUBLIC_WEB_URL);

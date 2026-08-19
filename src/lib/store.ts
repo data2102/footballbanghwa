@@ -34,6 +34,8 @@ type Store = {
   activeMatchId: string | null;
 
   load: () => Promise<void>;
+  /** 로그인 상태 변화를 지켜본다. 정리 함수를 돌려주므로 화면에서 그대로 해제한다. */
+  watchAuth: () => () => void;
   setActiveMatch: (matchId: string) => void;
 
   setAttendance: (
@@ -102,6 +104,26 @@ export const useStore = create<Store>((set, get) => ({
         error: error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.',
       });
     }
+  },
+
+  /**
+   * 메일의 로그인 링크를 누르고 돌아오면 세션은 주소(URL)에서 늦게 잡힌다.
+   * 그때 이미 load() 는 끝나서 "로그인 안 됨"으로 굳어 있으므로, 여기서 다시 읽어야 한다.
+   * 이게 없으면 로그인에 성공하고도 로그인 화면에 그대로 머문다.
+   */
+  watchAuth: () => {
+    if (!supabase) return () => {};
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        if (get().status !== 'ready') get().load();
+        return;
+      }
+      // 세션이 사라졌는데 화면은 팀 데이터를 들고 있으면 안 된다.
+      if (get().status === 'ready' || get().status === 'no-team') {
+        set({ status: 'signed-out', data: null, activeMatchId: null });
+      }
+    });
+    return () => data.subscription.unsubscribe();
   },
 
   setActiveMatch: (matchId) => set({ activeMatchId: matchId }),

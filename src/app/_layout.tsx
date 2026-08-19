@@ -17,6 +17,7 @@ export default function RootLayout() {
   const status = useStore((state) => state.status);
   const error = useStore((state) => state.error);
   const load = useStore((state) => state.load);
+  const watchAuth = useStore((state) => state.watchAuth);
   const registered = useRef(false);
   const segments = useSegments();
 
@@ -30,6 +31,9 @@ export default function RootLayout() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // 메일 링크로 로그인하고 돌아오는 경로. 세션이 늦게 잡혀도 화면이 따라간다.
+  useEffect(() => watchAuth(), [watchAuth]);
 
   // 로그인하고 팀까지 붙은 뒤에 기기를 등록한다. 실패해도 앱은 그대로 쓴다.
   useEffect(() => {
