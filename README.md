@@ -36,7 +36,7 @@ AI 파싱은 간단한 규칙 파서(`src/lib/ai/demoParser.ts`)가 대신한다
 
 ## 2. 맥북에서 시작하기
 
-필요한 것은 **Node 20.12 이상**(22 LTS 권장)과 npm 뿐이다. `node -v` 로 먼저 확인한다 —
+필요한 것은 **Node 20.12 이상**(nodejs.org 의 최신 LTS 권장)과 npm 뿐이다. `node -v` 로 먼저 확인한다 —
 낡은 Node 는 `.env` 를 만든 뒤에야 터져서 원인을 찾기 어렵다. Supabase CLI 도 저장소에 들어 있어서
 따로 깔지 않는다(Homebrew 불필요).
 
@@ -363,10 +363,14 @@ node -v          # v20.12 미만이면 올려야 한다
 
 올리는 법 (셋 중 하나):
 - [nodejs.org](https://nodejs.org) 에서 macOS 설치 파일 받기 — 가장 확실하다
-- nvm 이 있으면 `nvm install 22 && nvm use 22 && nvm alias default 22`
+- nvm 이 있으면 `nvm install --lts && nvm use --lts && nvm alias default lts/*`
 - conda 를 쓰고 있으면 `conda install -c conda-forge 'nodejs>=22'`
 
 올린 뒤 **터미널을 새로 열고** `node -v` 로 확인한 다음 `npm install` 을 다시 돌린다.
+
+설치했는데도 `node -v` 가 그대로면 다른 node 가 PATH 앞에 있는 것이다.
+`which node` 로 어느 것이 잡히는지 본다 — 경로에 `conda` 나 `miniconda` 가 보이면
+conda 쪽 node 가 이기고 있다. `conda deactivate` 후 다시 확인하거나 conda 쪽을 올린다.
 
 **`zsh: command not found: brew` 또는 `supabase`**
 Homebrew 를 깔 필요가 없다. `npm install` 이 끝났으면 `npx supabase ...` 로 부른다.
