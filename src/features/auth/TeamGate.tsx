@@ -63,14 +63,14 @@ export function TeamGate() {
         <Txt variant="tiny" muted>
           내 이름 (명단에 표시됩니다)
         </Txt>
-        <TextInput value={myName} onChangeText={setMyName} placeholder="홍길동" placeholderTextColor={p.textMuted} style={input} />
+        <TextInput value={myName} onChangeText={setMyName} placeholder="홍길동" placeholderTextColor={p.textFaint} style={input} />
 
         {mode === 'create' ? (
           <>
             <Txt variant="tiny" muted>
               팀 이름
             </Txt>
-            <TextInput value={teamName} onChangeText={setTeamName} placeholder="방화 FC" placeholderTextColor={p.textMuted} style={input} />
+            <TextInput value={teamName} onChangeText={setTeamName} placeholder="방화 FC" placeholderTextColor={p.textFaint} style={input} />
             <Txt variant="tiny" muted>
               월 회비 (원)
             </Txt>
@@ -86,7 +86,7 @@ export function TeamGate() {
               onChangeText={setInviteCode}
               autoCapitalize="characters"
               placeholder="ABC123"
-              placeholderTextColor={p.textMuted}
+              placeholderTextColor={p.textFaint}
               style={input}
             />
           </>

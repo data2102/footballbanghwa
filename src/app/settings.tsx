@@ -48,7 +48,7 @@ function Field({
         onChangeText={onChangeText}
         keyboardType={keyboardType}
         placeholder={placeholder}
-        placeholderTextColor={p.textMuted}
+        placeholderTextColor={p.textFaint}
         style={{
           backgroundColor: p.surfaceAlt,
           borderRadius: radius.md,

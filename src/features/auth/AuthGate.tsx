@@ -107,7 +107,7 @@ export function AuthGate() {
           autoCapitalize="none"
           keyboardType="email-address"
           placeholder="you@example.com"
-          placeholderTextColor={p.textMuted}
+          placeholderTextColor={p.textFaint}
           editable={!sent}
           style={input}
         />
@@ -125,7 +125,7 @@ export function AuthGate() {
               onChangeText={setCode}
               keyboardType="number-pad"
               placeholder="000000"
-              placeholderTextColor={p.textMuted}
+              placeholderTextColor={p.textFaint}
               style={input}
             />
             <Row gap={space.sm}>
