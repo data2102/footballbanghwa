@@ -187,6 +187,23 @@ npm run web
 > 반대로 `service_role` / `secret` 키와 Anthropic 키는 절대 `.env` 에 넣지 않는다 —
 > `EXPO_PUBLIC_` 이 붙은 값은 전부 앱에 실려 나간다. 그 둘은 Edge Function 시크릿으로만 관리한다.
 
+### 3-3-1. 로그인 메일에 코드 넣기 (안 하면 로그인이 안 된다)
+
+Supabase 의 기본 메일 템플릿에는 **링크만 있고 6자리 코드가 없다.** 앱은 코드를 받아
+`verifyOtp` 로 로그인하므로 템플릿에 `{{ .Token }}` 을 넣어야 한다.
+
+대시보드 > **Authentication > Emails** > **Magic Link** 탭에서 본문을 이렇게 바꾼다.
+
+```html
+<h2>우리팀 매니저 로그인</h2>
+<p>아래 6자리 코드를 앱에 입력해 주세요.</p>
+<p style="font-size:28px;letter-spacing:6px;font-weight:600;margin:24px 0">{{ .Token }}</p>
+<p style="color:#8b95a1;font-size:13px">본인이 요청한 게 아니라면 이 메일은 무시하셔도 돼요.</p>
+```
+
+메일 안의 링크를 눌러도 로그인되지 않는다. 일부러 그렇게 뒀다 — 링크 로그인은 앱마다
+딥링크 설정이 달라서, 웹·iOS·안드로이드에서 똑같이 도는 6자리 코드 하나로 통일했다.
+
 ### 3-4. 붙었는지 확인하기
 
 1. `npm run web` → 노란 데모 배너가 **사라지고** 로그인 화면이 뜬다
@@ -385,9 +402,13 @@ Homebrew 를 깔 필요가 없다. `npm install` 이 끝났으면 `npx supabase 
 **웹은 되는데 Expo Go 에서 하얀 화면**
 폰과 맥이 같은 와이파이에 있어야 한다. 안 되면 `npx expo start --tunnel`.
 
-**로그인 메일이 안 온다**
+**로그인 메일은 오는데 6자리 코드가 없다**
+기본 템플릿에 코드가 없어서다. 위 3-3-1 을 따라 `{{ .Token }}` 을 넣는다.
+
+**로그인 메일이 아예 안 온다**
 Supabase **Authentication > Providers > Email** 에서 Email 이 켜져 있는지, 스팸함도 본다.
-무료 티어는 시간당 발송 수 제한이 있다.
+무료 티어는 시간당 발송 수 제한이 있다(기본 몇 건 수준이라 테스트하다 금방 걸린다).
+많이 보내야 하면 **Authentication > Emails > SMTP Settings** 에 자기 SMTP 를 연결한다.
 
 **로그인은 됐는데 "팀 정보를 먼저 불러와야 합니다"**
 `supabase db push` 가 안 돌았거나 실패한 경우다. `supabase db push --dry-run` 으로 확인한다.
