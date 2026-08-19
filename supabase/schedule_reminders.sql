@@ -4,11 +4,11 @@
 -- Supabase 대시보드 > SQL Editor 에 붙여넣고 <> 부분을 채워서 한 번 실행한다.
 --
 -- 먼저 함수를 배포해 둔다:
---   supabase functions deploy send-reminders --no-verify-jwt
+--   npm run fn:deploy
 --
--- --no-verify-jwt 인 이유: 사용자가 아니라 스케줄러가 부르기 때문이다.
--- 대신 서비스 키를 헤더에 실어 보내고, 함수가 쓰는 pending_reminders() 는
--- service_role 에만 열려 있다.
+-- send-reminders 는 사용자가 아니라 스케줄러가 부르므로 JWT 검사를 끈다
+-- (supabase/config.toml 에 설정돼 있다). 대신 서비스 키를 헤더에 실어 보내고,
+-- 함수가 쓰는 pending_reminders() 는 service_role 에만 열려 있다.
 
 create extension if not exists pg_cron with schema extensions;
 create extension if not exists pg_net  with schema extensions;

@@ -123,34 +123,27 @@ npm run db:test
 확인한다. 결과에 `f` 가 하나라도 있으면 RLS 가 의도와 다른 것이다.
 마이그레이션을 고쳤으면 push 전에 돌린다.
 
-### 3-2. Claude 파서 배포
+### 3-2. Edge Function 배포
 
 ```bash
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-supabase functions deploy parse-text
+npm run fn:deploy
 ```
+
+세 함수가 한 번에 올라간다. 함수별 인증 설정은 `supabase/config.toml` 에 있어서 배포할 때
+플래그를 따로 줄 필요가 없다.
+
+| 함수 | 하는 일 |
+|---|---|
+| `parse-text` | 문자·사진을 읽어 구조화된 항목으로 바꾼다 |
+| `compose-message` | 미납자에게 보낼 회비 안내 문구를 쓴다 |
+| `send-reminders` | 경기 전날, 아직 답 안 한 사람에게만 알림을 보낸다 |
 
 기본 모델은 `claude-opus-5`. 바꾸려면 `supabase secrets set ANTHROPIC_MODEL=...`.
 
-### 3-2-0. 회비 안내 문구 만들기
-
-미납자에게 보낼 문구를 Claude 가 써 준다. 회비 화면에서 미납 인원을 본 자리에서 바로 누른다.
-이름을 넣을지 인원수만 쓸지 고를 수 있고, 나온 문구는 화면에서 고친 뒤 복사한다.
-
-```bash
-supabase functions deploy compose-message
-```
-
-### 3-2-1. 경기 전날 알림 (선택)
-
-경기 전날, **아직 참석 여부를 안 남긴 사람에게만** 알림이 간다. 이미 답한 사람은 받지 않는다.
-
-```bash
-supabase functions deploy send-reminders --no-verify-jwt
-```
-
-그다음 `supabase/schedule_reminders.sql` 을 대시보드 SQL Editor 에서 프로젝트 주소와
-서비스 키를 채워 한 번 실행하면 매일 저녁 8시에 돈다. 켜고 끄는 건 앱 설정 화면의 스위치다.
+**알림 스케줄은 한 번 더 손이 간다.** `supabase/schedule_reminders.sql` 을 대시보드
+SQL Editor 에서 프로젝트 주소와 서비스 키를 채워 실행하면 매일 저녁 8시에 돈다.
+프로젝트마다 값이 달라서 마이그레이션에 넣을 수 없다. 켜고 끄는 건 앱 설정 화면의 스위치다.
 
 알림은 **앱에서만** 받는다(웹 푸시는 미구현). 기기 등록은 로그인하면 자동으로 되고,
 설정 화면의 "이 기기 등록" 버튼으로 다시 시도할 수 있다.
@@ -255,7 +248,7 @@ npm run typecheck   # tsc --noEmit
 npm run build:web   # 정적 웹 번들 (dist/)
 npm run db:push     # supabase db push
 npm run db:test     # 로컬 Supabase 에 RLS 테스트 (supabase start 필요)
-npm run fn:deploy   # parse-text 배포
+npm run fn:deploy   # Edge Function 3개 배포
 npm run build:demo  # 공유용 단일 파일 (dist-demo/demo.html)
 ```
 

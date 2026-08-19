@@ -31,3 +31,12 @@ enable_confirmations = true
 [functions.parse-text]
 # 로그인한 사용자만 AI 파서를 호출할 수 있다.
 verify_jwt = true
+
+[functions.compose-message]
+# 회비 안내 문구도 팀원만 만든다.
+verify_jwt = true
+
+[functions.send-reminders]
+# 사용자가 아니라 스케줄러가 부른다. JWT 가 없는 대신 서비스 키를 헤더에 싣고,
+# 이 함수가 쓰는 pending_reminders() 는 service_role 에만 열려 있다.
+verify_jwt = false
