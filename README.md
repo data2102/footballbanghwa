@@ -109,6 +109,20 @@ supabase db push                            # supabase/migrations 적용
 `db push` 는 프로필 사진용 비공개 버킷(`member-photos`)과 그 RLS 정책도 같이 만든다.
 경로가 `<team_id>/<member_id>.jpg` 라서 첫 폴더 이름만 보고 같은 팀 사람인지 판별한다.
 
+### 3-1-1. 스키마가 의도대로 도는지 확인 (선택이지만 권장)
+
+RLS 는 화면으로 확인할 수 없다 — 권한이 과하게 열려 있어도 앱은 멀쩡히 동작한다.
+로컬 Supabase 를 띄우고 테스트를 돌리면 한 번에 본다. Docker 가 필요하다.
+
+```bash
+supabase start
+npm run db:test
+```
+
+팀 격리, 운영진/선수 쓰기 권한, 참석은 본인 것만 수정, 회비 부분 납부, 사진 버킷 정책을
+확인한다. 결과에 `f` 가 하나라도 있으면 RLS 가 의도와 다른 것이다.
+마이그레이션을 고쳤으면 push 전에 돌린다.
+
 ### 3-2. Claude 파서 배포
 
 ```bash
@@ -211,6 +225,7 @@ npm run android     # Android 에뮬레이터
 npm run typecheck   # tsc --noEmit
 npm run build:web   # 정적 웹 번들 (dist/)
 npm run db:push     # supabase db push
+npm run db:test     # 로컬 Supabase 에 RLS 테스트 (supabase start 필요)
 npm run fn:deploy   # parse-text 배포
 npm run build:demo  # 공유용 단일 파일 (dist-demo/demo.html)
 ```
@@ -272,12 +287,18 @@ Claude Code 를 쓰면 자동으로 읽는다.
 | 항목 | 왜 |
 |---|---|
 | 사진 파싱 (손글씨 명단·작전판·은행 캡처) | Claude 를 붙여야 확인된다. 데모 모드에는 없다 |
-| Supabase 원격 모드 전체 | 이 저장소를 만든 환경에 Supabase 프로젝트가 없었다 |
-| iOS/Android 네이티브 빌드 | Expo Go 로는 확인 가능하지만 스토어 빌드는 안 돌려봤다 |
-| 프로필 사진 업로드 | 스토리지 버킷이 있어야 한다 |
+| supabase-js ↔ 호스팅 프로젝트 왕복 | 실제 프로젝트와 키가 있어야 한다 |
+| Claude Edge Function 호출 | API 키가 있어야 한다 |
+| iOS/Android 스토어 빌드 | Expo Go 로는 확인 가능하지만 EAS 빌드는 안 돌려봤다 |
 
-확인된 것: 타입 검사, 웹 번들, 전 화면 렌더링, 문자 입력 → 분석 → 저장 → 반영 흐름
-(규칙 파서 기준), 6개 탭 이동, 회원 상세 진입.
+**확인된 것**
+
+- 타입 검사, 웹 번들, 전 화면 렌더링, 6개 탭 이동, 회원 상세 진입
+- 문자 입력 → 분석 → 저장 → 반영 흐름 (규칙 파서 기준)
+- 마이그레이션 3개가 빈 Postgres 에 그대로 적용된다
+- RLS 전체 — 팀 격리, 운영진/선수 쓰기 권한, 참석은 본인 것만 수정,
+  `create_team`/`join_team` RPC, 회비 부분 납부, 사진 버킷 정책
+  (`supabase/tests/rls_test.sql`, 위 3-1-1 참고)
 
 ## 8. 막혔을 때
 
