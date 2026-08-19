@@ -36,7 +36,8 @@ AI 파싱은 간단한 규칙 파서(`src/lib/ai/demoParser.ts`)가 대신한다
 
 ## 2. 맥북에서 시작하기
 
-필요한 것은 **Node 20 이상**(22 권장)과 npm 뿐이다. 나머지는 나중에 필요할 때 깔면 된다.
+필요한 것은 **Node 20 이상**(22 권장)과 npm 뿐이다. Supabase CLI 도 저장소에 들어 있어서
+따로 깔지 않는다(Homebrew 불필요).
 
 ```bash
 git clone https://github.com/data2102/footballbanghwa.git
@@ -93,12 +94,20 @@ git push -u origin main
 
 ### 3-1. 스키마 반영
 
+Supabase CLI 는 이 저장소에 devDependency 로 들어 있다. Homebrew 를 깔 필요가 없고
+`npm install` 만 했으면 바로 쓴다.
+
 ```bash
-brew install supabase/tap/supabase          # 맥 기준
-supabase login
-supabase link --project-ref <프로젝트 ref>
-supabase db push                            # supabase/migrations 적용
+npx supabase login
+npx supabase link --project-ref abcdefghijklmnop   # 자기 프로젝트 ref 로 바꾼다
+npm run db:push
 ```
+
+`--project-ref` 에 넣을 값은 대시보드 주소에 있다.
+`supabase.com/dashboard/project/**여기가-ref**/settings/general`
+
+`link` 은 **DB 비밀번호**를 물어본다. 프로젝트를 만들 때 정한 그 값이다.
+잊었으면 Settings > Database > Reset database password 에서 새로 만들면 된다.
 
 `db push`가 만드는 것:
 
@@ -115,7 +124,7 @@ RLS 는 화면으로 확인할 수 없다 — 권한이 과하게 열려 있어�
 로컬 Supabase 를 띄우고 테스트를 돌리면 한 번에 본다. Docker 가 필요하다.
 
 ```bash
-supabase start
+npx supabase start
 npm run db:test
 ```
 
@@ -326,6 +335,13 @@ Claude Code 를 쓰면 자동으로 읽는다.
   막히는지, 팀 스위치가 먹는지, 앱에서는 대상 조회가 막히는지
 
 ## 8. 막혔을 때
+
+**`zsh: command not found: brew` 또는 `supabase`**
+Homebrew 를 깔 필요가 없다. `npm install` 이 끝났으면 `npx supabase ...` 로 부른다.
+`npm run db:push` 같은 스크립트는 저장소 안의 CLI 를 알아서 찾는다.
+
+**`zsh: no such file or directory: Reference`**
+`<Reference ID>` 를 꺾쇠까지 그대로 붙여넣은 경우다. 꺾쇠를 빼고 실제 값만 넣는다.
 
 **`npm install` 이 느리거나 실패한다**
 `node -v` 로 20 이상인지 본다. `rm -rf node_modules package-lock.json && npm install` 로 다시.

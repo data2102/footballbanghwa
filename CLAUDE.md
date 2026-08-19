@@ -15,12 +15,12 @@
 
 ```bash
 npm run web        # 모바일 웹 개발 서버 (가장 자주 쓴다)
-npm run db:test    # 로컬 Supabase 에 RLS 테스트 (supabase start 필요)
+npm run db:test    # 로컬 Supabase 에 RLS 테스트 (npx supabase start 필요)
 npm start          # Expo 개발 서버, QR 찍어 Expo Go 로 실기기 확인
 npm run typecheck  # tsc --noEmit
 npm run build:web  # 정적 웹 번들 (dist/)
 npm run db:push    # supabase db push
-npm run fn:deploy  # parse-text Edge Function 배포
+npm run fn:deploy  # Edge Function 3개 배포
 ```
 
 **커밋 전에 반드시 두 가지를 통과시킨다.** 타입만 맞고 번들이 깨지는 경우가 실제로 있다.
