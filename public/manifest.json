@@ -1,0 +1,15 @@
+{
+  "name": "우리팀 매니저",
+  "short_name": "우리팀",
+  "description": "조기축구 팀의 참석·회비·라인업·기록을 문자 하나로 정리해요",
+  "lang": "ko",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F4F6",
+  "theme_color": "#F2F4F6",
+  "icons": [
+    { "src": "icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}
