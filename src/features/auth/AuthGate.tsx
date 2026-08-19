@@ -6,6 +6,30 @@ import { Button, Card, Row, Screen, Txt, radius, space } from '@/components/ui';
 import { usePalette } from '@/theme';
 
 /**
+ * Supabase 가 돌려주는 영어 오류를 무슨 일인지 + 어떻게 하면 되는지로 바꾼다.
+ * raw 문자열을 그대로 띄우면 사용자는 다음에 뭘 해야 할지 알 수 없다.
+ */
+function explain(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('rate limit')) {
+    return '메일을 너무 자주 보냈어요. 한 시간쯤 뒤에 다시 시도하거나, Supabase 에 자체 SMTP 를 연결해 주세요.';
+  }
+  if (lower.includes('invalid') && lower.includes('token')) {
+    return '코드가 맞지 않아요. 가장 최근에 온 메일의 코드인지 확인해 주세요.';
+  }
+  if (lower.includes('expired')) {
+    return '코드가 만료됐어요. 인증코드를 다시 받아 주세요.';
+  }
+  if (lower.includes('signups not allowed') || lower.includes('signup is disabled')) {
+    return '이 프로젝트는 새 가입을 막아 뒀어요. Supabase 의 Authentication 설정을 확인해 주세요.';
+  }
+  if (lower.includes('failed to fetch') || lower.includes('network')) {
+    return '서버에 닿지 못했어요. 인터넷 연결과 Supabase 주소를 확인해 주세요.';
+  }
+  return `로그인하지 못했어요. (${message})`;
+}
+
+/**
  * 이메일 OTP 로그인.
  * 매직링크 대신 6자리 코드를 쓴다. 딥링크 설정 없이 웹·iOS·Android에서 똑같이 동작한다.
  */
@@ -35,7 +59,7 @@ export function AuthGate() {
       email: email.trim(),
       options: { shouldCreateUser: true },
     });
-    if (caught) setError(caught.message);
+    if (caught) setError(explain(caught.message));
     else setSent(true);
     setBusy(false);
   }
@@ -49,7 +73,7 @@ export function AuthGate() {
       token: code.trim(),
       type: 'email',
     });
-    if (caught) setError(caught.message);
+    if (caught) setError(explain(caught.message));
     else await load();
     setBusy(false);
   }

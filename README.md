@@ -28,7 +28,7 @@
 | 여백 디자인 시스템 적용 | 완료 (`design/mockup.html` 참고) |
 | 푸시 알림, 음성 입력, 다중 팀 전환 | 미구현 |
 
-**데모 모드**: `.env`가 없으면 Supabase 없이 뜬다. 예시 팀 데이터가 기기 저장소에 들어가고,
+**데모 모드**: `.env`가 없거나 `EXPO_PUBLIC_DEMO=1` 이면 Supabase 없이 뜬다. 예시 팀 데이터가 기기 저장소에 들어가고,
 AI 파싱은 간단한 규칙 파서(`src/lib/ai/demoParser.ts`)가 대신한다. 흐름을 보는 용도이며
 실제 은어·문맥 해석은 Claude를 붙여야 한다.
 
@@ -206,6 +206,18 @@ Body 오른쪽 위가 **Preview** 로 되어 있으면 읽기 전용이라 안 �
 메일에는 링크도 같이 온다. **웹에서는 그 링크를 눌러도 로그인된다** — 토큰이 URL 해시로
 돌아오는 걸 받아 준다. 네이티브 앱에서는 딥링크 설정이 있어야 해서 코드 입력만 쓴다.
 그래서 기본 흐름은 세 플랫폼에서 똑같이 도는 6자리 코드다.
+
+### 3-3-2. 로그인이 방해될 때
+
+화면이나 기능을 손볼 때는 매번 로그인하는 게 방해가 된다. `.env` 에 한 줄 켜면
+키를 지우지 않고도 데모 모드로 돌아간다.
+
+```
+EXPO_PUBLIC_DEMO=1
+```
+
+주석 처리하면(`# EXPO_PUBLIC_DEMO=1`) 다시 Supabase 로 붙는다. 개발 서버는 `.env` 변화를
+감지하므로 저장만 하면 되고, 안 바뀌면 `npm run web -- --clear` 로 캐시를 지운다.
 
 ### 3-4. 붙었는지 확인하기
 
@@ -408,10 +420,17 @@ Homebrew 를 깔 필요가 없다. `npm install` 이 끝났으면 `npx supabase 
 **로그인 메일은 오는데 6자리 코드가 없다**
 기본 템플릿에 코드가 없어서다. 위 3-3-1 을 따라 `{{ .Token }}` 을 넣는다.
 
+**`email rate limit exceeded`**
+Supabase 내장 SMTP 는 **시간당 두 통**뿐이다. 테스트하다 금방 걸린다.
+급하면 `EXPO_PUBLIC_DEMO=1` 로 데모 모드에서 계속 작업한다(위 3-3-2).
+
+이건 개발 중 불편이 아니라 실제 막힘이다 — **팀원 16명에게 초대를 뿌리면 바로 걸린다.**
+팀에 풀기 전에 **Authentication > Emails > SMTP Settings** 에 자기 SMTP 를 연결해야 한다.
+네이버·Gmail 은 앱 비밀번호를 발급받아 쓰고, Resend 같은 서비스도 무료 한도가 넉넉하다.
+붙인 뒤 **Authentication > Rate Limits** 에서 발송 한도를 올린다.
+
 **로그인 메일이 아예 안 온다**
 Supabase **Authentication > Providers > Email** 에서 Email 이 켜져 있는지, 스팸함도 본다.
-무료 티어는 시간당 발송 수 제한이 있다(기본 몇 건 수준이라 테스트하다 금방 걸린다).
-많이 보내야 하면 **Authentication > Emails > SMTP Settings** 에 자기 SMTP 를 연결한다.
 
 **로그인은 됐는데 "팀 정보를 먼저 불러와야 합니다"**
 `supabase db push` 가 안 돌았거나 실패한 경우다. `supabase db push --dry-run` 으로 확인한다.
