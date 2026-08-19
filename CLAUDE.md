@@ -17,6 +17,7 @@
 npm run web        # 모바일 웹 개발 서버 (가장 자주 쓴다)
 npm run db:test    # 로컬 Supabase 에 RLS 테스트 (npx supabase start 필요)
 npm start          # Expo 개발 서버, QR 찍어 Expo Go 로 실기기 확인
+npm run start:tunnel  # 폰과 맥이 다른 네트워크일 때
 npm run typecheck  # tsc --noEmit
 npm run build:web  # 정적 웹 번들 (dist/)
 npm run db:push    # supabase db push
@@ -119,6 +120,10 @@ grant execute on function public.어떤함수(인자) to service_role;
 ## 검증
 
 UI 를 고쳤으면 화면을 실제로 띄워서 확인한다. 타입 검사만으로는 레이아웃이 깨진 걸 못 잡는다.
+
+**네이티브에서만 드러나는 것들이 있다.** 웹에서 멀쩡해도 폰에서는 다르게 보인다 —
+안전영역(노치·홈 인디케이터), 키보드가 올라올 때의 레이아웃, 탭바 높이, 폰트 두께,
+그림자, 스크롤 관성. 화면을 손봤으면 `npm start` 로 폰에서도 한 번 본다.
 
 ```bash
 npm run build:web

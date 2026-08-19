@@ -27,7 +27,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (status !== 'ready' || registered.current) return;
     registered.current = true;
-    registerForReminders();
+    // Expo Go 에는 원격 푸시가 없어서 여기서 실패한다. 알림은 없어도 되는 기능이라 조용히 넘긴다.
+    registerForReminders().catch(() => {});
   }, [status]);
 
   // 알림을 눌러서 앱이 열렸을 때 해당 화면으로 보낸다.
