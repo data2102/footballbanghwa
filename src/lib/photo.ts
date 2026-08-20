@@ -2,6 +2,14 @@ import { Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
+/** Claude 에 보내는 한 장. 긴 캡처는 여러 장으로 잘려 나간다. */
+export type PhotoPart = {
+  /** data: 접두사 없는 base64. */
+  base64: string;
+  width: number;
+  height: number;
+};
+
 /** 화면에 띄우고 AI에 보낼 준비까지 끝난 사진. */
 export type PickedPhoto = {
   /** 미리보기용. 네이티브는 파일 URI, 웹은 blob/data URI. */
@@ -11,6 +19,11 @@ export type PickedPhoto = {
   mediaType: 'image/jpeg';
   width: number;
   height: number;
+  /**
+   * AI 에 보낼 조각들. 보통은 자기 자신 한 장이고, 긴 캡처만 여러 장이 된다.
+   * 화면에는 사진 하나로 보이고 미리보기도 하나다 — 사람에게는 한 장이 맞다.
+   */
+  parts: PhotoPart[];
 };
 
 /**
@@ -18,6 +31,23 @@ export type PickedPhoto = {
  * 미리 줄여 보내면 업로드가 빨라지고 토큰도 덜 든다.
  */
 const MAX_EDGE = 1568;
+
+/*
+ * 카톡 투표 현황 캡처는 아주 길다 — 폭 1080 에 높이가 3천을 넘는다.
+ * 그걸 "긴 변 1568" 규칙으로 줄이면 폭이 480 언저리가 되어 이름 글자가 뭉개진다.
+ * 실제로 아흔 명 명단에서 이름을 자꾸 틀리게 읽은 원인이 이것이다.
+ *
+ * 그래서 길쭉한 사진은 줄이지 않고 가로로 잘라서 여러 장으로 보낸다.
+ * 조각끼리 조금 겹쳐 두면 경계에 걸린 줄이 어느 한쪽에는 온전히 들어간다.
+ */
+/** 세로가 가로의 이 배를 넘으면 자른다. */
+const SLICE_RATIO = 1.4;
+/** 조각 하나의 세로 = 가로 × 이 값. 1568 을 넘지 않게 잡는다. */
+const TILE_RATIO = 1.3;
+/** 조각끼리 겹치는 비율. 경계에 걸린 줄을 살린다. */
+const OVERLAP = 0.08;
+/** 조각이 이보다 많아지면 조각을 키워서 수를 맞춘다. 토큰이 무한정 늘면 안 된다. */
+const MAX_TILES = 6;
 /** 프로필 사진은 작게 써서 더 줄인다. */
 const AVATAR_EDGE = 512;
 
@@ -85,13 +115,68 @@ async function compress(uri: string, maxEdge: number): Promise<PickedPhoto> {
   const final = target ? await ImageManipulator.manipulate(uri).resize(target).renderAsync() : rendered;
   const saved = await final.saveAsync({ compress: 0.7, format: SaveFormat.JPEG, base64: true });
 
-  return {
+  const photo = {
     uri: saved.uri,
     base64: saved.base64 ?? '',
-    mediaType: 'image/jpeg',
+    mediaType: 'image/jpeg' as const,
     width: saved.width,
     height: saved.height,
   };
+
+  return {
+    ...photo,
+    // 길쭉한 원본은 줄인 것 대신 잘라 낸 조각들을 보낸다. 미리보기는 줄인 것 그대로.
+    parts:
+      rendered.height / rendered.width > SLICE_RATIO
+        ? await slice(uri, rendered.width, rendered.height)
+        : [{ base64: photo.base64, width: photo.width, height: photo.height }],
+  };
+}
+
+/**
+ * 길쭉한 캡처를 가로로 잘라 여러 장으로 만든다.
+ * 조각은 원본 해상도를 그대로 쓰되, 폭이 1568 을 넘으면 그때만 줄인다.
+ */
+async function slice(uri: string, width: number, height: number): Promise<PhotoPart[]> {
+  /*
+   * 조각도 긴 변이 1568 을 넘으면 Claude 가 다시 줄인다. 그러면 잘라 낸 보람이 없다.
+   * 폭을 줄여야 하는 사진이면 그 비율만큼 세로 상한도 같이 내려 잡는다.
+   */
+  const scale = width > MAX_EDGE ? MAX_EDGE / width : 1;
+  const cap = Math.floor(MAX_EDGE / scale);
+  let tileHeight = Math.min(Math.round(width * TILE_RATIO), cap);
+  let step = Math.round(tileHeight * (1 - OVERLAP));
+  /*
+   * 그래도 조각이 너무 많아지면 조각을 키운다. 이때는 상한을 넘겨도 둔다 —
+   * 조금 줄어드는 것보다 화면 일부가 통째로 빠지는 쪽이 훨씬 나쁘다.
+   */
+  if (Math.ceil(height / step) > MAX_TILES) {
+    step = Math.ceil(height / MAX_TILES);
+    tileHeight = Math.round(step / (1 - OVERLAP));
+  }
+
+  const parts: PhotoPart[] = [];
+  for (let top = 0; top < height; top += step) {
+    const cropHeight = Math.min(tileHeight, height - top);
+    // 마지막 자투리가 한 줄도 안 되면 앞 조각에 이미 들어가 있다.
+    if (cropHeight < tileHeight * 0.2 && parts.length) break;
+
+    let piece = ImageManipulator.manipulate(uri).crop({
+      originX: 0,
+      originY: top,
+      width,
+      height: cropHeight,
+    });
+    if (width > MAX_EDGE) piece = piece.resize({ width: MAX_EDGE });
+
+    const saved = await (await piece.renderAsync()).saveAsync({
+      compress: 0.8,
+      format: SaveFormat.JPEG,
+      base64: true,
+    });
+    parts.push({ base64: saved.base64 ?? '', width: saved.width, height: saved.height });
+  }
+  return parts;
 }
 
 /** 프로필 사진처럼 저장해 두고 다시 보여줘야 하는 경우에 쓰는 data URI. */

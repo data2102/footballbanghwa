@@ -149,8 +149,12 @@ export default function AttendanceScreen() {
             <Card>
               <Txt variant="h3">단톡방 투표 옮겨 담기</Txt>
               <Txt variant="tiny" muted>
-                카톡 투표 화면을 찍거나 대화를 그대로 붙여넣으면 명단에 맞춰 읽어요. 읽은 결과는
-                체크로 확인한 뒤에만 저장돼요.
+                카톡 투표 현황에서 <Txt variant="tiny">항목별</Txt> 탭과{' '}
+                <Txt variant="tiny">미참여</Txt> 탭을 각각 캡처해서 올리면 참석·불참·미투표로
+                나눠 읽어요. 길게 찍혀도 앱이 알아서 잘라 읽으니 나눠 찍지 않으셔도 돼요.
+              </Txt>
+              <Txt variant="tiny" muted>
+                읽은 결과는 체크로 확인한 뒤에만 저장돼요.
               </Txt>
               <Row gap={space.sm}>
                 <Button

@@ -13,7 +13,12 @@ import { SYSTEM_PROMPT } from '../_shared/prompt.ts';
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-5';
 const MAX_TEXT_LENGTH = 8000;
 const MAX_ROSTER = 200;
-const MAX_IMAGES = 4;
+/*
+ * 길쭉한 카톡 투표 캡처는 앱에서 잘려서 여러 장으로 온다. 두 탭(항목별·미참여)을
+ * 같이 올리면 조각이 예닐곱 장이 되므로 넉넉히 둔다. 조각 하나가 1080x1400 쯤이라
+ * 여덟 장이면 대략 1만 6천 토큰 — 한 번 분석에 감당할 만하다.
+ */
+const MAX_IMAGES = 8;
 /** base64 기준. 1568px·품질 0.7 로 줄여 보내면 보통 이 아래로 떨어진다. */
 const MAX_IMAGE_BYTES = 4_000_000;
 

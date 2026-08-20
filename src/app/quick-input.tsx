@@ -16,6 +16,12 @@ import type { AttendanceStatus, LineupSlot, PositionGroup } from '@/lib/types';
 
 type Hint = Exclude<ParseIntent, 'mixed' | 'unknown'>;
 
+/**
+ * 올릴 수 있는 사진 수. 긴 캡처는 한 장이 여러 조각으로 잘려 나가므로,
+ * 실제로 AI 에 가는 장수는 이보다 많다(함수 쪽 MAX_IMAGES 가 그 한도를 본다).
+ */
+const MAX_PHOTOS = 3;
+
 const HINTS: { value: Hint | 'auto'; label: string }[] = [
   { value: 'auto', label: '자동' },
   { value: 'attendance', label: '참석' },
@@ -101,7 +107,7 @@ export default function QuickInputScreen() {
   async function attach(source: 'camera' | 'library') {
     try {
       const photo = await pickPhoto(source);
-      if (photo) setPhotos((prev) => [...prev, photo].slice(0, 4));
+      if (photo) setPhotos((prev) => [...prev, photo].slice(0, MAX_PHOTOS));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '사진을 불러오지 못했어요.');
     }
@@ -114,7 +120,13 @@ export default function QuickInputScreen() {
     try {
       const response = await parseText({
         text,
-        images: photos.map((photo) => ({ mediaType: photo.mediaType, data: photo.base64 })),
+        /*
+         * 길쭉한 캡처는 사진 하나가 여러 조각으로 잘려 있다. 화면에는 한 장으로
+         * 보이지만 AI 에는 조각을 전부 보낸다 — 줄여서 한 장으로 보내면 이름이 뭉개진다.
+         */
+        images: photos.flatMap((photo) =>
+          photo.parts.map((part) => ({ mediaType: photo.mediaType, data: part.base64 })),
+        ),
         members: activeMembers,
         team: data!.team,
         hint: hint === 'auto' ? undefined : hint,
@@ -339,7 +351,8 @@ export default function QuickInputScreen() {
               />
             </Row>
             <Txt variant="tiny" muted>
-              손으로 쓴 명단, 화이트보드 작전판, 은행 앱 화면을 찍어도 읽어요. 최대 4장까지 올릴 수 있어요.
+              손으로 쓴 명단, 화이트보드 작전판, 은행 앱 화면을 찍어도 읽어요. 최대 {MAX_PHOTOS}장까지
+              올릴 수 있어요. 긴 캡처는 알아서 잘라서 읽으니 그대로 올리세요.
             </Txt>
 
             {photos.length ? (
