@@ -74,11 +74,11 @@ export default function HomeScreen() {
               }`}
             />
             <Divider />
+            {/* 참석 탭과 같은 세 칸이다. 지각은 카톡 투표에 없어서 뺐다. */}
             <Row gap={space.xl} wrap>
-              <Tally label="참석" value={tally?.attending ?? 0} tone={p.ok} />
-              <Tally label="지각" value={tally?.late ?? 0} tone={p.warn} />
+              <Tally label="참석" value={(tally?.attending ?? 0) + (tally?.late ?? 0)} tone={p.ok} />
               <Tally label="불참" value={tally?.absent ?? 0} tone={p.danger} />
-              <Tally label="아직" value={tally?.unknown ?? 0} />
+              <Tally label="미투표" value={tally?.unknown ?? 0} />
             </Row>
           </Card>
         ) : (
@@ -173,7 +173,7 @@ function countdownValue(date: string): string {
   return `${diff}일`;
 }
 
-/** 참석 집계 네 칸. 화면의 주인공은 위의 큰 숫자라서 여기는 조용히 둔다. */
+/** 참석 집계 세 칸. 화면의 주인공은 위의 큰 숫자라서 여기는 조용히 둔다. */
 function Tally({ label, value, tone }: { label: string; value: number; tone?: string }) {
   return (
     <View style={{ gap: 2 }}>
