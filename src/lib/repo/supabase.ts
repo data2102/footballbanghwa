@@ -3,6 +3,7 @@ import type { PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
   Attendance,
+  InventoryItem,
   Ledger,
   Lineup,
   Match,
@@ -29,18 +30,20 @@ export class SupabaseRepo implements Repo {
       id: string;
       name: string;
       monthly_due: number;
+      annual_due: number | null;
       invite_code: string;
       reminder_enabled?: boolean;
       rules?: string | null;
     };
     this.teamId = teamRow.id;
 
-    const [members, matches, ledger] = await Promise.all([
+    const [members, matches, ledger, inventory] = await Promise.all([
       this.client.from('members').select('*').eq('team_id', teamRow.id),
       this.client.from('matches').select('*').eq('team_id', teamRow.id).order('date', { ascending: false }),
       this.client.from('ledger').select('*').eq('team_id', teamRow.id).order('occurred_on', { ascending: false }),
+      this.client.from('inventory').select('*').eq('team_id', teamRow.id).order('name'),
     ]);
-    for (const result of [members, matches, ledger]) {
+    for (const result of [members, matches, ledger, inventory]) {
       if (result.error) throw result.error;
     }
 
@@ -67,6 +70,7 @@ export class SupabaseRepo implements Repo {
         id: teamRow.id,
         name: teamRow.name,
         monthlyDue: teamRow.monthly_due,
+        annualDue: teamRow.annual_due ?? teamRow.monthly_due * 12,
         inviteCode: teamRow.invite_code,
         reminderEnabled: teamRow.reminder_enabled ?? true,
         rules: teamRow.rules ?? null,
@@ -74,11 +78,29 @@ export class SupabaseRepo implements Repo {
       members: memberRows,
       matches: (matches.data ?? []).map(fromMatchRow),
       attendance: (attendance.data ?? []).map(fromAttendanceRow),
-      ledger: (ledger.data ?? []).map(fromLedgerRow),
+      ledger: await this.attachReceiptUrls((ledger.data ?? []).map(fromLedgerRow)),
       events: (events.data ?? []).map(fromEventRow),
       lineups: (lineups.data ?? []).map(fromLineupRow),
       potmVotes: (potmVotes.data ?? []).map(fromPotmRow),
+      inventory: (inventory.data ?? []).map(fromInventoryRow),
     };
+  }
+
+  /** 영수증도 비공개 버킷이라 경로만으로는 못 그린다. 회원 사진과 같은 방식이다. */
+  private async attachReceiptUrls(rows: Ledger[]): Promise<Ledger[]> {
+    const paths = rows.map((row) => row.photoPath).filter(Boolean) as string[];
+    if (!paths.length) return rows;
+
+    const { data, error } = await this.client.storage
+      .from(RECEIPT_BUCKET)
+      .createSignedUrls(paths, SIGNED_URL_TTL);
+    if (error || !data) return rows;
+
+    const byPath = new Map(data.map((row) => [row.path, row.signedUrl]));
+    for (const row of rows) {
+      if (row.photoPath) row.photoUri = byPath.get(row.photoPath) ?? null;
+    }
+    return rows;
   }
 
   /**
@@ -134,6 +156,7 @@ export class SupabaseRepo implements Repo {
         .update({
           name: team.name,
           monthly_due: team.monthlyDue,
+          annual_due: team.annualDue,
           reminder_enabled: team.reminderEnabled,
           rules: team.rules,
         })
@@ -206,12 +229,45 @@ export class SupabaseRepo implements Repo {
           kind: row.kind,
           amount: row.amount,
           period: row.period,
+          months: row.months,
           occurred_on: row.occurredOn,
           memo: row.memo,
+          photo_path: row.photoPath,
           source: row.source,
         })),
       ),
     );
+
+  async saveLedgerPhoto(entry: Ledger, photo: PickedPhoto) {
+    const teamId = this.assertLoaded();
+    // 장부 한 줄에 한 장. 같은 경로에 덮어써서 지난 사진이 쌓이지 않게 한다.
+    const path = `${teamId}/${entry.id}.jpg`;
+
+    const { error } = await this.client.storage
+      .from(RECEIPT_BUCKET)
+      .upload(path, base64ToBytes(photo.base64), {
+        contentType: photo.mediaType,
+        upsert: true,
+      });
+    if (error) throw error;
+
+    const { data } = await this.client.storage.from(RECEIPT_BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
+    return { photoUri: data?.signedUrl ?? '', photoPath: path };
+  }
+
+  saveInventory = (item: InventoryItem) =>
+    this.run(
+      this.client.from('inventory').upsert({
+        id: item.id,
+        team_id: this.assertLoaded(),
+        name: item.name,
+        quantity: item.quantity,
+        note: item.note,
+        updated_at: new Date().toISOString(),
+      }),
+    );
+
+  removeInventory = (id: string) => this.run(this.client.from('inventory').delete().eq('id', id));
 
   removeLedger = (id: string) => this.run(this.client.from('ledger').delete().eq('id', id));
 
@@ -283,6 +339,7 @@ export class SupabaseRepo implements Repo {
 
 const PHOTO_BUCKET = 'member-photos';
 const LINEUP_BUCKET = 'lineup-photos';
+const RECEIPT_BUCKET = 'receipt-photos';
 /** 한 시간. 앱을 다시 열면 새로 서명한다. */
 const SIGNED_URL_TTL = 60 * 60;
 
@@ -345,9 +402,20 @@ const fromLedgerRow = (row: Row): Ledger => ({
   kind: row.kind,
   amount: row.amount,
   period: row.period,
+  months: row.months ?? 1,
   occurredOn: row.occurred_on,
   memo: row.memo,
+  photoUri: null,
+  photoPath: row.photo_path ?? null,
   source: row.source,
+});
+
+const fromInventoryRow = (row: Row): InventoryItem => ({
+  id: row.id,
+  teamId: row.team_id,
+  name: row.name,
+  quantity: row.quantity,
+  note: row.note ?? null,
 });
 
 const fromEventRow = (row: Row): MatchEvent => ({

@@ -1,5 +1,5 @@
 /** 화면에서 반복적으로 필요한 집계. 순수 함수로 두어 어디서든 재사용한다. */
-import { daysUntil, shiftPeriod, thisPeriod } from '@/lib/format';
+import { daysUntil, shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
 import type {
   AppData,
   Attendance,
@@ -91,20 +91,57 @@ export function availableMembers(data: AppData, matchId: string): Member[] {
 
 export type DueStatus = {
   member: Member;
+  /** 그 달에 직접 들어온 금액. 연납분은 여기 안 들어간다. */
   paid: number;
-  /** 회비 기준액에서 납부액을 뺀 금액. 0 이하면 완납. */
+  /** 연납으로 채워진 달인지. */
+  annual: boolean;
+  /** 회비 기준액에서 납부액을 뺀 금액. 0 이면 완납. */
   outstanding: number;
 };
 
+/** 여러 달치 한 줄이 이 달을 덮는지. period 는 첫 달, months 만큼 이어진다. */
+function covers(row: Ledger, period: string): boolean {
+  if (!row.period) return false;
+  if (row.months <= 1) return row.period === period;
+  const [startYear, startMonth] = row.period.split('-').map(Number);
+  const [year, month] = period.split('-').map(Number);
+  const gap = (year - startYear) * 12 + (month - startMonth);
+  return gap >= 0 && gap < row.months;
+}
+
+/**
+ * 그 달 회비 현황.
+ *
+ * 연납한 사람은 그 해 열두 달이 전부 완납이다. 금액을 12로 나눠 매달에 붙이지 않는다 —
+ * 연납은 할인이라, 나누면 매달 조금씩 모자란 것처럼 보여서 매달 독촉 대상이 된다.
+ */
 export function duesForPeriod(data: AppData, period: string): DueStatus[] {
   return data.members
     .filter((member) => member.active)
     .map((member) => {
-      const paid = data.ledger
-        .filter((row) => row.kind === 'due' && row.memberId === member.id && row.period === period)
+      const own = data.ledger.filter((row) => row.kind === 'due' && row.memberId === member.id);
+      const annual = own.some((row) => row.months > 1 && covers(row, period));
+      const paid = own
+        .filter((row) => row.months <= 1 && row.period === period)
         .reduce((sum, row) => sum + row.amount, 0);
-      return { member, paid, outstanding: Math.max(0, data.team.monthlyDue - paid) };
+      return {
+        member,
+        paid,
+        annual,
+        outstanding: annual ? 0 : Math.max(0, data.team.monthlyDue - paid),
+      };
     });
+}
+
+/** 이 사람이 그 해를 연납으로 냈는지. 연납 버튼을 두 번 누르지 않게 한다. */
+export function paidAnnually(data: AppData, memberId: string, year: number): boolean {
+  return data.ledger.some(
+    (row) =>
+      row.kind === 'due' &&
+      row.memberId === memberId &&
+      row.months > 1 &&
+      row.period?.startsWith(String(year)) === true,
+  );
 }
 
 export type Balance = { income: number; expense: number; net: number };
@@ -361,9 +398,17 @@ export type PlayingTime = {
  * 기본 6경기로 끊어서 "요즘 덜 뛴 사람"을 본다.
  */
 export function playingTime(data: AppData, recentMatches = 6, excludeMatchId?: string): PlayingTime[] {
+  // 아직 안 치른 경기는 세지 않는다. 한 해치를 미리 깔아 두기 때문에, 날짜만으로 자르면
+  // "최근 6경기"가 12월의 빈 경기들이 되어 모두 출전 0 으로 나온다.
+  const today = todayISO();
   const scope = new Set(
     [...data.matches]
-      .filter((match) => match.status !== 'canceled' && match.id !== excludeMatchId)
+      .filter(
+        (match) =>
+          match.status !== 'canceled' &&
+          match.id !== excludeMatchId &&
+          (match.status === 'finished' || match.date <= today),
+      )
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, recentMatches)
       .map((match) => match.id),

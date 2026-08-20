@@ -2,6 +2,7 @@ import type { PickedPhoto } from '@/lib/photo';
 import type {
   Attendance,
   AppData,
+  InventoryItem,
   Ledger,
   Lineup,
   Match,
@@ -27,6 +28,10 @@ export interface Repo {
   saveAttendance(rows: Attendance[]): Promise<void>;
   saveLedger(rows: Ledger[]): Promise<void>;
   removeLedger(id: string): Promise<void>;
+  /** 영수증·찬조 캡처. 회원 사진과 같은 규칙으로 비공개 보관함에 넣는다. */
+  saveLedgerPhoto(entry: Ledger, photo: PickedPhoto): Promise<{ photoUri: string; photoPath: string | null }>;
+  saveInventory(item: InventoryItem): Promise<void>;
+  removeInventory(id: string): Promise<void>;
   saveEvents(rows: MatchEvent[]): Promise<void>;
   removeEvent(id: string): Promise<void>;
   /** (경기, 쿼터, 팀) 하나의 라인업. 같은 자리에 다시 저장하면 덮어쓴다. */

@@ -26,6 +26,10 @@ import type {
  */
 const TEAM_ID = 'demo-team';
 
+/** 월 2만원, 연납 20만원. 한 번에 내면 두 달치를 깎아 주는 셈이다. */
+const MONTHLY_DUE = 20000;
+const ANNUAL_DUE = 200000;
+
 /**
  * 시드 판.
  *
@@ -36,7 +40,7 @@ const TEAM_ID = 'demo-team';
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 7;
 
 /** [이름, 포지션, 등번호, 장점, 대략적인 출석 성향(0~1)] */
 const ROSTER: [string, PositionGroup, number, string[], number][] = [
@@ -300,10 +304,13 @@ export function buildSeed(): AppData {
       teamId: TEAM_ID,
       memberId: member.id,
       kind: 'due',
-      amount: 30000,
+      amount: MONTHLY_DUE,
       period,
-      occurredOn: daysFromToday(-18 + index),
+      months: 1,
+      occurredOn: daysFromToday(-2 - (index % 20)),
       memo: null,
+      photoUri: null,
+      photoPath: null,
       source: index % 4 === 0 ? 'ai' : 'manual',
     });
   });
@@ -313,15 +320,18 @@ export function buildSeed(): AppData {
       teamId: TEAM_ID,
       memberId: member.id,
       kind: 'due',
-      amount: 30000,
+      amount: MONTHLY_DUE,
       period: previous,
-      occurredOn: daysFromToday(-45 + index),
+      months: 1,
+      occurredOn: daysFromToday(-32 - (index % 20)),
       memo: null,
+      photoUri: null,
+      photoPath: null,
       source: 'manual',
     });
   });
 
-  for (const [index, match] of past.slice(0, 4).entries()) {
+  for (const [index, match] of past.slice(-4).entries()) {
     ledger.push({
       id: `exp-ground-${index}`,
       teamId: TEAM_ID,
@@ -329,11 +339,46 @@ export function buildSeed(): AppData {
       kind: 'expense',
       amount: 120000,
       period: null,
+      months: 1,
       occurredOn: match.date,
       memo: '구장 대관료',
+      photoUri: null,
+      photoPath: null,
       source: 'manual',
     });
   }
+  // 연납한 사람이 하나는 있어야 "연납" 표시가 화면에서 확인된다.
+  // 올해 1월부터 열두 달을 덮는다.
+  ledger.push({
+    id: 'due-annual-1',
+    teamId: TEAM_ID,
+    memberId: members[3].id,
+    kind: 'due',
+    amount: ANNUAL_DUE,
+    period: `${SEASON_YEAR}-01`,
+    months: 12,
+    occurredOn: `${SEASON_YEAR}-01-11`,
+    memo: '연납',
+    photoUri: null,
+    photoPath: null,
+    source: 'manual',
+  });
+
+  ledger.push({
+    id: 'sponsor-1',
+    teamId: TEAM_ID,
+    memberId: members[0].id,
+    kind: 'income',
+    amount: 300000,
+    period: null,
+    months: 1,
+    occurredOn: daysFromToday(-52),
+    memo: '찬조 (개업 기념)',
+    photoUri: null,
+    photoPath: null,
+    source: 'manual',
+  });
+
   ledger.push({
     id: 'exp-vest',
     teamId: TEAM_ID,
@@ -341,8 +386,11 @@ export function buildSeed(): AppData {
     kind: 'expense',
     amount: 84000,
     period: null,
+    months: 1,
     occurredOn: daysFromToday(-30),
     memo: '조끼 12벌',
+    photoUri: null,
+    photoPath: null,
     source: 'manual',
   });
 
@@ -351,7 +399,8 @@ export function buildSeed(): AppData {
     team: {
       id: TEAM_ID,
       name: '방화 FC',
-      monthlyDue: 30000,
+      monthlyDue: MONTHLY_DUE,
+      annualDue: ANNUAL_DUE,
       inviteCode: 'DEMO24',
       reminderEnabled: true,
       rules: null,
@@ -363,5 +412,13 @@ export function buildSeed(): AppData {
     events,
     potmVotes,
     lineups,
+    // 매주 들고 나가는 것들. 알고 싶은 건 몇 개 남았나 하나뿐이다.
+    inventory: [
+      { id: 'inv-vest', teamId: TEAM_ID, name: '조끼(주황)', quantity: 12, note: null },
+      { id: 'inv-vest-b', teamId: TEAM_ID, name: '조끼(파랑)', quantity: 11, note: '두 벌 찢어짐' },
+      { id: 'inv-ball', teamId: TEAM_ID, name: '경기구', quantity: 4, note: null },
+      { id: 'inv-cone', teamId: TEAM_ID, name: '라바콘', quantity: 20, note: null },
+      { id: 'inv-kit', teamId: TEAM_ID, name: '구급함', quantity: 1, note: null },
+    ],
   };
 }

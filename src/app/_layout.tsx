@@ -74,6 +74,8 @@ export default function RootLayout() {
             <Stack.Screen name="member/[id]" options={{ title: '회원' }} />
             <Stack.Screen name="analysis" options={{ title: '출결 분석' }} />
             <Stack.Screen name="rules" options={{ title: '회칙' }} />
+            <Stack.Screen name="inventory" options={{ title: '물품 재고' }} />
+            <Stack.Screen name="notice" options={{ title: '공지 만들기' }} />
             <Stack.Screen name="vote" options={{ title: '참석 확인하기' }} />
           </Stack>
         ) : (

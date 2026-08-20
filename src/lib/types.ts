@@ -51,6 +51,11 @@ export type Team = {
   name: string;
   /** 월 회비 기본액(원). 미납자 계산의 기준. */
   monthlyDue: number;
+  /**
+   * 연납 금액(원). 월 회비 × 12 보다 싸게 두는 게 보통이다.
+   * 한 번에 내면 총무가 열두 번 확인할 일이 없어지니, 그 값만큼 깎아 주는 셈이다.
+   */
+  annualDue: number;
   inviteCode: string | null;
   /** 경기 전날 미응답자에게 알림을 보낼지. 팀 단위 스위치. */
   reminderEnabled: boolean;
@@ -112,12 +117,36 @@ export type Ledger = {
   kind: LedgerKind;
   /** 원 단위 정수. 지출도 양수로 저장하고 kind로 부호를 정한다. */
   amount: number;
-  /** 회비가 어느 달 몫인지. YYYY-MM. 회비가 아니면 null. */
+  /** 회비가 어느 달 몫인지. YYYY-MM. 여러 달치면 첫 달. 회비가 아니면 null. */
   period: string | null;
+  /**
+   * 이 한 줄이 몇 달치인지. 보통 1, 연납이면 12.
+   *
+   * 금액을 달수로 나누지 않는다 — 연납은 할인이라서 나누면 매달 조금씩 모자란
+   * 것처럼 보인다. 달수는 "이 달이 채워졌는가"를 판단하는 데만 쓴다.
+   */
+  months: number;
   /** YYYY-MM-DD */
   occurredOn: string;
   memo: string | null;
+  /** 영수증·찬조 캡처. 나중에 "이 돈이 뭐였지"를 되짚을 수 있어야 한다. */
+  photoUri: string | null;
+  photoPath: string | null;
   source: EntrySource;
+};
+
+/**
+ * 팀 물품.
+ *
+ * 조끼·공·콘처럼 매주 들고 나가는 것들이다. 알고 싶은 건 "몇 개 남았나" 하나뿐이라
+ * 구매일·단가 같은 건 두지 않는다 — 칸이 늘면 아무도 안 채운다.
+ */
+export type InventoryItem = {
+  id: string;
+  teamId: string;
+  name: string;
+  quantity: number;
+  note: string | null;
 };
 
 export type MatchEventType = 'goal' | 'assist' | 'save' | 'yellow' | 'red' | 'own_goal';
@@ -192,4 +221,5 @@ export type AppData = {
   /** (경기, 쿼터, 팀) 하나에 하나. 출전 기록은 여기서 계산한다. */
   lineups: Lineup[];
   potmVotes: PotmVote[];
+  inventory: InventoryItem[];
 };

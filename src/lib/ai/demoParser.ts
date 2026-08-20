@@ -107,7 +107,12 @@ export function demoParse(request: ParseRequest): ParseResponse {
         memberName: member?.name ?? '(미확인)',
         confidence: member ? 'medium' : 'low',
         quote: line,
-        ledgerKind: /구장|조끼|음료|물|간식|결제|출금/.test(line) ? 'expense' : 'due',
+        // 찬조는 회비가 아니라 팀 수입이다. 회비로 잡으면 그 사람이 그 달을 낸 것처럼 보인다.
+        ledgerKind: /구장|조끼|음료|물|간식|결제|출금/.test(line)
+          ? 'expense'
+          : /찬조|후원|기부/.test(line)
+            ? 'income'
+            : 'due',
         amount,
         period: thisPeriod(),
         occurredOn: todayISO(),

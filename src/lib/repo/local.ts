@@ -4,6 +4,7 @@ import { toDataUri, type PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
   Attendance,
+  InventoryItem,
   Ledger,
   Lineup,
   Match,
@@ -125,6 +126,17 @@ export class LocalRepo implements Repo {
 
   removeLedger = (id: string) =>
     this.mutate((data) => void (data.ledger = data.ledger.filter((row) => row.id !== id)));
+
+  /** 기기 저장소에는 스토리지가 없으니 data URI 를 그대로 들고 있는다. */
+  async saveLedgerPhoto(_entry: Ledger, photo: PickedPhoto) {
+    return { photoUri: toDataUri(photo), photoPath: null };
+  }
+
+  saveInventory = (item: InventoryItem) =>
+    this.mutate((data) => void (data.inventory = LocalRepo.upsert(data.inventory, [item])));
+
+  removeInventory = (id: string) =>
+    this.mutate((data) => void (data.inventory = data.inventory.filter((row) => row.id !== id)));
 
   saveEvents = (rows: MatchEvent[]) =>
     this.mutate((data) => void (data.events = LocalRepo.upsert(data.events, rows)));

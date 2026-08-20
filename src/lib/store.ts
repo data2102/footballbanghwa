@@ -11,6 +11,7 @@ import type {
   Attendance,
   AttendanceStatus,
   EntrySource,
+  InventoryItem,
   Ledger,
   Lineup,
   LineupSide,
@@ -45,7 +46,19 @@ type Store = {
     status: AttendanceStatus,
     options?: { note?: string | null; source?: EntrySource },
   ) => Promise<void>;
-  addLedger: (entry: Omit<Ledger, 'id' | 'teamId'>) => Promise<void>;
+  /**
+   * 장부 한 줄. months(기본 1)와 사진은 안 넘기면 비워 둔다 —
+   * 부르는 자리 대부분이 "한 달치 현금 한 줄"이라 매번 적게 하면 실수만 는다.
+   */
+  addLedger: (
+    entry: Omit<Ledger, 'id' | 'teamId' | 'months' | 'photoUri' | 'photoPath'> & {
+      months?: number;
+    },
+  ) => Promise<void>;
+  /** 영수증·찬조 캡처를 장부 한 줄에 붙인다. */
+  setLedgerPhoto: (ledgerId: string, photo: PickedPhoto) => Promise<void>;
+  saveInventory: (item: Omit<InventoryItem, 'teamId'>) => Promise<void>;
+  removeInventory: (id: string) => Promise<void>;
   removeLedger: (id: string) => Promise<void>;
   addEvent: (entry: Omit<MatchEvent, 'id'>) => Promise<void>;
   removeEvent: (id: string) => Promise<void>;
@@ -163,9 +176,53 @@ export const useStore = create<Store>((set, get) => ({
   addLedger: async (entry) => {
     const data = get().data;
     if (!data) return;
-    const row: Ledger = { ...entry, id: uid(), teamId: data.team.id };
+    const row: Ledger = {
+      months: 1,
+      photoUri: null,
+      photoPath: null,
+      ...entry,
+      id: uid(),
+      teamId: data.team.id,
+    };
     set({ data: { ...data, ledger: [row, ...data.ledger] } });
     await persist(set, () => repo.saveLedger([row]));
+  },
+
+  setLedgerPhoto: async (ledgerId, photo) => {
+    const data = get().data;
+    if (!data) return;
+    const entry = data.ledger.find((item) => item.id === ledgerId);
+    if (!entry) return;
+    try {
+      const saved = await repo.saveLedgerPhoto(entry, photo);
+      const row: Ledger = { ...entry, ...saved };
+      set({
+        data: { ...data, ledger: data.ledger.map((item) => (item.id === row.id ? row : item)) },
+      });
+      await persist(set, () => repo.saveLedger([row]));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : '영수증을 저장하지 못했어요.' });
+    }
+  },
+
+  saveInventory: async (item) => {
+    const data = get().data;
+    if (!data) return;
+    const row: InventoryItem = { ...item, teamId: data.team.id };
+    set({
+      data: {
+        ...data,
+        inventory: [...data.inventory.filter((entry) => entry.id !== row.id), row],
+      },
+    });
+    await persist(set, () => repo.saveInventory(row));
+  },
+
+  removeInventory: async (id) => {
+    const data = get().data;
+    if (!data) return;
+    set({ data: { ...data, inventory: data.inventory.filter((row) => row.id !== id) } });
+    await persist(set, () => repo.removeInventory(id));
   },
 
   removeLedger: async (id) => {
@@ -360,8 +417,11 @@ export function blankLedger(): Omit<Ledger, 'id' | 'teamId'> {
     kind: 'due',
     amount: 0,
     period: todayISO().slice(0, 7),
+    months: 1,
     occurredOn: todayISO(),
     memo: null,
+    photoUri: null,
+    photoPath: null,
     source: 'manual',
   };
 }

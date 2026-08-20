@@ -96,6 +96,16 @@ export default function SettingsScreen() {
           value={String(data.team.monthlyDue)}
           onChangeText={(value) => updateTeam({ monthlyDue: Number(value.replace(/\D/g, '')) || 0 })}
         />
+        <Field
+          label="연납 회비 (원)"
+          keyboardType="number-pad"
+          value={String(data.team.annualDue)}
+          onChangeText={(value) => updateTeam({ annualDue: Number(value.replace(/\D/g, '')) || 0 })}
+        />
+        <Txt variant="tiny" muted>
+          연납으로 받으면 그 해 열두 달이 한 번에 완납으로 잡혀요. 월 회비 × 12 보다 싸게 두면
+          한 번에 내는 사람이 늘어요.
+        </Txt>
         {data.team.inviteCode ? (
           <Row justify="space-between">
             <Txt variant="small" muted>

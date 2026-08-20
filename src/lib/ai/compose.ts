@@ -6,7 +6,7 @@ import { formatDate, formatPeriod, won } from '@/lib/format';
  * parse-text 와 달리 읽는 게 아니라 쓰는 쪽이라, Edge Function 을 따로 둔다.
  */
 
-export type ComposeKind = 'dues_reminder' | 'dues_reminder_dm' | 'attendance_nudge';
+export type ComposeKind = 'dues_reminder' | 'dues_reminder_dm' | 'attendance_nudge' | 'notice';
 
 export type ComposeMatch = {
   /** YYYY-MM-DD */
@@ -34,11 +34,17 @@ export type ComposeOptions = {
   /** 아직 답이 없는 사람들. */
   pending?: { name: string }[];
   attending?: number;
+
+  /** 공지용 — 총무가 고른 틀로 만든 초안. AI 는 이걸 다듬는다. */
+  draft?: string;
 };
 
 /** 데모 모드에서 쓰는 틀. AI 없이도 화면 흐름을 볼 수 있게 한다. */
 function template(options: ComposeOptions): string {
   const { includeNames, kind, note } = options;
+
+  // 공지는 이미 초안이 있다. AI 가 없으면 초안을 그대로 쓴다 — 아무 일도 안 일어나면 안 된다.
+  if (kind === 'notice') return [options.draft ?? '', note ?? ''].filter(Boolean).join('\n\n');
 
   if (kind === 'attendance_nudge') {
     const match = options.match;
