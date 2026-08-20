@@ -7,8 +7,19 @@
  * 함수 쪽에서 kind 별로 정규화하면 되기 때문이다.
  */
 
-const nullable = (type: string) => ({ type: [type, 'null'] });
-const nullableEnum = (values: string[]) => ({ type: ['string', 'null'], enum: [...values, null] });
+/*
+ * 비울 수 있는 칸은 anyOf 로 적는다. type 을 배열로 적는 건 표준 JSON Schema 지만
+ * 구조화 출력 검사기가 enum 과 같이 오면 거절한다:
+ *
+ *   Enum value 'attending' does not match declared type '['string', 'null']'
+ *
+ * 이것 때문에 사진 분석이 통째로 400 이었다. anyOf 는 문서에 지원한다고 적혀 있고
+ * 뜻도 같으니 둘 다 이쪽으로 맞춘다 — 한쪽만 고치면 다음에 또 밟는다.
+ */
+const nullable = (type: string) => ({ anyOf: [{ type }, { type: 'null' }] });
+const nullableEnum = (values: string[]) => ({
+  anyOf: [{ type: 'string', enum: values }, { type: 'null' }],
+});
 
 export const PARSE_SCHEMA = {
   type: 'object',
@@ -112,8 +123,7 @@ export const PARSE_SCHEMA = {
           minute: { ...nullable('integer'), description: 'kind=event 일 때 경기 시작 후 분. 모르면 null.' },
 
           strengths: {
-            type: ['array', 'null'],
-            items: { type: 'string' },
+            anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'null' }],
             description:
               "kind=profile 일 때 새로 붙일 장점 태그. 짧은 명사구로. 예: ['왼발','헤딩','체력']. 그 외에는 null.",
           },
