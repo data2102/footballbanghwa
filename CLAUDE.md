@@ -23,13 +23,16 @@
    안 보이던 게 나온다 — 긴 명단의 스크롤, 동명이인, 참석률이 `-` 인 사람들.
 2. **그 다음에 URL 을 확정한다.** 배포 주소를 팀원에게 뿌리는 건 화면이 정리된 뒤다.
 
-그때까지:
+**확인은 배포된 주소에서 한다.** 맥북 개발 서버(`npm run web`)를 띄워 두고 보는 방식은
+접었다 — 서버가 자꾸 죽고, 죽을 때마다 무엇이 문제인지부터 찾느라 정작 화면을 못 봤다.
+`https://data2102.github.io/footballbanghwa/` 에 저장소 Secrets 로 키를 넣어
+**진짜 DB 에 붙은 상태로 띄워 두고**, 고칠 때마다 push 해서 그 주소에서 본다.
 
-- `https://data2102.github.io/footballbanghwa/` 는 **데모 모드**로 둔다. 저장소 Secrets 에
-  `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` 를 넣으면 진짜 DB 에 붙는데,
-  아직 넣지 않았다. 팀원이 실수로 들어와서 진짜 데이터를 건드리는 걸 막는 셈이다.
-- **실제 데이터 확인은 맥북 로컬에서 한다.** `.env` 에 키 두 개를 넣고 `npm run web`,
-  `http://localhost:8081`.
+- Secrets 두 개: `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+  anon 키는 원래 앱 번들에 들어가는 공개 값이다 — 숨길 필요가 없고 권한은 RLS 가 막는다.
+- **주소를 아는 사람이 들어와도 데이터는 안 보인다.** 로그인 문(`AuthGate`)을 지나야 하고,
+  로그인해도 그 팀 회원이 아니면 RLS 가 전부 막는다. 그래서 주소를 열어 두어도 된다.
+- 맥북 로컬(`npm run web`)은 여전히 되지만 이제 필수가 아니다.
 
 ## 명령어
 
