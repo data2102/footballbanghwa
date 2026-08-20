@@ -1,5 +1,6 @@
 import { MessageComposer } from '@/features/messaging/MessageComposer';
-import { Card, Txt } from '@/components/ui';
+import { SavedDrafts } from '@/features/messaging/SavedDrafts';
+import { Card, SectionHeader, Txt } from '@/components/ui';
 import { usePalette } from '@/theme';
 import type { Match, Member } from '@/lib/types';
 
@@ -32,9 +33,16 @@ export function AttendanceNudge({
     );
   }
 
+  /*
+   * 저장해 둔 초안이 먼저다. 매주 같은 글을 보내는 사람에게는 고르고 보내기가 전부라,
+   * 문구를 새로 짓는 자리(아래)보다 위에 둔다.
+   */
   // 누가 안 했는지는 위 요약 카드가 이미 이름으로 보여 준다. 여기서 또 나열하지 않는다.
   return (
-    <MessageComposer
+    <>
+      <SavedDrafts kind="attendance" match={match} />
+      <SectionHeader title="새로 짓기" />
+      <MessageComposer
       openLabel={`답 없는 ${pending.length}명에게 보낼 문구 만들기`}
       title="단톡방에 붙여넣을 참석 확인"
       namesOnHelp="누가 답을 안 했는지 단톡방에 그대로 보여요."
@@ -56,6 +64,7 @@ export function AttendanceNudge({
         includeNames,
         note,
       })}
-    />
+      />
+    </>
   );
 }

@@ -7,6 +7,7 @@ import {
   fillTemplate,
   orderTemplates,
   slotValues,
+  slotifyTemplate,
   slotsFor,
   unfilledSlots,
 } from '@/lib/templates';
@@ -82,8 +83,13 @@ export default function TemplatesScreen() {
       kind: editing?.kind ?? kind,
       usedAt: editing?.usedAt ?? null,
     });
+    /*
+     * 저장은 화면을 먼저 바꾸고 뒤따라간다. 실패해도 목록에는 남아 있으니
+     * 여기서 "저장했어요"를 그냥 띄우면 거짓말이 된다. 실패는 위쪽 띠가 알린다.
+     */
+    if (useStore.getState().error) return;
     setEditingId(null);
-    setNotice('저장했어요.');
+    setNotice('저장했어요. 이제 참석·공지 화면에서 바로 꺼내 쓸 수 있어요.');
   }
 
   // 편집 중에는 지금 쓴 본문이 실제로 어떻게 나가는지 바로 보여 준다.
@@ -140,6 +146,27 @@ export default function TemplatesScreen() {
             }}
           />
 
+          {/*
+            지난주 단톡방 글을 그대로 붙여넣으면 날짜와 인원이 박혀 있어서 다음 주에 못 쓴다.
+            사람이 일일이 지우고 {날짜} 를 넣게 하면 결국 아무도 안 쓴다. 한 번에 바꿔 준다.
+          */}
+          {body ? (
+            <Button
+              label="붙여넣은 값을 자리로 바꾸기"
+              tone="neutral"
+              small
+              onPress={() => {
+                const next = slotifyTemplate(body, values);
+                setBody(next);
+                setNotice(
+                  next === body
+                    ? '바꿀 값을 못 찾았어요. 아래에서 자리를 눌러 넣어 주세요.'
+                    : '이번 주 날짜·인원을 자리로 바꿨어요.',
+                );
+              }}
+            />
+          ) : null}
+
           {/* 자리를 외우게 하지 않는다. 눌러서 넣는다. */}
           <Card>
             <Txt variant="h3">넣을 수 있는 자리</Txt>
@@ -161,6 +188,12 @@ export default function TemplatesScreen() {
               ))}
             </Row>
           </Card>
+
+          {notice ? (
+            <Txt variant="small" color={p.ok}>
+              {notice}
+            </Txt>
+          ) : null}
 
           {preview ? (
             <>

@@ -90,6 +90,41 @@ export function fillTemplate(body: string, values: Record<string, string>): stri
   return body.replace(/\{([^{}]+)\}/g, (whole, key: string) => values[key.trim()] ?? whole);
 }
 
+/**
+ * 붙여넣은 글에서 이번 주 값을 찾아 자리로 되돌린다. `fillTemplate` 의 반대다.
+ *
+ * 지난주 단톡방 글을 그대로 붙여넣으면 날짜와 인원이 박혀 있어서 다음 주에 못 쓴다.
+ * 그걸 사람이 일일이 지우고 {날짜} 를 넣게 하면 결국 아무도 안 쓴다.
+ *
+ * 숫자만 있는 값(참석 인원 같은 것)은 "12명" 처럼 단위까지 붙었을 때만 바꾼다.
+ * 그냥 12 를 바꾸면 글에 있는 다른 12 까지 자리로 둔갑한다.
+ */
+const COUNT_SLOTS: Record<string, string> = {
+  참석: '명',
+  미투표: '명',
+  미납: '명',
+};
+
+export function slotifyTemplate(text: string, values: Record<string, string>): string {
+  // 긴 값부터 바꾼다. 짧은 값이 먼저 걸리면 긴 값이 조각나서 안 맞는다.
+  const entries = Object.entries(values)
+    .filter(([, value]) => value && value !== '없음')
+    .sort((a, b) => b[1].length - a[1].length);
+
+  let out = text;
+  for (const [key, value] of entries) {
+    const unit = COUNT_SLOTS[key];
+    // 이미 자리로 들어간 곳은 건드리지 않는다.
+    if (unit) {
+      if (!/^\d+$/.test(value)) continue;
+      out = out.split(`${value}${unit}`).join(`{${key}}${unit}`);
+    } else {
+      out = out.split(value).join(`{${key}}`);
+    }
+  }
+  return out;
+}
+
 /** 채우고 나서도 남아 있는 자리들. 화면에서 "이건 못 채웠어요"를 알릴 때 쓴다. */
 export function unfilledSlots(filled: string): string[] {
   return [...new Set([...filled.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1].trim()))];

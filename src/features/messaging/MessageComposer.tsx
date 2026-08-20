@@ -186,7 +186,8 @@ export function MessageComposer({
               onPress={async () => {
                 await saveTemplate({
                   id: uid(),
-                  title: `${title} ${new Date().toISOString().slice(5, 10)}`,
+                  // 이름은 나중에 보관함에서 고친다. 여기서 물어보면 보내기 흐름이 끊긴다.
+                  title: `초안 ${saved.length + 1}`,
                   body: message,
                   kind: templateKind,
                   usedAt: null,

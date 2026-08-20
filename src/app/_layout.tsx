@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,6 +17,7 @@ export default function RootLayout() {
   const status = useStore((state) => state.status);
   const error = useStore((state) => state.error);
   const load = useStore((state) => state.load);
+  const clearError = useStore((state) => state.clearError);
   const watchAuth = useStore((state) => state.watchAuth);
   const registered = useRef(false);
   const segments = useSegments();
@@ -50,6 +51,12 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
+        {/*
+          저장 실패는 반드시 눈에 띄어야 한다. 낙관적 갱신이라 화면은 이미 바뀐 뒤여서,
+          안 띄우면 총무는 저장된 줄 알고 앱을 닫고 다음에 열면 사라져 있다.
+          불러오기 실패(status === 'error')는 아래 큰 화면이 따로 맡는다.
+        */}
+        {error && status === 'ready' ? <SaveError message={error} onClose={clearError} /> : null}
         {isPublicRoute ? (
           <PublicStack palette={p} />
         ) : status === 'signed-out' ? (
@@ -105,6 +112,26 @@ export default function RootLayout() {
         )}
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/** 저장이 실패했을 때 화면 위에 붙는 띠. 누르면 닫힌다. */
+function SaveError({ message, onClose }: { message: string; onClose: () => void }) {
+  const p = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="저장 실패 안내 닫기"
+      onPress={onClose}
+      style={{ backgroundColor: p.dangerSoft, paddingHorizontal: space.lg, paddingVertical: space.md }}
+    >
+      <Txt variant="small" color={p.danger}>
+        저장하지 못했어요. 인터넷을 확인하고 다시 눌러 주세요.
+      </Txt>
+      <Txt variant="tiny" color={p.danger} numberOfLines={2}>
+        {message}
+      </Txt>
+    </Pressable>
   );
 }
 

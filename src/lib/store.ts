@@ -31,7 +31,9 @@ type Status = 'idle' | 'loading' | 'ready' | 'error' | 'signed-out' | 'no-team';
 
 type Store = {
   status: Status;
+  /** 마지막 저장이 실패한 이유. 화면에 띠로 뜬다. 성공하면 비운다. */
   error: string | null;
+  clearError: () => void;
   data: AppData | null;
   /** 지금 화면들이 바라보는 경기. 참석·라인업·기록이 모두 이 값을 따른다. */
   activeMatchId: string | null;
@@ -88,7 +90,13 @@ type Store = {
   updateTeam: (patch: Partial<Team>) => Promise<void>;
 };
 
-/** 낙관적 갱신: 화면을 먼저 바꾸고 저장한다. 실패하면 error에 남기고 다시 읽는다. */
+/**
+ * 화면을 먼저 바꿔 두고 저장은 뒤따라간다(낙관적 갱신).
+ *
+ * 저장이 실패하면 error 에 담는다. **화면은 이미 바뀐 뒤라 실패가 안 보인다** —
+ * 그래서 이 값은 반드시 어딘가에 떠야 한다. `_layout.tsx` 가 띠로 띄운다.
+ * 조용히 삼키면 총무는 저장된 줄 알고 앱을 닫고, 다음에 열면 사라져 있다.
+ */
 async function persist<T>(set: (partial: Partial<Store>) => void, run: () => Promise<T>): Promise<void> {
   try {
     await run();
@@ -102,6 +110,8 @@ export const useStore = create<Store>((set, get) => ({
   error: null,
   data: null,
   activeMatchId: null,
+
+  clearError: () => set({ error: null }),
 
   load: async () => {
     set({ status: 'loading', error: null });
