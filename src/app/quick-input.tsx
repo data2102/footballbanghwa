@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { blankMemberFields, useStore } from '@/lib/store';
-import { parseText } from '@/lib/ai/client';
+import { parseText, type ParseProgress } from '@/lib/ai/client';
 import { isLocalRepo } from '@/lib/repo';
 import { pickPhoto, type PickedPhoto } from '@/lib/photo';
 import { takeHandedPhotos } from '@/lib/photoHandoff';
@@ -86,6 +86,8 @@ export default function QuickInputScreen() {
   const [text, setText] = useState('');
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [busy, setBusy] = useState(false);
+  /** 사진을 나눠 보내는 동안 몇 장까지 읽었는지. 기다리는 화면이 멈춘 것처럼 보이지 않게 한다. */
+  const [progress, setProgress] = useState<ParseProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResponse | null>(null);
   /** 사용자가 체크한 항목. AI가 사람을 특정하지 못한 항목은 기본으로 꺼둔다. */
@@ -135,8 +137,11 @@ export default function QuickInputScreen() {
         /*
          * 길쭉한 캡처는 사진 하나가 여러 조각으로 잘려 있다. 화면에는 한 장으로
          * 보이지만 AI 에는 조각을 전부 보낸다 — 줄여서 한 장으로 보내면 이름이 뭉개진다.
+         *
+         * 조각을 장별로 묶어서 넘긴다. client 가 장마다 요청을 따로 보내는데,
+         * 평평하게 펴서 주면 어디까지가 한 장인지 알 수 없어 머리글이 없는 조각이 생긴다.
          */
-        images: photos.flatMap((photo) =>
+        photos: photos.map((photo) =>
           photo.parts.map((part) => ({ mediaType: photo.mediaType, data: part.base64 })),
         ),
         members: activeMembers,
@@ -144,6 +149,7 @@ export default function QuickInputScreen() {
         hint: hint === 'auto' ? undefined : hint,
         // 화이트보드에 "1쿼터"가 안 적혀 있는 날이 있다. 그럴 때 넣을 기본 쿼터를 알려 준다.
         quarter: quarter,
+        onProgress: setProgress,
       });
       setResult(response);
       setChecked(
@@ -154,6 +160,7 @@ export default function QuickInputScreen() {
       setError(caught instanceof Error ? caught.message : '분석하지 못했어요. 다시 시도해 주세요.');
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -450,6 +457,12 @@ export default function QuickInputScreen() {
               disabled={!text.trim() && photos.length === 0}
               onPress={runParse}
             />
+
+            {busy && progress && progress.total > 1 ? (
+              <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
+                {`${progress.total}장 중 ${progress.done}장 읽었어요. 한 장씩 나눠 보내는 중이에요.`}
+              </Txt>
+            ) : null}
 
             {isLocalRepo ? (
               <Txt variant="tiny" muted style={{ textAlign: 'center' }}>

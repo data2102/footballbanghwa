@@ -12,7 +12,14 @@ type WithContext = { context?: unknown; message?: string };
 
 function guidance(status: number, body: string): string | null {
   if (status === 404) {
-    return 'AI 함수가 아직 서버에 올라가 있지 않아요. 맥북에서 npm run fn:deploy 를 한 번 해 주세요.';
+    return 'AI 함수가 아직 서버에 올라가 있지 않아요. 함수를 고친 커밋을 push 하면 자동으로 올라가요.';
+  }
+  /*
+   * Edge Function 이 제한(시간·메모리)을 넘겨 죽었을 때 오는 코드다.
+   * 사진이 많을수록 읽어 낼 이름이 늘고 그만큼 오래 걸려서 여기에 걸린다.
+   */
+  if (/WORKER_RESOURCE_LIMIT|WORKER_LIMIT|resource limit|compute resources/i.test(body)) {
+    return '사진이 많아서 서버가 시간 안에 다 못 읽었어요. 한 장씩 나눠 올려 주세요.';
   }
   if (status === 401 || status === 403) {
     return 'AI 함수를 부를 권한이 없어요. 로그아웃했다가 다시 로그인해 보세요.';

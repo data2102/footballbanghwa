@@ -10,15 +10,29 @@ import { corsHeaders, json } from '../_shared/cors.ts';
 import { NONE, PARSE_SCHEMA } from '../_shared/schema.ts';
 import { SYSTEM_PROMPT } from '../_shared/prompt.ts';
 
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-5';
+/*
+ * 기본을 Sonnet 으로 둔다.
+ *
+ * 카톡 투표 화면을 읽는 건 판단이 아니라 옮겨 적기에 가깝다 — 머리글 아래 이름을
+ * 순서대로 베끼는 일이라, 아흔 명이면 그만큼 출력이 길어지고 그 길이가 곧 기다리는
+ * 시간이 된다. Opus 로는 그 시간이 Edge Function 제한을 넘겨 아예 실패했다.
+ *
+ * 이름을 자꾸 틀리게 읽으면 시크릿 하나로 되돌린다 — 배포는 다시 안 해도 된다:
+ *   ANTHROPIC_MODEL=claude-opus-5
+ * 어느 모델이 읽었는지는 아래 로그 줄에 남는다.
+ */
+const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-sonnet-5';
 const MAX_TEXT_LENGTH = 8000;
 const MAX_ROSTER = 200;
 /*
- * 길쭉한 카톡 투표 캡처는 앱에서 잘려서 여러 장으로 온다. 두 탭(항목별·미참여)을
- * 같이 올리면 조각이 예닐곱 장이 되므로 넉넉히 둔다. 조각 하나가 1080x1400 쯤이라
- * 여덟 장이면 대략 1만 6천 토큰 — 한 번 분석에 감당할 만하다.
+ * 요청 하나가 읽는 조각 수. 넉넉히 여덟 장까지 받다가 실패했다 — 조각이 많을수록
+ * 읽어 낼 이름이 늘고, 그만큼 출력이 길어져서 Edge Function 이 제한 시간을 넘겼다
+ * (WORKER_RESOURCE_LIMIT). 화면에는 "AI 분석에 실패했어요" 만 떴다.
+ *
+ * 이제 앱이 사진 한 장씩 따로 보낸다(src/lib/ai/client.ts 의 MAX_SLICES_PER_CALL).
+ * 여기 값은 그 약속을 넘겨 받지 않도록 막는 울타리다. 두 값은 같이 움직인다.
  */
-const MAX_IMAGES = 8;
+const MAX_IMAGES = 4;
 /** base64 기준. 1568px·품질 0.7 로 줄여 보내면 보통 이 아래로 떨어진다. */
 const MAX_IMAGE_BYTES = 4_000_000;
 
@@ -139,13 +153,17 @@ Deno.serve(async (req) => {
 
   const text = (body.text ?? '').trim();
   const images = (body.images ?? []).slice(0, MAX_IMAGES);
+  // 잘린 조각은 화면에서 이름이 통째로 사라지는 것과 같다. 조용히 넘어가지 않는다.
+  if ((body.images ?? []).length > MAX_IMAGES) {
+    console.warn(`조각 ${(body.images ?? []).length}장 중 ${MAX_IMAGES}장만 읽습니다. 앱이 안 나눠 보냈습니다.`);
+  }
 
   /*
    * 요청이 어떤 모양으로 왔는지 한 줄 남긴다. 사진이 커서 잘린 건지, 형식이 안 맞는 건지,
    * 아예 함수에 안 닿은 건지를 대시보드 로그만 보고 가릴 수 있어야 한다.
    */
   console.log(
-    `요청: 글 ${text.length}자, 사진 ${images.length}장 [` +
+    `요청(${MODEL}): 글 ${text.length}자, 사진 ${images.length}장 [` +
       images.map((i) => `${i.mediaType} ${Math.round((i.data?.length ?? 0) / 1024)}KB`).join(', ') +
       `], 명단 ${(body.roster ?? []).length}명`,
   );
