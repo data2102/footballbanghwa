@@ -8,6 +8,7 @@ import {
   Avatar,
   Button,
   Card,
+  Checkbox,
   Divider,
   Empty,
   Hero,
@@ -45,7 +46,16 @@ export default function AttendanceScreen() {
   const data = useStore((state) => state.data);
   const activeMatchId = useStore((state) => state.activeMatchId);
   const setAttendance = useStore((state) => state.setAttendance);
+  const setAttendanceMany = useStore((state) => state.setAttendanceMany);
+  const clearAttendance = useStore((state) => state.clearAttendance);
   const [filter, setFilter] = useState<Filter>('all');
+  /*
+   * 카톡 투표 화면을 사진으로 읽는 건 아흔 명쯤 되면 자꾸 틀린다. 이름이 작고
+   * 프로필 사진에 가리고 화면이 잘린다. 그래서 손으로 고르는 길을 확실하게 둔다 —
+   * 참석한 사람 골라서 한 번, 불참 골라서 한 번, 나머지는 미투표로 한 번.
+   */
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [selecting, setSelecting] = useState(false);
 
   const rows = useMemo(
     () => (data && activeMatchId ? attendanceForMatch(data, activeMatchId) : new Map()),
@@ -63,6 +73,19 @@ export default function AttendanceScreen() {
   const members = data.members
     .filter((member) => member.active)
     .filter((member) => filter === 'all' || (rows.get(member.id)?.status ?? 'unknown') === filter);
+
+  const active = data.members.filter((member) => member.active);
+  /** 참석·불참으로 정해지지 않은 채 줄만 남아 있는 사람 — 미투표로 되돌릴 대상. */
+  const toPending = active
+    .filter((member) => {
+      const status = rows.get(member.id)?.status;
+      return status && status !== 'attending' && status !== 'absent';
+    })
+    .map((member) => member.id);
+  /** 줄이 아예 없는 사람 — 아직 아무 말이 없는 사람. */
+  const stillSilent = active
+    .filter((member) => !rows.get(member.id))
+    .map((member) => member.id);
 
   const tone: Record<AttendanceStatus, { fg: string; bg: string; line: string }> = {
     attending: { fg: p.ok, bg: p.okSoft, line: p.okLine },
@@ -129,11 +152,32 @@ export default function AttendanceScreen() {
                 카톡 투표 화면을 찍거나 대화를 그대로 붙여넣으면 명단에 맞춰 읽어요. 읽은 결과는
                 체크로 확인한 뒤에만 저장돼요.
               </Txt>
-              <Button
-                label="투표 사진 올리기"
-                icon="camera"
-                onPress={() => router.push('/quick-input?hint=attendance')}
-              />
+              <Row gap={space.sm}>
+                <Button
+                  label="투표 사진 올리기"
+                  icon="camera"
+                  tone="neutral"
+                  style={{ flex: 1 }}
+                  onPress={() => router.push('/quick-input?hint=attendance')}
+                />
+                <Button
+                  label={selecting ? '고르기 그만두기' : '여러 명 한 번에'}
+                  icon="check"
+                  style={{ flex: 1 }}
+                  onPress={() => {
+                    setSelecting((on) => !on);
+                    setPicked(new Set());
+                  }}
+                />
+              </Row>
+              {/*
+                사진이 아흔 명에서 자꾸 틀린다는 걸 겪고 나서 넣었다.
+                카톡 투표는 복사도 막혀 있어서, 손으로 고르는 길이 확실한 바닥이 된다.
+              */}
+              <Txt variant="tiny" muted>
+                사진이 잘 안 읽히면 여러 명 한 번에로 골라서 처리하세요. 참석·불참을 고른 뒤
+                나머지를 미투표로 한 번에 되돌릴 수 있어요.
+              </Txt>
             </Card>
 
             <Segmented
@@ -145,6 +189,29 @@ export default function AttendanceScreen() {
               ]}
             />
 
+            {selecting ? (
+              <Row justify="space-between">
+                <Txt variant="small" muted>
+                  {picked.size}명 골랐어요
+                </Txt>
+                <Row gap={space.sm}>
+                  <Button
+                    label={`보이는 ${members.length}명 전부`}
+                    tone="neutral"
+                    small
+                    onPress={() => setPicked(new Set(members.map((member) => member.id)))}
+                  />
+                  <Button
+                    label="선택 지우기"
+                    tone="neutral"
+                    small
+                    disabled={picked.size === 0}
+                    onPress={() => setPicked(new Set())}
+                  />
+                </Row>
+              </Row>
+            ) : null}
+
             <Card style={{ padding: space.sm, gap: 0 }}>
               {members.length === 0 ? (
                 <Empty text="여기 해당하는 회원이 없어요." />
@@ -152,11 +219,43 @@ export default function AttendanceScreen() {
                 members.map((member, index) => {
                   const current = (rows.get(member.id)?.status ?? 'unknown') as AttendanceStatus;
                   const note = rows.get(member.id)?.note;
+                  const chosen = picked.has(member.id);
+                  const toggle = () =>
+                    setPicked((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(member.id)) next.delete(member.id);
+                      else next.add(member.id);
+                      return next;
+                    });
                   return (
                     <View key={member.id}>
                       {index > 0 ? <Divider /> : null}
+                      <Pressable
+                        // 고르는 중에는 줄 아무 데나 눌러도 골라진다. 아흔 번 누를 자리라
+                        // 작은 네모만 정확히 찍게 하면 손이 아프다.
+                        onPress={selecting ? toggle : undefined}
+                        accessibilityRole={selecting ? 'checkbox' : undefined}
+                        accessibilityState={selecting ? { checked: chosen } : undefined}
+                        accessibilityLabel={selecting ? member.name : undefined}
+                      >
                       <Row justify="space-between" style={{ paddingVertical: space.sm, paddingHorizontal: space.sm }}>
                         <Row style={{ flexShrink: 1 }}>
+                          {/*
+                            네모는 보여 주기만 한다. 누르는 건 줄 전체가 받는다 —
+                            둘 다 반응하면 네모를 정확히 눌렀을 때 두 번 토글돼서
+                            아무 일도 안 일어난다. 실제로 그렇게 안 골라졌다.
+                          */}
+                          {selecting ? (
+                            <View
+                              pointerEvents="none"
+                              // 낭독기에도 감춘다. 줄 자체가 이미 checkbox 라 안 감추면
+                              // 한 사람이 두 번 읽힌다.
+                              accessibilityElementsHidden
+                              importantForAccessibility="no-hide-descendants"
+                            >
+                              <Checkbox checked={chosen} onToggle={toggle} />
+                            </View>
+                          ) : null}
                           <Avatar name={member.name} size={32} tone={tone[current].bg} />
                           <View style={{ flexShrink: 1 }}>
                             <Txt variant="h3">{member.name}</Txt>
@@ -168,7 +267,8 @@ export default function AttendanceScreen() {
                           </View>
                         </Row>
                         <Row gap={4}>
-                          {STATUSES.map((status) => {
+                          {/* 고르는 중에는 상태 버튼을 감춘다. 같은 줄에서 두 가지를 하면 오작동한다. */}
+                          {selecting ? null : STATUSES.map((status) => {
                             const active = current === status.value;
                             return (
                               <Pressable
@@ -201,23 +301,83 @@ export default function AttendanceScreen() {
                           })}
                         </Row>
                       </Row>
+                      </Pressable>
                     </View>
                   );
                 })
               )}
             </Card>
 
+            {selecting ? (
+              <Card>
+                <Txt variant="h3">골라 둔 {picked.size}명을</Txt>
+                <Row gap={space.sm}>
+                  <Button
+                    label="참석"
+                    style={{ flex: 1 }}
+                    disabled={picked.size === 0}
+                    onPress={async () => {
+                      await setAttendanceMany(match.id, [...picked], 'attending');
+                      setPicked(new Set());
+                    }}
+                  />
+                  <Button
+                    label="불참"
+                    tone="neutral"
+                    style={{ flex: 1 }}
+                    disabled={picked.size === 0}
+                    onPress={async () => {
+                      await setAttendanceMany(match.id, [...picked], 'absent');
+                      setPicked(new Set());
+                    }}
+                  />
+                  <Button
+                    label="미투표"
+                    tone="neutral"
+                    style={{ flex: 1 }}
+                    disabled={picked.size === 0}
+                    onPress={async () => {
+                      // 미투표는 줄이 없는 상태다. 새 상태를 쓰는 게 아니라 있던 줄을 지운다.
+                      await clearAttendance(match.id, [...picked]);
+                      setPicked(new Set());
+                    }}
+                  />
+                </Row>
+                <Txt variant="tiny" muted>
+                  누르면 바로 저장돼요. 위 칸에서 참석·불참만 걸러 보면 고르기가 빨라요.
+                </Txt>
+              </Card>
+            ) : null}
+
+            {/*
+              참석·불참을 다 골랐으면 남은 사람은 전부 아직 답을 안 한 것이다.
+              여기서 되돌리는 건 참석도 불참도 아닌 줄(지각·투표함·판단못함)뿐이다.
+              불참은 사람이 일부러 찍은 값이라 건드리지 않는다 — 그걸 되돌리고 싶으면
+              위에서 불참만 걸러 골라 미투표를 누르면 된다.
+
+              인원을 버튼에 박아 둔다 — 옛 경기를 열어 둔 채 누르면 그 주 기록이 통째로
+              지워지는데, "90명"이라고 쓰여 있으면 손이 멈춘다.
+            */}
             <Button
-              label="아직 답 없는 사람 전부 불참 처리하기"
+              label={
+                toPending.length
+                  ? `참석·불참이 아닌 ${toPending.length}명 미투표로 되돌리기`
+                  : '참석·불참으로 정리됐어요'
+              }
               tone="neutral"
-              onPress={() => {
-                for (const member of data.members) {
-                  if (!member.active) continue;
-                  if ((rows.get(member.id)?.status ?? 'unknown') === 'unknown') {
-                    setAttendance(match.id, member.id, 'absent');
-                  }
-                }
-              }}
+              disabled={toPending.length === 0}
+              onPress={() => void clearAttendance(match.id, toPending)}
+            />
+
+            <Button
+              label={
+                stillSilent.length
+                  ? `아직 답 없는 ${stillSilent.length}명 전부 불참 처리하기`
+                  : '전원 답했어요'
+              }
+              tone="neutral"
+              disabled={stillSilent.length === 0}
+              onPress={() => void setAttendanceMany(match.id, stillSilent, 'absent')}
             />
 
             {/*

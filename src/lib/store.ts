@@ -43,6 +43,11 @@ type Store = {
   watchAuth: () => () => void;
   setActiveMatch: (matchId: string) => void;
 
+  setAttendanceMany: (
+    matchId: string,
+    memberIds: string[],
+    status: AttendanceStatus,
+  ) => Promise<void>;
   clearAttendance: (matchId: string, memberIds: string[]) => Promise<void>;
   setAttendance: (
     matchId: string,
@@ -187,6 +192,41 @@ export const useStore = create<Store>((set, get) => ({
       },
     });
     await persist(set, () => repo.saveAttendance([row]));
+  },
+
+  /**
+   * 여러 명을 같은 상태로 한 번에 저장한다.
+   *
+   * 한 명씩 setAttendance 를 부르면 아흔 명일 때 저장이 아흔 번 나간다.
+   * 화면은 그때마다 다시 그려지고, 중간에 하나만 실패해도 어디까지 됐는지 알 수 없다.
+   */
+  setAttendanceMany: async (matchId, memberIds, status) => {
+    const data = get().data;
+    if (!data || memberIds.length === 0) return;
+    const now = new Date().toISOString();
+    const rows: Attendance[] = memberIds.map((memberId) => {
+      const existing = data.attendance.find(
+        (row) => row.matchId === matchId && row.memberId === memberId,
+      );
+      return {
+        id: existing?.id ?? uid(),
+        matchId,
+        memberId,
+        status,
+        // 상태를 바꾸면 예전 사유는 더 이상 맞지 않는다. 지각 시각이 불참에 남으면 헷갈린다.
+        note: existing?.status === status ? (existing?.note ?? null) : null,
+        source: 'manual',
+        updatedAt: now,
+      };
+    });
+    const touched = new Set(rows.map((row) => row.id));
+    set({
+      data: {
+        ...data,
+        attendance: [...data.attendance.filter((row) => !touched.has(row.id)), ...rows],
+      },
+    });
+    await persist(set, () => repo.saveAttendance(rows));
   },
 
   /**
