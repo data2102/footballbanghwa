@@ -44,26 +44,26 @@ export class LocalRepo implements Repo {
       this.persistent = false;
     }
 
-    // 시드가 바뀌었으면 저장된 예시 데이터를 버린다. 안 그러면 명단을 고쳐도
-    // 이미 앱을 열어 본 사람에게는 옛 명단이 계속 보인다.
-    if (raw && storedSeed !== String(SEED_VERSION)) {
+    /*
+     * 시드가 바뀌면 예시 데이터를 새로 깔고 싶다. 명단을 고쳐도 이미 앱을 열어 본
+     * 사람에게는 옛 명단이 보이기 때문이다.
+     *
+     * 그런데 **직접 적어 둔 게 있으면 버리면 안 된다.** 문구 초안이나 회비 한 줄은
+     * 예시가 아니라 그 사람 일이다. 전에는 판이 바뀔 때마다 통째로 버려서,
+     * 새 판을 올릴 때마다 사용자가 적은 게 사라졌다 — "자꾸 초기화된다"가 이거였다.
+     *
+     * 그래서 판이 달라도 사용자가 만든 줄이 하나라도 있으면 저장된 값을 그대로 쓴다.
+     */
+    if (raw && storedSeed !== String(SEED_VERSION) && !LocalRepo.hasOwnRows(raw)) {
       raw = null;
     }
 
     if (raw) {
       try {
-        // 예전 버전이 저장해 둔 값에는 새로 생긴 배열이 없다. 없으면 빈 배열로 채운다 —
-        // 여기서 안 막으면 화면들이 undefined 를 순회하다 터진다.
-        const parsed = JSON.parse(raw) as AppData;
-        this.cache = {
-          ...parsed,
-          lineups: parsed.lineups ?? [],
-          potmVotes: parsed.potmVotes ?? [],
-          matches: (parsed.matches ?? []).map((match) => ({
-            ...match,
-            shareToken: match.shareToken ?? null,
-          })),
-        };
+        const parsed = JSON.parse(raw) as Partial<AppData>;
+        this.cache = LocalRepo.backfill(parsed);
+        // 판이 달라도 남겨 둔 경우다. 다음에 또 묻지 않게 지금 판으로 표시해 둔다.
+        if (storedSeed !== String(SEED_VERSION)) await this.flush();
         return this.cache;
       } catch {
         // 저장된 값이 깨졌으면 시드로 되돌린다.
@@ -72,6 +72,67 @@ export class LocalRepo implements Repo {
     this.cache = buildSeed();
     await this.flush();
     return this.cache;
+  }
+
+  /**
+   * 예전 판이 저장해 둔 값에는 나중에 생긴 배열이 없다. 없으면 빈 배열로 채운다 —
+   * 여기서 안 막으면 화면들이 undefined 를 순회하다 터진다.
+   */
+  private static backfill(parsed: Partial<AppData>): AppData {
+    const seed = buildSeed();
+    return {
+      team: { ...seed.team, ...parsed.team },
+      members: parsed.members ?? [],
+      attendance: parsed.attendance ?? [],
+      // 연납·영수증이 생기기 전에 저장된 줄에는 이 칸들이 없다.
+      ledger: (parsed.ledger ?? []).map((row) => ({
+        ...row,
+        months: row.months ?? 1,
+        photoUri: row.photoUri ?? null,
+        photoPath: row.photoPath ?? null,
+      })),
+      events: parsed.events ?? [],
+      lineups: parsed.lineups ?? [],
+      potmVotes: parsed.potmVotes ?? [],
+      inventory: parsed.inventory ?? [],
+      templates: parsed.templates ?? [],
+      matches: (parsed.matches ?? []).map((match) => ({ ...match, shareToken: match.shareToken ?? null })),
+    };
+  }
+
+  /**
+   * 저장된 값에 사용자가 직접 만든 줄이 있는지.
+   *
+   * 시드가 만드는 id 는 정해져 있다(m1, tpl-1, inv-vest ...). 거기 없는 id 가 보이면
+   * 사람이 앱에서 만든 것이다. 하나라도 있으면 시드를 다시 깔지 않는다.
+   */
+  private static hasOwnRows(raw: string): boolean {
+    try {
+      const parsed = JSON.parse(raw) as Partial<AppData>;
+      const seed = buildSeed();
+      const known = new Set<string>();
+      for (const list of LocalRepo.collections(seed)) {
+        for (const row of list) known.add(row.id);
+      }
+      return LocalRepo.collections(parsed).some((list) => list.some((row) => !known.has(row.id)));
+    } catch {
+      return false;
+    }
+  }
+
+  /** id 를 가진 배열들. 시드와 저장본을 같은 방식으로 훑는다. */
+  private static collections(data: Partial<AppData>): { id: string }[][] {
+    return [
+      data.members ?? [],
+      data.matches ?? [],
+      data.attendance ?? [],
+      data.ledger ?? [],
+      data.events ?? [],
+      data.lineups ?? [],
+      data.potmVotes ?? [],
+      data.inventory ?? [],
+      data.templates ?? [],
+    ];
   }
 
   private async flush(): Promise<void> {
