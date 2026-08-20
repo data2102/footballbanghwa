@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { explainInvokeError } from '@/lib/ai/invokeError';
 import { todayISO } from '@/lib/format';
 import type { Member, Team } from '@/lib/types';
 import { demoParse } from './demoParser';
@@ -68,7 +69,7 @@ export async function parseText({
     { body: request },
   );
 
-  if (error) throw new Error(error.message || 'AI 분석 요청에 실패했습니다.');
+  if (error) throw new Error(await explainInvokeError(error, 'AI 분석 요청에 실패했어요.'));
   if (!data) throw new Error('AI 응답이 비어 있습니다.');
   if (data.error) throw new Error(data.error);
   return data;

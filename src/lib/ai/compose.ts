@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { explainInvokeError } from '@/lib/ai/invokeError';
 import { formatDate, formatPeriod, won } from '@/lib/format';
 
 /**
@@ -101,7 +102,7 @@ export async function composeMessage(options: ComposeOptions): Promise<string> {
     { body: options },
   );
 
-  if (error) throw new Error(error.message || '문구를 만들지 못했어요.');
+  if (error) throw new Error(await explainInvokeError(error, '문구를 만들지 못했어요.'));
   if (data?.error) throw new Error(data.error);
   if (!data?.message) throw new Error('문구가 비어 있어요.');
   return data.message;
