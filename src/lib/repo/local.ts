@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { buildSeed } from '@/lib/seed';
+import { buildSeed, SEED_VERSION } from '@/lib/seed';
 import { toDataUri, type PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
@@ -16,6 +16,8 @@ import type {
 import type { Repo } from './types';
 
 const KEY = 'footballbanghwa:data:v1';
+/** 저장된 데모 데이터가 어느 판의 시드에서 나왔는지. 판이 다르면 버린다. */
+const SEED_KEY = 'footballbanghwa:seed-version';
 
 /**
  * 기기 저장소만 쓰는 구현. Supabase 환경변수가 없을 때 선택된다.
@@ -33,10 +35,18 @@ export class LocalRepo implements Repo {
 
   async load(): Promise<AppData> {
     let raw: string | null = null;
+    let storedSeed: string | null = null;
     try {
       raw = await AsyncStorage.getItem(KEY);
+      storedSeed = await AsyncStorage.getItem(SEED_KEY);
     } catch {
       this.persistent = false;
+    }
+
+    // 시드가 바뀌었으면 저장된 예시 데이터를 버린다. 안 그러면 명단을 고쳐도
+    // 이미 앱을 열어 본 사람에게는 옛 명단이 계속 보인다.
+    if (raw && storedSeed !== String(SEED_VERSION)) {
+      raw = null;
     }
 
     if (raw) {
@@ -67,6 +77,7 @@ export class LocalRepo implements Repo {
     if (!this.cache || !this.persistent) return;
     try {
       await AsyncStorage.setItem(KEY, JSON.stringify(this.cache));
+      await AsyncStorage.setItem(SEED_KEY, String(SEED_VERSION));
     } catch {
       // 한 번 실패하면 이후로는 시도하지 않는다. 매 입력마다 예외를 던질 이유가 없다.
       this.persistent = false;
@@ -147,6 +158,7 @@ export class LocalRepo implements Repo {
   /** 데모 데이터를 초기 상태로 되돌린다. 설정 화면에서 쓴다. */
   async reset(): Promise<AppData> {
     await AsyncStorage.removeItem(KEY);
+    await AsyncStorage.removeItem(SEED_KEY);
     this.cache = null;
     return this.load();
   }
