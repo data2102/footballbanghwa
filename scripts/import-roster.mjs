@@ -111,6 +111,15 @@ out.push('  v_team   uuid;');
 out.push('  v_member uuid;');
 out.push('  v_match  uuid;');
 out.push('begin');
+out.push('  -- 스키마가 최신인지 먼저 본다. voted 는 db push 로 들어간다.');
+out.push('  -- 이걸 안 보면 아흔 명을 넣다가 알아보기 힘든 enum 오류로 멈춘다.');
+out.push('  if not exists (');
+out.push('    select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid');
+out.push("     where t.typname = 'attendance_status' and e.enumlabel = 'voted'");
+out.push('  ) then');
+out.push("    raise exception '스키마가 최신이 아닙니다. 맥북에서 먼저 npm run db:push 를 하세요.';");
+out.push('  end if;');
+out.push('');
 if (teamId) {
   out.push('  -- 넣을 팀을 인자로 받았다.');
   out.push(`  select id into v_team from public.teams where id = ${q(teamId)};`);
