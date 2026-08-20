@@ -9,6 +9,10 @@
 - 백엔드는 Supabase(Postgres + Auth + Edge Functions).
 - AI 파싱은 Claude. API 키는 Edge Function 안에만 두고 앱에는 절대 넣지 않는다.
 
+> **총무 엑셀의 실제 명단·미투표 기록을 DB 에 넣으려면**
+> → [docs/실제-데이터-넣기.md](docs/실제-데이터-넣기.md)
+> (`git pull` 부터 SQL 붙여넣기까지. `db push` 는 스키마만 올리고 데이터는 안 넣는다)
+
 ---
 
 ## 1. 지금 상태
@@ -399,9 +403,10 @@ npm run ios         # iOS 시뮬레이터
 npm run android     # Android 에뮬레이터
 npm run typecheck   # tsc --noEmit
 npm run build:web   # 정적 웹 번들 (dist/)
-npm run db:push     # supabase db push
+npm run db:push     # supabase db push (스키마만. 데이터는 import:roster 로)
 npm run db:test     # 로컬 Supabase 에 RLS 테스트 (supabase start 필요)
 npm run fn:deploy   # Edge Function 3개 배포
+npm run import:roster -- <엑셀>   # 총무 엑셀 -> 적재 SQL (실명. 커밋 금지)
 npm run build:demo  # 공유용 단일 파일 (dist-demo/demo.html)
 ```
 

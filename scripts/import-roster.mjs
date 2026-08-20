@@ -2,6 +2,7 @@
 /**
  * 총무의 2026년 미투표자 엑셀을 Supabase 에 넣을 SQL 로 바꾼다.
  *
+ *   npm run import:roster -- <엑셀> [연도] [팀id] > import.sql
  *   npm run import:roster -- ~/Downloads/2026년미투표자현황.xlsx > import.sql
  *
  * 그리고 나온 import.sql 을 Supabase 대시보드의 SQL Editor 에 붙여넣고 Run 한다.
@@ -27,7 +28,17 @@ const VENUE = '자체경기';
 
 const path = process.argv[2];
 if (!path) {
-  console.error('쓰는 법: npm run import:roster -- <엑셀 경로> > import.sql');
+  console.error('쓰는 법: npm run import:roster -- <엑셀 경로> [연도] [팀id] > import.sql');
+  process.exit(1);
+}
+
+/**
+ * 팀이 여러 개면 어느 팀에 넣을지 알려 준다. 안 주면 가장 먼저 만든 팀에 넣는다.
+ * 나온 SQL 을 손으로 고치게 하지 않는 게 낫다 — 거기서 틀리면 남의 팀에 아흔 명이 들어간다.
+ */
+const teamId = process.argv[4];
+if (teamId && !/^[0-9a-f-]{36}$/i.test(teamId)) {
+  console.error(`팀 id 가 uuid 모양이 아니에요: ${teamId}`);
   process.exit(1);
 }
 
@@ -100,9 +111,16 @@ out.push('  v_team   uuid;');
 out.push('  v_member uuid;');
 out.push('  v_match  uuid;');
 out.push('begin');
-out.push('  -- 팀이 여러 개면 아래를 원하는 팀 id 로 바꾸세요.');
-out.push('  select id into v_team from public.teams order by created_at limit 1;');
-out.push("  if v_team is null then raise exception '팀이 없습니다. 앱에서 팀을 먼저 만들어 주세요.'; end if;");
+if (teamId) {
+  out.push('  -- 넣을 팀을 인자로 받았다.');
+  out.push(`  select id into v_team from public.teams where id = ${q(teamId)};`);
+  out.push(`  if v_team is null then raise exception '팀 ${teamId} 를 찾지 못했습니다.'; end if;`);
+} else {
+  out.push('  -- 팀을 안 골랐으니 가장 먼저 만든 팀에 넣는다.');
+  out.push('  -- 팀이 여러 개면 스크립트에 팀 id 를 넘기세요: npm run import:roster -- <엑셀> <연도> <팀id>');
+  out.push('  select id into v_team from public.teams order by created_at limit 1;');
+  out.push("  if v_team is null then raise exception '팀이 없습니다. 앱에서 팀을 먼저 만들어 주세요.'; end if;");
+}
 out.push('');
 
 out.push('  -- ---------------------------------------------------------- 회원');
