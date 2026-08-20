@@ -5,6 +5,12 @@ export type MemberRole = 'manager' | 'coach' | 'treasurer' | 'player';
 /** 포지션 그룹. 포메이션 슬롯과 선수 선호 포지션에 함께 쓰인다. */
 export type PositionGroup = 'GK' | 'DF' | 'MF' | 'FW';
 
+/**
+ * 연령대. 조기축구는 나이대가 팀 운영에 실제로 영향을 준다 —
+ * 쿼터 배분이나 포지션을 정할 때 참고한다. 생년월일까지 받을 이유는 없다.
+ */
+export type AgeBand = '30' | '40' | '50' | '60';
+
 export type Member = {
   id: string;
   teamId: string;
@@ -13,7 +19,13 @@ export type Member = {
   nickname: string | null;
   role: MemberRole;
   backNumber: number | null;
-  preferredPosition: PositionGroup | null;
+  /**
+   * 볼 수 있는 자리들. 조기축구에서 한 사람이 한 자리만 보는 경우는 드물다 —
+   * 수비도 보고 미드도 보는 사람이 대부분이라 여러 개를 담는다. 앞쪽이 주 포지션이다.
+   */
+  positions: PositionGroup[];
+  /** 30대·40대·50대·60대. 모르면 null. */
+  ageBand: AgeBand | null;
   /**
    * 감독·코치가 기억해 둘 장점 태그. 예: ['왼발', '헤딩', '체력', '빌드업'].
    * 라인업을 짤 때 이 사람을 왜 쓰는지가 한 줄로 보여야 해서 자유 문자열로 둔다.
@@ -42,6 +54,11 @@ export type Team = {
   inviteCode: string | null;
   /** 경기 전날 미응답자에게 알림을 보낼지. 팀 단위 스위치. */
   reminderEnabled: boolean;
+  /**
+   * 회칙. 단톡방 공지에 매번 붙여넣는 대신 여기 두고 꺼내 쓴다.
+   * 자유 문장이라 구조를 잡지 않는다 — 팀마다 형태가 너무 다르다.
+   */
+  rules: string | null;
 };
 
 export type MatchStatus = 'scheduled' | 'finished' | 'canceled';

@@ -168,7 +168,11 @@ export default function QuickInputScreen() {
               ...member,
               // 기존 태그를 지우지 않고 더한다. 문자 한 줄이 회원 카드를 날려버리면 안 된다.
               strengths: [...new Set([...member.strengths, ...item.strengths])],
-              preferredPosition: item.position ?? member.preferredPosition,
+              // AI 가 말해 준 자리를 더한다. 이미 있던 자리를 지우지 않는다.
+              positions:
+                item.position && !member.positions.includes(item.position)
+                  ? [...member.positions, item.position]
+                  : member.positions,
               backNumber: item.backNumber ?? member.backNumber,
               note: item.note ?? member.note,
             });

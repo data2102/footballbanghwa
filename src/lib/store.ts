@@ -58,6 +58,8 @@ type Store = {
   addMember: (member: Omit<Member, 'id' | 'teamId'>) => Promise<Member | null>;
   setMemberPhoto: (memberId: string, photo: PickedPhoto) => Promise<void>;
   updateMember: (member: Member) => Promise<void>;
+  /** 명단에서 뺀다. 지난 기록은 그대로 남는다(저장소가 비활성으로만 돌린다). */
+  removeMember: (id: string) => Promise<void>;
   saveMatch: (match: Omit<Match, 'id' | 'teamId'> & { id?: string }) => Promise<void>;
   updateTeam: (patch: Partial<Team>) => Promise<void>;
 };
@@ -283,6 +285,13 @@ export const useStore = create<Store>((set, get) => ({
     await persist(set, () => repo.saveMember(member));
   },
 
+  removeMember: async (id) => {
+    const data = get().data;
+    if (!data) return;
+    set({ data: { ...data, members: data.members.filter((row) => row.id !== id) } });
+    await persist(set, () => repo.removeMember(id));
+  },
+
   saveMatch: async (match) => {
     const data = get().data;
     if (!data) return;
@@ -315,7 +324,8 @@ export function blankMemberFields(): Omit<Member, 'id' | 'teamId' | 'name'> {
     nickname: null,
     role: 'player',
     backNumber: null,
-    preferredPosition: null,
+    positions: [],
+    ageBand: null,
     strengths: [],
     note: null,
     photoUri: null,

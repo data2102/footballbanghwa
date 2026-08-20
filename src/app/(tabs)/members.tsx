@@ -8,6 +8,7 @@ import {
   Avatar,
   Button,
   Card,
+  Checkbox,
   Chip,
   Divider,
   Empty,
@@ -35,13 +36,21 @@ export default function MembersScreen() {
   const [query, setQuery] = useState('');
   const [position, setPosition] = useState<PositionGroup | 'ALL'>('ALL');
   const [sort, setSort] = useState<Sort>('rate');
+  /**
+   * 정리 모드. 평소에는 회원을 눌러 상세로 들어가고, 이 모드에서는 눌러서 고른다.
+   * 한 명씩 지우는 화면만 두면 열 명 정리할 때 스무 번 왕복해야 한다.
+   */
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const removeMember = useStore((state) => state.removeMember);
 
   const profiles = useMemo(() => (data ? allProfiles(data) : []), [data]);
 
   if (!data) return null;
 
   const filtered = profiles
-    .filter((profile) => position === 'ALL' || profile.member.preferredPosition === position)
+    // 여러 자리를 보는 사람은 그 자리 어느 쪽으로 걸러도 나온다.
+    .filter((profile) => position === 'ALL' || profile.member.positions.includes(position))
     .filter((profile) => {
       if (!query.trim()) return true;
       const needle = query.trim();
@@ -129,25 +138,91 @@ export default function MembersScreen() {
             filtered.map((profile, index) => (
               <View key={profile.member.id}>
                 {index > 0 ? <Divider /> : null}
-                <MemberRow profile={profile} onPress={() => router.push(`/member/${profile.member.id}`)} />
+                <MemberRow
+                  profile={profile}
+                  picking={picking}
+                  picked={picked.has(profile.member.id)}
+                  onPress={() => {
+                    if (!picking) {
+                      router.push(`/member/${profile.member.id}`);
+                      return;
+                    }
+                    setPicked((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(profile.member.id)) next.delete(profile.member.id);
+                      else next.add(profile.member.id);
+                      return next;
+                    });
+                  }}
+                />
               </View>
             ))
           )}
         </Card>
 
-        <Button
-          label="회원 추가하기"
-          icon="plus"
-          tone="neutral"
-          onPress={() => router.push('/settings')}
-        />
+        {picking ? (
+          <>
+            <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
+              지운 회원은 명단에서 사라지지만 지난 기록은 그대로 남아요.
+            </Txt>
+            <Row gap={space.sm}>
+              <Button
+                label="그만두기"
+                tone="neutral"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setPicking(false);
+                  setPicked(new Set());
+                }}
+              />
+              <Button
+                label={picked.size ? `${picked.size}명 지우기` : '지울 회원 고르기'}
+                tone="danger"
+                style={{ flex: 1 }}
+                disabled={picked.size === 0}
+                onPress={async () => {
+                  for (const id of picked) await removeMember(id);
+                  setPicked(new Set());
+                  setPicking(false);
+                }}
+              />
+            </Row>
+          </>
+        ) : (
+          <Row gap={space.sm}>
+            <Button
+              label="회원 추가하기"
+              icon="plus"
+              tone="neutral"
+              style={{ flex: 1 }}
+              onPress={() => router.push('/settings')}
+            />
+            <Button
+              label="정리하기"
+              icon="trash"
+              tone="neutral"
+              style={{ flex: 1 }}
+              onPress={() => setPicking(true)}
+            />
+          </Row>
+        )}
       </Screen>
       <QuickInputFab hint="profile" />
     </View>
   );
 }
 
-function MemberRow({ profile, onPress }: { profile: MemberProfile; onPress: () => void }) {
+function MemberRow({
+  profile,
+  onPress,
+  picking,
+  picked,
+}: {
+  profile: MemberProfile;
+  onPress: () => void;
+  picking: boolean;
+  picked: boolean;
+}) {
   const p = usePalette();
   const { member, rate, outstanding } = profile;
   // 출석률은 낮을 때만 색이 붙는다. 잘 나오는 사람에게까지 색을 쓰면 신호가 죽는다.
@@ -160,6 +235,7 @@ function MemberRow({ profile, onPress }: { profile: MemberProfile; onPress: () =
       style={{ paddingVertical: space.sm, paddingHorizontal: space.sm }}
     >
       <Row gap={space.md} style={{ flex: 1, minWidth: 0 }}>
+        {picking ? <Checkbox checked={picked} onToggle={onPress} /> : null}
         {member.photoUri ? (
           <Image
             source={{ uri: member.photoUri }}
@@ -172,10 +248,12 @@ function MemberRow({ profile, onPress }: { profile: MemberProfile; onPress: () =
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Row gap={space.xs}>
             <Txt variant="h3">{member.name}</Txt>
-            {member.preferredPosition ? (
+            {member.positions.length || member.backNumber != null ? (
               <Txt variant="tiny" muted>
-                {member.preferredPosition}
-                {member.backNumber != null ? ` · ${member.backNumber}번` : ''}
+                {member.positions.join('·')}
+                {member.backNumber != null
+                  ? `${member.positions.length ? ' · ' : ''}${member.backNumber}번`
+                  : ''}
               </Txt>
             ) : null}
           </Row>
@@ -200,7 +278,7 @@ function MemberRow({ profile, onPress }: { profile: MemberProfile; onPress: () =
             </Txt>
           )}
         </View>
-        <Chip label="열기" onPress={onPress} />
+        {picking ? null : <Chip label="열기" onPress={onPress} />}
       </Row>
     </Row>
   );

@@ -171,7 +171,7 @@ export default function SettingsScreen() {
               await addMember({
                 ...blankMemberFields(),
                 name: newName.trim(),
-                preferredPosition: newPosition,
+                positions: newPosition ? [newPosition] : [],
               });
               setNewName('');
               setNewPosition(null);
@@ -201,7 +201,8 @@ export default function SettingsScreen() {
                   <Txt variant="body">{member.name}</Txt>
                   <Txt variant="tiny" muted>
                     {member.backNumber ? `#${member.backNumber} · ` : ''}
-                    {member.preferredPosition ?? '포지션 미정'} · {roleLabel(member.role)}
+                    {member.positions.length ? member.positions.join('·') : '포지션 미정'} ·{' '}
+                    {roleLabel(member.role)}
                   </Txt>
                 </View>
                 <Button label="열기" tone="neutral" small onPress={() => router.push(`/member/${member.id}`)} />

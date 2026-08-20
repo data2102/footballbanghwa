@@ -45,10 +45,16 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: '오늘', tabBarIcon: tabIcon('calendar') }} />
       <Tabs.Screen name="attendance" options={{ title: '참석', tabBarIcon: tabIcon('users') }} />
-      <Tabs.Screen name="lineup" options={{ title: '라인업', tabBarIcon: tabIcon('field') }} />
+      {/* 화이트보드로 짠 라인업을 옮겨 적는 화면이라 하는 일은 "누가 몇 쿼터 뛰었나"다. */}
+      <Tabs.Screen name="lineup" options={{ title: '출전', tabBarIcon: tabIcon('field') }} />
       <Tabs.Screen name="finance" options={{ title: '회비', tabBarIcon: tabIcon('wallet') }} />
       <Tabs.Screen name="members" options={{ title: '회원', tabBarIcon: tabIcon('person') }} />
-      <Tabs.Screen name="stats" options={{ title: '기록', tabBarIcon: tabIcon('chart') }} />
+      <Tabs.Screen name="more" options={{ title: '더보기', tabBarIcon: tabIcon('menu') }} />
+      {/*
+        기록은 매주 여는 화면이 아니라 더보기 안으로 넣었다. 탭바는 여섯 개가 한계라
+        자주 쓰는 쪽에 자리를 내준다. href: null 이면 주소는 살아 있고 탭바에만 안 나온다.
+      */}
+      <Tabs.Screen name="stats" options={{ title: '기록', href: null }} />
     </Tabs>
   );
 }

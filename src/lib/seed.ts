@@ -1,6 +1,7 @@
 import { DEFAULT_FORMATION } from '@/features/lineup/formations';
 import { shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
 import type {
+  AgeBand,
   AppData,
   Appearance,
   Attendance,
@@ -33,7 +34,7 @@ const TEAM_ID = 'demo-team';
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 /** [이름, 포지션, 등번호, 장점, 대략적인 출석 성향(0~1)] */
 const ROSTER: [string, PositionGroup, number, string[], number][] = [
@@ -89,6 +90,16 @@ const ROSTER: [string, PositionGroup, number, string[], number][] = [
   ['송*주', 'MF', 50, ['드리블', '스피드'], 0.95],
 ];
 
+/** 주 포지션 옆에 자연스럽게 겸하는 자리. 골키퍼는 겸하지 않는다. */
+const SECOND_POSITION: Partial<Record<PositionGroup, PositionGroup>> = {
+  DF: 'MF',
+  MF: 'DF',
+  FW: 'MF',
+};
+
+/** 조기축구 연령대는 30~50대가 두껍고 60대가 얇다. 그 비율로 돌린다. */
+const AGE_BANDS: AgeBand[] = ['40', '30', '50', '40', '30', '40', '50', '60', '40', '30'];
+
 const VENUES = ['방화근린공원 축구장', '마곡 체육공원', '개화산 생활체육관'];
 const OPPONENTS = ['강서 유나이티드', '마곡 FC', '등촌 조기회', '화곡 클럽', '까치산 FC'];
 
@@ -121,7 +132,9 @@ export function buildSeed(): AppData {
     nickname: null,
     role: index === 0 ? 'manager' : index === 1 ? 'coach' : index === 2 ? 'treasurer' : 'player',
     backNumber,
-    preferredPosition: position,
+    // 조기축구는 한 자리만 보는 사람이 드물다. 주 포지션 옆에 볼 수 있는 자리를 하나 더 둔다.
+    positions: SECOND_POSITION[position] ? [position, SECOND_POSITION[position]] : [position],
+    ageBand: AGE_BANDS[index % AGE_BANDS.length],
     strengths,
     note: index === 3 ? '작년에 발목 다친 적 있어요. 연속 출전은 피하는 게 좋아요.' : null,
     photoUri: null,
@@ -166,6 +179,8 @@ export function buildSeed(): AppData {
       if (member.joinedOn && match.date < member.joinedOn) continue;
       const roll = noise(memberIndex + 1, matchIndex + 1);
       const rate = ROSTER[memberIndex][4];
+      // 아예 답을 안 한 경우. 출결 분석의 "무응답"이 0이면 그 화면을 확인할 수 없다.
+      if (noise(memberIndex + 31, matchIndex + 17) > 0.88) continue;
       const status = roll < rate - 0.08 ? 'attending' : roll < rate ? 'late' : 'absent';
       attendance.push({
         id: `att-${match.id}-${member.id}`,
@@ -332,6 +347,7 @@ export function buildSeed(): AppData {
       monthlyDue: 30000,
       inviteCode: 'DEMO24',
       reminderEnabled: true,
+      rules: null,
     },
     members,
     matches: [upcoming, ...past],

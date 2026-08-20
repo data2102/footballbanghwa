@@ -21,7 +21,9 @@ export type IconName =
   | 'camera'
   | 'image'
   | 'search'
-  | 'trash';
+  | 'trash'
+  | 'menu'
+  | 'book';
 
 type Props = { name: IconName; size?: number; color: string };
 
@@ -67,6 +69,19 @@ export function Icon({ name, size = 22, color }: Props) {
         <Svg {...common}>
           <Rect x="3" y="6" width="18" height="13" rx="2.5" />
           <Path d="M3 10h18M16.5 14.5h1.5" />
+        </Svg>
+      );
+    case 'menu':
+      return (
+        <Svg {...common}>
+          <Path d="M4 7h16M4 12h16M4 17h16" />
+        </Svg>
+      );
+    case 'book':
+      return (
+        <Svg {...common}>
+          <Path d="M5 4h9a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3z" />
+          <Path d="M5 4v16" />
         </Svg>
       );
     case 'chart':

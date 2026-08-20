@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { MAX_QUARTERS, useStore } from '@/lib/store';
-import { availableMembers, fairnessOrder, memberMap, playingTime, quartersForMatch } from '@/lib/selectors';
+import {
+  availableMembers,
+  fairnessOrder,
+  memberMap,
+  playingTime,
+  playsPosition,
+  quartersForMatch,
+} from '@/lib/selectors';
 import {
   DEFAULT_FORMATION,
   FORMATION_SIZES,
@@ -131,9 +138,11 @@ export default function LineupScreen() {
     const targetKey =
       selectedKey ??
       // 선택된 자리가 없으면 선수의 선호 포지션에서 빈 자리를 찾는다.
-      slots.find(
-        (slot) => !slot.memberId && slot.group === members.get(memberId)?.preferredPosition,
-      )?.key ??
+      // 이 사람이 볼 수 있는 자리 중 빈 곳을 먼저 찾는다.
+      slots.find((slot) => {
+        const member = members.get(memberId);
+        return !slot.memberId && member ? playsPosition(member, slot.group) : false;
+      })?.key ??
       slots.find((slot) => !slot.memberId)?.key;
     if (!targetKey) return;
     setSlots((prev) =>
@@ -162,7 +171,7 @@ export default function LineupScreen() {
     const next = slots.map((slot) => {
       if (slot.memberId) return slot;
       // 선호 포지션이 맞는 사람을 먼저 보되, 없으면 순서대로 넣는다.
-      const exact = pool.findIndex((member) => member.preferredPosition === slot.group);
+      const exact = pool.findIndex((member) => playsPosition(member, slot.group));
       const index = exact >= 0 ? exact : 0;
       const picked = pool.length ? pool.splice(index, 1)[0] : null;
       return { ...slot, memberId: picked?.id ?? null };
@@ -244,7 +253,7 @@ export default function LineupScreen() {
                     return (
                       <Chip
                         key={member.id}
-                        label={`${member.name}${member.preferredPosition ? ` · ${member.preferredPosition}` : ''} · ${hint}`}
+                        label={`${member.name}${member.positions.length ? ` · ${member.positions.join('·')}` : ''} · ${hint}`}
                         onPress={() => assign(member.id)}
                       />
                     );

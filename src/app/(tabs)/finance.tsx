@@ -19,7 +19,6 @@ import {
   space,
 } from '@/components/ui';
 import { QuickInputFab } from '@/components/QuickInputFab';
-import { ReminderComposer } from '@/features/finance/ReminderComposer';
 import { usePalette } from '@/theme';
 
 type Tab = 'dues' | 'ledger';
@@ -87,12 +86,6 @@ export default function FinanceScreen() {
 
         {tab === 'dues' ? (
           <>
-            <ReminderComposer
-              teamName={data.team.name}
-              period={period}
-              monthlyDue={data.team.monthlyDue}
-              unpaid={unpaid}
-            />
             <Card style={{ padding: space.sm, gap: 0 }}>
             {dues.map((row, index) => {
               const done = row.outstanding === 0;

@@ -19,7 +19,6 @@ import {
   space,
 } from '@/components/ui';
 import { AttendanceNudge } from '@/features/attendance/AttendanceNudge';
-import { ShareVoteLink } from '@/features/attendance/ShareVoteLink';
 import { MatchPicker } from '@/components/MatchPicker';
 import { QuickInputFab } from '@/components/QuickInputFab';
 import { usePalette } from '@/theme';
@@ -131,7 +130,7 @@ export default function AttendanceScreen() {
                             <Txt variant="h3">{member.name}</Txt>
                             <Txt variant="tiny" muted numberOfLines={1}>
                               {member.backNumber ? `#${member.backNumber} ` : ''}
-                              {member.preferredPosition ?? ''}
+                              {member.positions.join('·')}
                               {note ? ` · ${note}` : ''}
                             </Txt>
                           </View>
@@ -193,9 +192,12 @@ export default function AttendanceScreen() {
               링크 보내기와 독촉은 주중에 한 번 하는 일이고, 명단 체크는 경기 당일 매번 하는 일이다.
               그래서 자주 쓰는 명단을 위에 두고 이 둘을 아래로 내린다.
             */}
+            {/*
+              참석 링크(ShareVoteLink)는 화면에서만 감춰 뒀다. 참석 투표를 카톡에서 하시므로
+              지금은 쓸 일이 없다. 코드와 DB 함수는 그대로 남겼다 — 나중에 앱에서 받기로
+              마음이 바뀌면 이 줄만 되살리면 된다.
+            */}
             <SectionHeader title="팀에 보내기" />
-            <ShareVoteLink teamName={data.team.name} match={match} />
-
             <AttendanceNudge
               teamName={data.team.name}
               match={match}

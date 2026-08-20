@@ -32,6 +32,7 @@ export class SupabaseRepo implements Repo {
       monthly_due: number;
       invite_code: string;
       reminder_enabled?: boolean;
+      rules?: string | null;
     };
     this.teamId = teamRow.id;
 
@@ -70,6 +71,7 @@ export class SupabaseRepo implements Repo {
         monthlyDue: teamRow.monthly_due,
         inviteCode: teamRow.invite_code,
         reminderEnabled: teamRow.reminder_enabled ?? true,
+        rules: teamRow.rules ?? null,
       },
       members: memberRows,
       matches: (matches.data ?? []).map(fromMatchRow),
@@ -136,6 +138,7 @@ export class SupabaseRepo implements Repo {
           name: team.name,
           monthly_due: team.monthlyDue,
           reminder_enabled: team.reminderEnabled,
+          rules: team.rules,
         })
         .eq('id', team.id),
     );
@@ -149,7 +152,10 @@ export class SupabaseRepo implements Repo {
         nickname: member.nickname,
         role: member.role,
         back_number: member.backNumber,
-        preferred_position: member.preferredPosition,
+        // 단수 칸은 옛 앱을 위해 첫 자리를 그대로 채워 둔다.
+        preferred_position: member.positions[0] ?? null,
+        positions: member.positions,
+        age_band: member.ageBand,
         strengths: member.strengths,
         note: member.note,
         photo_url: member.photoPath,
@@ -302,7 +308,9 @@ const fromMemberRow = (row: Row): Member => ({
   nickname: row.nickname,
   role: row.role,
   backNumber: row.back_number,
-  preferredPosition: row.preferred_position,
+  // 예전 행에는 배열이 없고 단수 칸만 있다. 있으면 그걸 첫 칸으로 본다.
+  positions: row.positions?.length ? row.positions : row.preferred_position ? [row.preferred_position] : [],
+  ageBand: row.age_band ?? null,
   strengths: row.strengths ?? [],
   note: row.note,
   photoUri: null,

@@ -9,10 +9,26 @@ import type {
   Match,
   MatchEvent,
   Member,
+  PositionGroup,
 } from '@/lib/types';
 
 export function memberMap(members: Member[]): Map<string, Member> {
   return new Map(members.map((member) => [member.id, member]));
+}
+
+/**
+ * 대표로 보여 줄 포지션 하나.
+ *
+ * 이제 한 사람이 여러 자리를 보지만, 명단 한 줄이나 칩 하나에는 하나만 들어간다.
+ * 배열 앞쪽을 주 포지션으로 본다.
+ */
+export function mainPosition(member: Member): PositionGroup | null {
+  return member.positions[0] ?? null;
+}
+
+/** 이 사람이 그 자리를 볼 수 있는지. 라인업 배치에서 쓴다. */
+export function playsPosition(member: Member, group: PositionGroup): boolean {
+  return member.positions.includes(group);
 }
 
 export function memberName(members: Member[], id: string | null): string {

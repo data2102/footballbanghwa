@@ -24,9 +24,12 @@ import {
   space,
 } from '@/components/ui';
 import { usePalette } from '@/theme';
-import type { AttendanceStatus, MemberRole, PositionGroup } from '@/lib/types';
+import type { AgeBand, AttendanceStatus, MemberRole, PositionGroup } from '@/lib/types';
 
 const POSITIONS: PositionGroup[] = ['GK', 'DF', 'MF', 'FW'];
+
+/** 조기축구는 나이대가 쿼터 배분과 포지션에 실제로 영향을 준다. */
+const AGE_BANDS: AgeBand[] = ['30', '40', '50', '60'];
 const ROLES: { value: MemberRole; label: string }[] = [
   { value: 'manager', label: '감독' },
   { value: 'coach', label: '코치' },
@@ -105,7 +108,7 @@ export default function MemberDetailScreen() {
             <View style={{ flex: 1, gap: space.xs }}>
               <Txt variant="h2">{member.name}</Txt>
               <Txt variant="tiny" muted>
-                {member.preferredPosition ?? '포지션 미정'}
+                {member.positions.length ? member.positions.join('·') : '포지션 미정'}
                 {member.backNumber != null ? ` · ${member.backNumber}번` : ''}
                 {` · ${ROLES.find((role) => role.value === member.role)?.label}`}
               </Txt>
@@ -317,16 +320,35 @@ export default function MemberDetailScreen() {
             주 포지션
           </Txt>
           <Row wrap gap={space.sm}>
+            {/* 여러 자리를 볼 수 있으니 여러 개를 고른다. 먼저 고른 게 주 포지션이다. */}
             {POSITIONS.map((position) => (
               <Chip
                 key={position}
                 label={position}
-                selected={member.preferredPosition === position}
+                selected={member.positions.includes(position)}
                 onPress={() =>
                   updateMember({
                     ...member,
-                    preferredPosition: member.preferredPosition === position ? null : position,
+                    positions: member.positions.includes(position)
+                      ? member.positions.filter((row) => row !== position)
+                      : [...member.positions, position],
                   })
+                }
+              />
+            ))}
+          </Row>
+
+          <Txt variant="tiny" muted>
+            연령대
+          </Txt>
+          <Row wrap gap={space.sm}>
+            {AGE_BANDS.map((band) => (
+              <Chip
+                key={band}
+                label={`${band}대`}
+                selected={member.ageBand === band}
+                onPress={() =>
+                  updateMember({ ...member, ageBand: member.ageBand === band ? null : band })
                 }
               />
             ))}
