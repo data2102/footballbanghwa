@@ -3,23 +3,34 @@
  * src/lib/ai/contract.ts 의 타입과 짝을 이룬다. 한쪽을 고치면 다른 쪽도 고쳐야 한다.
  *
  * 항목별로 필드가 다르지만 oneOf 대신 "모든 필드를 가진 하나의 평평한 객체"로 정의한다.
- * 구조화 출력은 모든 프로퍼티가 required + nullable 일 때 가장 안정적이고,
+ * 구조화 출력은 모든 프로퍼티가 required 일 때 가장 안정적이고,
  * 함수 쪽에서 kind 별로 정규화하면 되기 때문이다.
  */
 
 /*
- * 비울 수 있는 칸은 anyOf 로 적는다. type 을 배열로 적는 건 표준 JSON Schema 지만
- * 구조화 출력 검사기가 enum 과 같이 오면 거절한다:
+ * 비어 있는 칸을 null 로 두지 않는다. 대신 "없음"을 뜻하는 값을 정해 둔다.
  *
- *   Enum value 'attending' does not match declared type '['string', 'null']'
+ * 처음에는 type: ['string','null'] 로 적었다가 enum 과 같이 오면 거절당했고,
+ * anyOf 로 바꾸니 이번엔 이렇게 거절당했다:
  *
- * 이것 때문에 사진 분석이 통째로 400 이었다. anyOf 는 문서에 지원한다고 적혀 있고
- * 뜻도 같으니 둘 다 이쪽으로 맞춘다 — 한쪽만 고치면 다음에 또 밟는다.
+ *   Schemas contains too many parameters with union types
+ *   (17 parameters with type arrays or anyOf)
+ *
+ * 항목 하나가 다섯 종류(참석·회비·라인업·기록·프로필)를 한 객체로 받다 보니
+ * 비울 수 있는 칸이 열일곱 개다. union 을 줄이는 게 아니라 아예 없앤다.
+ *
+ *   글자  -> ''     빈 문자열
+ *   숫자  -> -1     (금액은 0)
+ *   갈래  -> 'none'
+ *   목록  -> []     빈 배열
+ *
+ * 함수의 normalizeItem 이 이 값들을 다시 null 로 바꿔 앱에 넘긴다.
+ * 그래서 앱 타입(contract.ts)은 그대로다 — 이 약속은 함수 안에서 끝난다.
  */
-const nullable = (type: string) => ({ anyOf: [{ type }, { type: 'null' }] });
-const nullableEnum = (values: string[]) => ({
-  anyOf: [{ type: 'string', enum: values }, { type: 'null' }],
-});
+/** 없음을 뜻하는 값들. 프롬프트와 normalizeItem 이 같은 값을 쓴다. */
+export const NONE = { text: '', num: -1, choice: 'none', amount: 0 } as const;
+
+const optionalEnum = (values: string[]) => ({ type: 'string', enum: [...values, NONE.choice] });
 
 export const PARSE_SCHEMA = {
   type: 'object',
@@ -32,8 +43,8 @@ export const PARSE_SCHEMA = {
       description: '입력 전체가 무엇에 관한 것인지. 여러 종류가 섞였으면 mixed.',
     },
     formation: {
-      ...nullable('string'),
-      description: "lineup일 때 인식된 포메이션 문자열. 예: '4-3-3', '4-4-2'. 없으면 null.",
+      type: 'string',
+      description: "lineup일 때 인식된 포메이션 문자열. 예: '4-3-3', '4-4-2'. 없으면 ''.",
     },
     unmatched: {
       type: 'array',
@@ -75,72 +86,73 @@ export const PARSE_SCHEMA = {
         properties: {
           kind: { type: 'string', enum: ['attendance', 'payment', 'lineup', 'event', 'profile'] },
           memberId: {
-            ...nullable('string'),
-            description: '명단에서 확실히 특정한 경우에만 그 id. 애매하면 반드시 null.',
+            type: 'string',
+            description: "명단에서 확실히 특정한 경우에만 그 id. 애매하면 반드시 '' (빈 문자열).",
           },
           memberName: { type: 'string', description: '원문에 적힌 이름/호칭 그대로.' },
           confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
           quote: { type: 'string', description: '이 항목의 근거가 된 원문 조각(짧게).' },
 
           status: {
-            ...nullableEnum(['attending', 'absent', 'late', 'unknown']),
-            description: 'kind=attendance 일 때만. 그 외에는 null.',
+            ...optionalEnum(['attending', 'absent', 'late', 'unknown']),
+            description: "kind=attendance 일 때만. 그 외에는 'none'.",
           },
           note: {
-            ...nullable('string'),
+            type: 'string',
             description:
               "kind=attendance 일 때 사유나 예상 도착시각(예: '30분 늦음', '출장'), kind=profile 일 때 감독 메모.",
           },
 
           ledgerKind: {
-            ...nullableEnum(['due', 'income', 'expense']),
-            description: 'kind=payment 일 때만. 월 회비면 due, 그 외 수입 income, 지출 expense.',
+            ...optionalEnum(['due', 'income', 'expense']),
+            description: "kind=payment 일 때만. 월 회비면 due, 그 외 수입 income, 지출 expense. 아니면 'none'.",
           },
           amount: {
-            ...nullable('integer'),
-            description: 'kind=payment 일 때 원 단위 정수. 지출도 양수.',
+            type: 'integer',
+            description: 'kind=payment 일 때 원 단위 정수. 지출도 양수. 회비가 아니면 0.',
           },
           period: {
-            ...nullable('string'),
-            description: "회비가 어느 달 몫인지 YYYY-MM. 명시 안 됐으면 입금월. 회비가 아니면 null.",
+            type: 'string',
+            description: "회비가 어느 달 몫인지 YYYY-MM. 명시 안 됐으면 입금월. 회비가 아니면 ''.",
           },
-          occurredOn: { ...nullable('string'), description: '발생일 YYYY-MM-DD. 모르면 null.' },
-          memo: { ...nullable('string'), description: 'kind=payment 일 때 적요/메모.' },
+          occurredOn: { type: 'string', description: "발생일 YYYY-MM-DD. 모르면 ''." },
+          memo: { type: 'string', description: "kind=payment 일 때 적요/메모. 없으면 ''." },
 
           slotKey: {
-            ...nullable('string'),
-            description: "kind=lineup 일 때 포메이션 슬롯 키. 예: 'GK', 'DF1', 'MF2', 'FW3'. 순서를 알 수 없으면 null.",
+            type: 'string',
+            description: "kind=lineup 일 때 포메이션 슬롯 키. 예: 'GK', 'DF1', 'MF2', 'FW3'. 순서를 알 수 없으면 ''.",
           },
           group: {
-            ...nullableEnum(['GK', 'DF', 'MF', 'FW']),
-            description: 'kind=lineup 일 때 배치할 포지션, kind=profile 일 때 주 포지션.',
+            ...optionalEnum(['GK', 'DF', 'MF', 'FW']),
+            description: "kind=lineup 일 때 배치할 포지션, kind=profile 일 때 주 포지션. 그 외에는 'none'.",
           },
 
           eventType: {
-            ...nullableEnum(['goal', 'assist', 'save', 'yellow', 'red', 'own_goal']),
-            description: 'kind=event 일 때 기록 종류.',
+            ...optionalEnum(['goal', 'assist', 'save', 'yellow', 'red', 'own_goal']),
+            description: "kind=event 일 때 기록 종류. 그 외에는 'none'.",
           },
-          minute: { ...nullable('integer'), description: 'kind=event 일 때 경기 시작 후 분. 모르면 null.' },
+          minute: { type: 'integer', description: 'kind=event 일 때 경기 시작 후 분. 모르면 -1.' },
 
           strengths: {
-            anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'null' }],
+            type: 'array',
+            items: { type: 'string' },
             description:
-              "kind=profile 일 때 새로 붙일 장점 태그. 짧은 명사구로. 예: ['왼발','헤딩','체력']. 그 외에는 null.",
+              "kind=profile 일 때 새로 붙일 장점 태그. 짧은 명사구로. 예: ['왼발','헤딩','체력']. 그 외에는 [].",
           },
           backNumber: {
-            ...nullable('integer'),
-            description: 'kind=profile 일 때 등번호를 새로 정해준 경우에만. 그 외에는 null.',
+            type: 'integer',
+            description: 'kind=profile 일 때 등번호를 새로 정해준 경우에만(0~99). 그 외에는 -1.',
           },
 
           quarter: {
-            ...nullable('integer'),
+            type: 'integer',
             description:
-              'kind=lineup 일 때 몇 쿼터의 라인업인지(1 이상). 화이트보드에 안 적혀 있으면 null.',
+              'kind=lineup 일 때 몇 쿼터의 라인업인지(1~6). 화이트보드에 안 적혀 있으면 -1.',
           },
           side: {
-            ...nullableEnum(['A', 'B']),
+            ...optionalEnum(['A', 'B']),
             description:
-              'kind=lineup 일 때 두 팀 중 어느 쪽인지. 화이트보드 왼쪽/위가 A, 오른쪽/아래가 B. 한 팀만 있으면 A.',
+              "kind=lineup 일 때 두 팀 중 어느 쪽인지. 화이트보드 왼쪽/위가 A, 오른쪽/아래가 B. 한 팀만 있으면 A. 판단이 안 되면 'none'.",
           },
         },
       },

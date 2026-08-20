@@ -7,7 +7,7 @@
  */
 import Anthropic from 'npm:@anthropic-ai/sdk@0.117.1';
 import { corsHeaders, json } from '../_shared/cors.ts';
-import { PARSE_SCHEMA } from '../_shared/schema.ts';
+import { NONE, PARSE_SCHEMA } from '../_shared/schema.ts';
 import { SYSTEM_PROMPT } from '../_shared/prompt.ts';
 
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-5';
@@ -40,12 +40,28 @@ type ParseRequest = {
 
 const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+/*
+ * 스키마에는 union 이 하나도 없다(그래야 Claude 가 받아 준다). 대신 "없음"을
+ * 정해진 값으로 받는다 — 글자는 '', 숫자는 -1, 갈래는 'none', 목록은 [].
+ * 여기서 그걸 다시 null 로 바꿔 앱에 넘긴다. 앱 타입은 예전 그대로다.
+ */
+const noneText = (v: unknown): string | null => {
+  const text = typeof v === 'string' ? v.trim() : '';
+  return text && text !== NONE.choice ? text : null;
+};
+
+const noneNum = (v: unknown): number | null =>
+  typeof v === 'number' && v >= 0 ? Math.round(v) : null;
+
+const noneChoice = (v: unknown, fallback: string): string =>
+  typeof v === 'string' && v && v !== NONE.choice ? v : fallback;
+
 /** 스키마가 평평한 객체 하나로 오므로, kind 별로 필요한 필드만 남겨 좁힌다. */
 function normalizeItem(raw: Record<string, unknown>) {
   const base = {
-    memberId: (raw.memberId as string | null) ?? null,
+    memberId: noneText(raw.memberId),
     memberName: String(raw.memberName ?? '').trim(),
-    confidence: (raw.confidence as string) ?? 'low',
+    confidence: noneChoice(raw.confidence, 'low'),
     quote: String(raw.quote ?? ''),
   };
 
@@ -54,48 +70,49 @@ function normalizeItem(raw: Record<string, unknown>) {
       return {
         kind: 'attendance' as const,
         ...base,
-        status: (raw.status as string) ?? 'unknown',
-        note: (raw.note as string | null) ?? null,
+        status: noneChoice(raw.status, 'unknown'),
+        note: noneText(raw.note),
       };
     case 'payment':
       return {
         kind: 'payment' as const,
         ...base,
-        ledgerKind: (raw.ledgerKind as string) ?? 'due',
-        amount: typeof raw.amount === 'number' ? Math.round(raw.amount) : 0,
-        period: (raw.period as string | null) ?? null,
-        occurredOn: (raw.occurredOn as string | null) ?? null,
-        memo: (raw.memo as string | null) ?? null,
+        ledgerKind: noneChoice(raw.ledgerKind, 'due'),
+        amount: typeof raw.amount === 'number' ? Math.max(0, Math.round(raw.amount)) : 0,
+        period: noneText(raw.period),
+        occurredOn: noneText(raw.occurredOn),
+        memo: noneText(raw.memo),
       };
-    case 'lineup':
+    case 'lineup': {
+      // 화이트보드에 안 적혀 있으면 -1 로 온다. 앱이 지금 보고 있는 쿼터에 넣는다.
+      const quarter = noneNum(raw.quarter);
       return {
         kind: 'lineup' as const,
         ...base,
-        slotKey: (raw.slotKey as string | null) ?? null,
-        group: (raw.group as string) ?? 'MF',
-        // 화이트보드에 안 적혀 있으면 null 로 둔다. 앱이 지금 보고 있는 쿼터에 넣는다.
-        quarter:
-          typeof raw.quarter === 'number'
-            ? Math.max(1, Math.min(6, Math.round(raw.quarter)))
-            : null,
+        slotKey: noneText(raw.slotKey),
+        group: noneChoice(raw.group, 'MF'),
+        quarter: quarter && quarter >= 1 ? Math.min(6, quarter) : null,
         side: raw.side === 'A' || raw.side === 'B' ? raw.side : null,
       };
+    }
     case 'event':
       return {
         kind: 'event' as const,
         ...base,
-        type: (raw.eventType as string) ?? 'goal',
-        minute: typeof raw.minute === 'number' ? raw.minute : null,
+        type: noneChoice(raw.eventType, 'goal'),
+        minute: noneNum(raw.minute),
       };
-    case 'profile':
+    case 'profile': {
+      const backNumber = noneNum(raw.backNumber);
       return {
         kind: 'profile' as const,
         ...base,
         strengths: Array.isArray(raw.strengths) ? (raw.strengths as string[]).filter(Boolean) : [],
-        position: (raw.group as string | null) ?? null,
-        backNumber: typeof raw.backNumber === 'number' ? raw.backNumber : null,
-        note: (raw.note as string | null) ?? null,
+        position: noneText(raw.group),
+        backNumber: backNumber !== null && backNumber <= 99 ? backNumber : null,
+        note: noneText(raw.note),
       };
+    }
     default:
       return null;
   }
