@@ -210,6 +210,10 @@ grant execute on function public.어떤함수(인자) to service_role;
 
 `npm run fn:deploy` 는 남겨 뒀지만 이제 급할 때만 쓴다.
 
+**"push 했어요"로 끝내지 않는다.** push 와 배포 완료 사이가 2~3분이라, push 직후에
+알리면 사용자는 옛 화면을 보며 "안 바뀌었는데?" 하게 된다. Actions 가 성공한 것을
+확인하고 나서 알린다.
+
 **스키마(`db push`)와 데이터 적재는 여전히 손으로 한다.** 되돌리기가 어려운 일이라
 push 한 번에 도는 자리에 두지 않는다.
 
