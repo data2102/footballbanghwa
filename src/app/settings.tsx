@@ -19,6 +19,7 @@ import {
   space,
 } from '@/components/ui';
 import { registerForReminders } from '@/lib/notifications';
+import { weeklyMatches } from '@/lib/schedule';
 import { usePalette } from '@/theme';
 import type { PositionGroup } from '@/lib/types';
 
@@ -62,6 +63,9 @@ function Field({
   );
 }
 
+/** 이 팀이 도는 시즌. 매주 일요일 경기를 이 해 기준으로 깐다. */
+const SEASON_YEAR = 2026;
+
 export default function SettingsScreen() {
   const p = usePalette();
   const router = useRouter();
@@ -75,6 +79,7 @@ export default function SettingsScreen() {
   const [newPosition, setNewPosition] = useState<PositionGroup | null>(null);
   const [matchDate, setMatchDate] = useState(todayISO());
   const [matchVenue, setMatchVenue] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
   const [matchKickoff, setMatchKickoff] = useState('07:00');
   const [deviceNote, setDeviceNote] = useState<string | null>(null);
 
@@ -142,7 +147,24 @@ export default function SettingsScreen() {
         </Row>
         <Field label="장소" value={matchVenue} onChangeText={setMatchVenue} placeholder="방화근린공원 축구장" />
         <Button
-          label="경기 만들기"
+          label={`${SEASON_YEAR}년 일요일 경기 한 번에 만들기`}
+          tone="neutral"
+          onPress={async () => {
+            // 매주 일요일 자체경기라 한 해치를 미리 깔아 둔다. 매주 만들게 하면 결국 아무도 안 만든다.
+            const rows = weeklyMatches(SEASON_YEAR, data.team.id, data.matches);
+            for (const row of rows) await saveMatch(row);
+            setNotice(rows.length ? `${rows.length}경기를 만들었어요.` : '이미 다 만들어져 있어요.');
+          }}
+        />
+        {notice ? (
+          <Txt variant="small" color={p.ok}>
+            {notice}
+          </Txt>
+        ) : null}
+
+        <Button
+          label="경기 하나만 만들기"
+          tone="neutral"
           disabled={!/^\d{4}-\d{2}-\d{2}$/.test(matchDate)}
           onPress={async () => {
             await saveMatch({

@@ -1,5 +1,6 @@
 import { DEFAULT_FORMATION } from '@/features/lineup/formations';
 import { shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
+import { KICKOFF, sundaysOf } from '@/lib/schedule';
 import type {
   AgeBand,
   AppData,
@@ -34,7 +35,7 @@ const TEAM_ID = 'demo-team';
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 /** [이름, 포지션, 등번호, 장점, 대략적인 출석 성향(0~1)] */
 const ROSTER: [string, PositionGroup, number, string[], number][] = [
@@ -101,18 +102,15 @@ const SECOND_POSITION: Partial<Record<PositionGroup, PositionGroup>> = {
 const AGE_BANDS: AgeBand[] = ['40', '30', '50', '40', '30', '40', '50', '60', '40', '30'];
 
 const VENUES = ['방화근린공원 축구장', '마곡 체육공원', '개화산 생활체육관'];
-const OPPONENTS = ['강서 유나이티드', '마곡 FC', '등촌 조기회', '화곡 클럽', '까치산 FC'];
+/** 지난 경기 메모에 남기는 스코어. 승패 자동 판정이 이걸 읽는다. */
+const SCORES = ['3-2 승', '1-1 무', '0-2 패', '2-1 승', '2-2 무'];
+/** 데모가 다루는 시즌. */
+const SEASON_YEAR = 2026;
 
 function daysFromToday(offset: number): string {
   const base = new Date(`${todayISO()}T00:00:00`);
   base.setDate(base.getDate() + offset);
   return base.toISOString().slice(0, 10);
-}
-
-/** 다음 일요일. 조기축구는 보통 주말 아침이다. */
-function nextSunday(): string {
-  const base = new Date(`${todayISO()}T00:00:00`);
-  return daysFromToday((7 - base.getDay()) % 7 || 7);
 }
 
 /**
@@ -145,32 +143,26 @@ export function buildSeed(): AppData {
   }));
 
   // ------------------------------------------------------------ 경기
-  const past: Match[] = Array.from({ length: 8 }, (_, i) => {
-    const round = 8 - i; // 1이 가장 최근
-    return {
-      id: `match-${i + 1}`,
-      teamId: TEAM_ID,
-      date: daysFromToday(-7 * round),
-      kickoff: '07:00',
-      venue: VENUES[i % VENUES.length],
-      opponent: OPPONENTS[i % OPPONENTS.length],
-      status: 'finished' as const,
-      note: i % 3 === 0 ? '3-2 승' : i % 3 === 1 ? '1-1 무' : '0-2 패',
-      shareToken: null,
-    };
-  });
-
-  const upcoming: Match = {
-    id: 'match-next',
+  // 매주 일요일 아침 자체경기. 상대 팀이 없으니 opponent 는 비운다.
+  // 한 해치를 미리 깔아 두어야 화면에서 날짜만 고르면 된다.
+  const today = todayISO();
+  const allSundays = sundaysOf(SEASON_YEAR).map((date, index) => ({
+    id: `match-${date}`,
     teamId: TEAM_ID,
-    date: nextSunday(),
-    kickoff: '07:00',
-    venue: VENUES[0],
-    opponent: OPPONENTS[0],
-    status: 'scheduled',
-    note: null,
+    date,
+    kickoff: KICKOFF,
+    venue: VENUES[index % VENUES.length],
+    opponent: null,
+    status: date < today ? ('finished' as const) : ('scheduled' as const),
+    note: date < today ? SCORES[index % SCORES.length] : null,
     shareToken: null,
-  };
+  }));
+
+  // 기록을 쌓을 대상은 가장 최근에 치른 여덟 경기다. 쉰 경기에 전부 기록을 만들면
+  // 데모가 무거워지기만 하고 화면에서 보는 건 똑같다.
+  const past = allSundays.filter((match) => match.status === 'finished').slice(-8);
+  const upcoming =
+    allSundays.find((match) => match.status === 'scheduled') ?? allSundays[allSundays.length - 1];
 
   // ------------------------------------------------------------ 참석
   const attendance: Attendance[] = [];
@@ -350,7 +342,7 @@ export function buildSeed(): AppData {
       rules: null,
     },
     members,
-    matches: [upcoming, ...past],
+    matches: allSundays,
     attendance,
     ledger,
     events,
