@@ -82,6 +82,9 @@ export default function SettingsScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [matchKickoff, setMatchKickoff] = useState('07:00');
   const [deviceNote, setDeviceNote] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordNote, setPasswordNote] = useState<string | null>(null);
 
   if (!data) return null;
 
@@ -275,6 +278,66 @@ export default function SettingsScreen() {
       {!isLocalRepo ? (
         <Card>
           <Txt variant="h3">계정</Txt>
+          {/*
+            메일 링크로 들어온 사람은 비밀번호가 없다. 여기서 한 번 정해 두면
+            다음부터는 메일을 기다리지 않고 바로 들어온다.
+          */}
+          <Txt variant="tiny" muted>
+            비밀번호를 정해 두면 다음부터 메일 없이 바로 로그인할 수 있어요.
+          </Txt>
+          <TextInput
+            value={newPassword}
+            onChangeText={setNewPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="newPassword"
+            placeholder="여섯 자 이상"
+            placeholderTextColor={p.textFaint}
+            style={{
+              backgroundColor: p.surfaceAlt,
+              borderRadius: radius.md,
+              paddingHorizontal: space.md,
+              paddingVertical: space.md,
+              color: p.text,
+              fontSize: 16,
+            }}
+          />
+          <Button
+            label="비밀번호 정하기"
+            tone="neutral"
+            disabled={newPassword.length < 6 || savingPassword}
+            loading={savingPassword}
+            onPress={async () => {
+              setSavingPassword(true);
+              setPasswordNote(null);
+              const { error } = (await supabase?.auth.updateUser({
+                password: newPassword,
+              })) ?? { error: null };
+              setSavingPassword(false);
+              if (error) {
+                setPasswordNote(
+                  error.message.toLowerCase().includes('should be at least')
+                    ? '비밀번호가 너무 짧아요. 여섯 자 이상으로 정해 주세요.'
+                    : `비밀번호를 바꾸지 못했어요. (${error.message})`,
+                );
+                return;
+              }
+              setNewPassword('');
+              setPasswordNote('비밀번호를 정했어요. 다음부터 이걸로 로그인하세요.');
+            }}
+          />
+          {passwordNote ? (
+            <Txt
+              variant="small"
+              color={passwordNote.startsWith('비밀번호를 정했어요') ? p.ok : p.danger}
+            >
+              {passwordNote}
+            </Txt>
+          ) : null}
+
+          <Divider />
+
           <Txt variant="tiny" muted>
             로그아웃하면 이 기기에서 팀 데이터가 보이지 않아요. 데이터는 서버에 그대로 남아요.
           </Txt>
