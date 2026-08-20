@@ -27,6 +27,11 @@ export interface Repo {
   removeMember(id: string): Promise<void>;
   saveMatch(match: Match): Promise<void>;
   saveAttendance(rows: Attendance[]): Promise<void>;
+  /**
+   * 참석 줄을 지운다. 미투표는 "줄이 없음"이라 지우는 게 곧 미투표로 되돌리는 것이다.
+   * 카톡 투표 화면의 "미참여" 명단을 읽어 넣을 때 쓴다.
+   */
+  removeAttendance(matchId: string, memberIds: string[]): Promise<void>;
   saveLedger(rows: Ledger[]): Promise<void>;
   removeLedger(id: string): Promise<void>;
   /** 영수증·찬조 캡처. 회원 사진과 같은 규칙으로 비공개 보관함에 넣는다. */

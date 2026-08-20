@@ -94,8 +94,9 @@ export const PARSE_SCHEMA = {
           quote: { type: 'string', description: '이 항목의 근거가 된 원문 조각(짧게).' },
 
           status: {
-            ...optionalEnum(['attending', 'absent', 'late', 'unknown']),
-            description: "kind=attendance 일 때만. 그 외에는 'none'.",
+            ...optionalEnum(['attending', 'absent', 'late', 'unknown', 'pending']),
+            description:
+              "kind=attendance 일 때만. 그 외에는 'none'. pending 은 아직 투표를 안 한 사람.",
           },
           note: {
             type: 'string',

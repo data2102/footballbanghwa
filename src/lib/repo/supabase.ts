@@ -249,6 +249,12 @@ export class SupabaseRepo implements Repo {
       ),
     );
 
+
+  removeAttendance = (matchId: string, memberIds: string[]) =>
+    this.run(
+      this.client.from('attendance').delete().eq('match_id', matchId).in('member_id', memberIds),
+    );
+
   saveLedger = (rows: Ledger[]) =>
     this.run(
       this.client.from('ledger').upsert(

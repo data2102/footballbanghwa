@@ -43,6 +43,7 @@ type Store = {
   watchAuth: () => () => void;
   setActiveMatch: (matchId: string) => void;
 
+  clearAttendance: (matchId: string, memberIds: string[]) => Promise<void>;
   setAttendance: (
     matchId: string,
     memberId: string,
@@ -186,6 +187,25 @@ export const useStore = create<Store>((set, get) => ({
       },
     });
     await persist(set, () => repo.saveAttendance([row]));
+  },
+
+  /**
+   * 참석 줄을 지운다 = 그 사람을 미투표로 되돌린다.
+   * 카톡 투표 화면의 "미참여" 명단을 읽어 넣을 때 쓴다.
+   */
+  clearAttendance: async (matchId, memberIds) => {
+    const data = get().data;
+    if (!data || memberIds.length === 0) return;
+    const drop = new Set(memberIds);
+    set({
+      data: {
+        ...data,
+        attendance: data.attendance.filter(
+          (row) => !(row.matchId === matchId && drop.has(row.memberId)),
+        ),
+      },
+    });
+    await persist(set, () => repo.removeAttendance(matchId, memberIds));
   },
 
   addLedger: async (entry) => {

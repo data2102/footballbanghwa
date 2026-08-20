@@ -12,6 +12,15 @@ import type { AttendanceStatus, LineupSide, PositionGroup } from '@/lib/types';
 const ATTEND = /(^|[\s(])(ㅇ+|o+|O+|참석|참여|참|가요|갑니다|출석|콜|ㄱㄱ)([\s).,!]|$)/;
 const ABSENT = /(불참|못\s?가|못\s?감|빠집니다|빠져|패스|결석|스킵|담에|ㄴㄴ|^x$|^X$)/;
 const LATE = /(늦참|늦게|늦어|지각|후반|하프타임)/;
+
+/*
+ * 카톡 투표 화면은 "말머리 한 줄 + 그 아래 이름들" 이 반복되는 모양이다.
+ * 그래서 말머리를 만나면 그 아래 줄들이 무슨 상태인지 기억해 둔다.
+ * 미참여를 불참으로 읽으면 안 나오는 사람과 답 안 한 사람이 뒤섞인다.
+ */
+const HEAD_PENDING = /^\s*(미참여|미투표|투표\s?안|무응답|응답\s?없)/;
+const HEAD_ABSENT = /^\s*(불참|불가|참석\s?불가|안\s?감)\s*[(\d)]*\s*$/;
+const HEAD_ATTEND = /^\s*(참석|참여|가능|참석\s?가능)\s*[(\d)]*\s*$/;
 /** "1쿼터" 처럼 그 아래 줄들이 몇 쿼터인지 알려 주는 줄. */
 const QUARTER_LINE = /(\d)\s*쿼터/;
 /** "A팀", "B조", "왼쪽" 처럼 어느 편인지 알려 주는 줄. 자체경기라 한 판에 두 팀이 선다. */
@@ -25,8 +34,18 @@ const POSITION_LINE: [RegExp, PositionGroup][] = [
 ];
 
 /** 이름 뒤 호칭을 떼고 비교한다. */
+/*
+ * 카톡 이름에는 장식이 자주 붙는다 — 이용오★, 김철수♥, 윤석훈-SHY.
+ * 떼지 않으면 명단과 대조가 안 돼서 그 사람만 조용히 빠진다.
+ * 실제로 미참여 명단에서 한 명이 그렇게 사라졌다.
+ */
+const DECORATION = /[★☆♥♡◆■●▲*~^_\-·|/\\]+.*$/u;
+
 function stripHonorific(token: string): string {
-  return token.replace(/(형님|형|님|씨|선배|감독님|코치님|총무|주장|캡틴)$/u, '');
+  return token
+    .replace(DECORATION, '')
+    .replace(/(형님|형|님|씨|선배|감독님|코치님|총무|주장|캡틴)$/u, '')
+    .trim();
 }
 
 /** "병준이형" 처럼 호칭 앞에 붙는 매개모음 '이'까지 떼어낸 후보들. */
@@ -82,6 +101,8 @@ export function demoParse(request: ParseRequest): ParseResponse {
   let sawLineup = false;
   /** 표시가 나올 때까지 이어지는 쿼터·팀. 화이트보드를 위에서 아래로 읽는 순서와 같다. */
   let currentQuarter = request.quarter ?? 1;
+  /** 카톡 투표 말머리로 정해진 상태. 이름만 있는 줄에 쓴다. */
+  let sectionStatus: 'attending' | 'absent' | 'pending' | null = null;
   let currentSide: LineupSide = 'A';
 
   for (const line of lines) {
@@ -118,6 +139,20 @@ export function demoParse(request: ParseRequest): ParseResponse {
         occurredOn: todayISO(),
         memo: null,
       });
+      continue;
+    }
+
+    // 카톡 투표 말머리. 항목으로 만들지 않고, 아래 줄들이 무슨 상태인지만 기억한다.
+    if (HEAD_PENDING.test(line)) {
+      sectionStatus = 'pending';
+      continue;
+    }
+    if (HEAD_ABSENT.test(line)) {
+      sectionStatus = 'absent';
+      continue;
+    }
+    if (HEAD_ATTEND.test(line)) {
+      sectionStatus = 'attending';
       continue;
     }
 
@@ -161,10 +196,13 @@ export function demoParse(request: ParseRequest): ParseResponse {
 
       // 이름 뒤쪽 문맥에서 참석 여부를 읽는다.
       const tail = line.slice(line.indexOf(token) + token.length, line.indexOf(token) + token.length + 12);
-      let status: AttendanceStatus | null = null;
+      let status: AttendanceStatus | 'pending' | null = null;
       if (LATE.test(tail) || LATE.test(line)) status = 'late';
       else if (ABSENT.test(tail)) status = 'absent';
-      else if (ATTEND.test(tail) || (hint === 'attendance' && tokens.length <= 3)) status = 'attending';
+      else if (ATTEND.test(tail)) status = 'attending';
+      // 줄 안에 표시가 없으면 말머리를 따른다. 말머리도 없을 때만 예전처럼 참석으로 본다.
+      else if (sectionStatus) status = sectionStatus;
+      else if (hint === 'attendance' && tokens.length <= 3) status = 'attending';
       if (!status) continue;
 
       sawAttendance = true;

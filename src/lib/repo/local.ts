@@ -183,6 +183,14 @@ export class LocalRepo implements Repo {
   saveAttendance = (rows: Attendance[]) =>
     this.mutate((data) => void (data.attendance = LocalRepo.upsert(data.attendance, rows)));
 
+  removeAttendance = (matchId: string, memberIds: string[]) =>
+    this.mutate((data) => {
+      const drop = new Set(memberIds);
+      data.attendance = data.attendance.filter(
+        (row) => !(row.matchId === matchId && drop.has(row.memberId)),
+      );
+    });
+
   saveLedger = (rows: Ledger[]) =>
     this.mutate((data) => void (data.ledger = LocalRepo.upsert(data.ledger, rows)));
 

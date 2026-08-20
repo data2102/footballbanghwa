@@ -36,12 +36,14 @@ const EXAMPLES: Record<Hint, string> = {
   profile: '태윤이 왼발 잘 쓰고 위치선정 좋아\n병준이형은 골키퍼 고정\n민석이 작년에 발목 다쳤으니 연속 출전은 피하자',
 };
 
-const STATUS_LABEL: Record<AttendanceStatus, string> = {
+const STATUS_LABEL: Record<AttendanceStatus | 'pending', string> = {
   attending: '참석',
   absent: '불참',
   late: '지각',
   voted: '투표함',
-  unknown: '미투표',
+  unknown: '판단 못 함',
+  // 아직 투표를 안 한 사람. 저장하면 있던 참석 줄을 지운다(미투표 = 줄이 없음).
+  pending: '미투표로',
 };
 
 const EVENT_LABEL: Record<string, string> = {
@@ -61,6 +63,7 @@ export default function QuickInputScreen() {
   const data = useStore((state) => state.data);
   const activeMatchId = useStore((state) => state.activeMatchId);
   const setAttendance = useStore((state) => state.setAttendance);
+  const clearAttendance = useStore((state) => state.clearAttendance);
   const addLedger = useStore((state) => state.addLedger);
   const addEvent = useStore((state) => state.addEvent);
   const saveLineup = useStore((state) => state.saveLineup);
@@ -139,13 +142,22 @@ export default function QuickInputScreen() {
         .filter(({ index }) => checked.has(index));
 
       const lineupItems: { item: ParsedItem; memberId: string }[] = [];
+      const pendingMemberIds: string[] = [];
 
       for (const { item, index } of selected) {
         const memberId = memberIdOf(item, index);
         if (!memberId && item.kind !== 'payment') continue;
 
         if (item.kind === 'attendance' && match) {
-          await setAttendance(match.id, memberId!, item.status, { note: item.note, source: 'ai' });
+          /*
+           * 미투표는 "줄이 없음"이다. 그래서 pending 은 새 줄을 쓰는 게 아니라
+           * 있던 줄을 지운다. 한 건씩 지우면 아흔 명일 때 왕복이 아흔 번이라 모아서 지운다.
+           */
+          if (item.status === 'pending') {
+            pendingMemberIds.push(memberId!);
+          } else {
+            await setAttendance(match.id, memberId!, item.status, { note: item.note, source: 'ai' });
+          }
         } else if (item.kind === 'payment') {
           await addLedger({
             memberId,
@@ -177,6 +189,10 @@ export default function QuickInputScreen() {
         } else if (item.kind === 'lineup') {
           lineupItems.push({ item, memberId: memberId! });
         }
+      }
+
+      if (pendingMemberIds.length && match) {
+        await clearAttendance(match.id, pendingMemberIds);
       }
 
       if (lineupItems.length && match) {

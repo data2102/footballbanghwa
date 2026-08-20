@@ -41,7 +41,12 @@ type ItemBase = {
 
 export type AttendanceItem = ItemBase & {
   kind: 'attendance';
-  status: AttendanceStatus;
+  /**
+   * DB 의 AttendanceStatus 에 'pending' 하나가 더 붙는다.
+   * 카톡 투표 화면의 "미참여" 아래에 있던 사람 — 아직 투표를 안 한 사람이다.
+   * 미투표는 "줄이 없음"이라, 저장할 때 새 줄을 쓰는 게 아니라 있던 줄을 지운다.
+   */
+  status: AttendanceStatus | 'pending';
   note: string | null;
 };
 
