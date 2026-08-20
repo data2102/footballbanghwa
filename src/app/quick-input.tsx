@@ -23,7 +23,6 @@ const HINTS: { value: Hint | 'auto'; label: string }[] = [
   { value: 'lineup', label: '라인업' },
   { value: 'event', label: '기록' },
   { value: 'profile', label: '회원' },
-  { value: 'appearance', label: '출전' },
 ];
 
 const EXAMPLES: Record<Hint, string> = {
@@ -32,11 +31,9 @@ const EXAMPLES: Record<Hint, string> = {
   payment:
     '[Web발신]\n08/19 09:12 입금 30,000 이도현\n잔액 1,240,000\n\n박성우 8월 회비 3만 보냈어요\n구장비 12만원 결제',
   lineup:
-    '오늘 4-3-3으로 간다\n골키퍼 병준이형\n수비 도현 성우 민석 우진\n중원 재영 세훈 현수\n공격 태윤 상혁 지호',
+    '1쿼터\nA팀 4-3-3\n골키퍼 병준이형\n수비 도현 성우 민석 우진\n중원 재영 세훈 현수\n공격 태윤 상혁 지호\n\nB팀\n골키퍼 현우\n수비 지훈 상민 태호',
   event: '전반 12분 태윤이 골, 지호 어시\n후반 10분 상혁 골\n병준이형 선방 세 번',
   profile: '태윤이 왼발 잘 쓰고 위치선정 좋아\n병준이형은 골키퍼 고정\n민석이 작년에 발목 다쳤으니 연속 출전은 피하자',
-  appearance:
-    '오늘 4쿼터 했고\n병준이형 풀타임\n도현 성우 3쿼터씩\n2쿼터에 재영 빼고 현수 넣음\n지호는 마지막 쿼터만 뛰었어',
 };
 
 const STATUS_LABEL: Record<AttendanceStatus, string> = {
@@ -66,11 +63,15 @@ export default function QuickInputScreen() {
   const addLedger = useStore((state) => state.addLedger);
   const addEvent = useStore((state) => state.addEvent);
   const saveLineup = useStore((state) => state.saveLineup);
-  const setQuarters = useStore((state) => state.setQuarters);
   const addMember = useStore((state) => state.addMember);
   const updateMember = useStore((state) => state.updateMember);
 
   const [hint, setHint] = useState<Hint | 'auto'>((params.hint as Hint) ?? 'auto');
+  /**
+   * 화이트보드에 "1쿼터"가 안 적혀 있는 날이 있다. 그럴 때 넣을 쿼터.
+   * 팀(A/B)은 사진 한 장에 둘 다 있어서 AI 가 왼쪽·오른쪽으로 가른다.
+   */
+  const [quarter, setQuarter] = useState(1);
   const [text, setText] = useState('');
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [busy, setBusy] = useState(false);
@@ -113,13 +114,8 @@ export default function QuickInputScreen() {
         members: activeMembers,
         team: data!.team,
         hint: hint === 'auto' ? undefined : hint,
-        // "풀타임"이 몇 쿼터인지는 팀마다 다르다. 이 경기에 이미 적어 둔 최댓값을 쓰고,
-        // 없으면 알려 주지 않는다(프롬프트가 4로 본다).
-        quarters: match
-          ? data!.appearances
-              .filter((row) => row.matchId === match.id)
-              .reduce((max, row) => Math.max(max, row.quarter), 0) || undefined
-          : undefined,
+        // 화이트보드에 "1쿼터"가 안 적혀 있는 날이 있다. 그럴 때 넣을 기본 쿼터를 알려 준다.
+        quarter: quarter,
       });
       setResult(response);
       setChecked(
@@ -177,39 +173,61 @@ export default function QuickInputScreen() {
               note: item.note ?? member.note,
             });
           }
-        } else if (item.kind === 'appearance' && match) {
-          await setQuarters(match.id, memberId!, item.quarters);
         } else if (item.kind === 'lineup') {
           lineupItems.push({ item, memberId: memberId! });
         }
       }
 
       if (lineupItems.length && match) {
-        const existing = data!.lineups.find((row) => row.matchId === match.id);
-        const formationId = normalizeFormationId(result.formation) ?? existing?.formationId ?? '4-3-3';
-        const formation = findFormation(formationId);
-        const slots: LineupSlot[] = formation.slots.map((slot) => ({ ...slot, memberId: null }));
-
-        // slotKey가 있으면 그 자리에, 없으면 같은 그룹의 빈 자리에 순서대로 넣는다.
-        for (const { item, memberId } of lineupItems) {
-          if (item.kind !== 'lineup') continue;
-          const byKey = item.slotKey ? slots.find((slot) => slot.key === item.slotKey) : undefined;
-          const target =
-            byKey && !byKey.memberId
-              ? byKey
-              : slots.find((slot) => slot.group === (item.group as PositionGroup) && !slot.memberId);
-          if (target) target.memberId = memberId;
+        /*
+         * 화이트보드 한 장에 두 팀이 그려져 있고, 쿼터마다 다시 그린다.
+         * 그래서 읽어 온 자리들을 (쿼터, 팀)으로 나눠서 각각 한 판씩 저장한다.
+         * 한 판에 몰아 넣으면 A팀 골키퍼와 B팀 골키퍼가 같은 자리를 두고 다툰다.
+         */
+        const boards = new Map<string, { item: ParsedItem; memberId: string }[]>();
+        for (const entry of lineupItems) {
+          if (entry.item.kind !== 'lineup') continue;
+          const key = `${entry.item.quarter ?? quarter}:${entry.item.side ?? 'A'}`;
+          boards.set(key, [...(boards.get(key) ?? []), entry]);
         }
 
-        const assigned = new Set(slots.map((slot) => slot.memberId).filter(Boolean) as string[]);
-        await saveLineup({
-          matchId: match.id,
-          formationId,
-          slots,
-          benchMemberIds: availableMembers(data!, match.id)
-            .filter((member) => !assigned.has(member.id))
-            .map((member) => member.id),
-        });
+        for (const [key, entries] of boards) {
+          const [q, sideRaw] = key.split(':');
+          const boardQuarter = Number(q);
+          const boardSide = sideRaw === 'B' ? 'B' : 'A';
+          const existing = data!.lineups.find(
+            (row) =>
+              row.matchId === match.id &&
+              row.quarter === boardQuarter &&
+              row.side === boardSide,
+          );
+          const formationId =
+            normalizeFormationId(result.formation) ?? existing?.formationId ?? '4-3-3';
+          const formation = findFormation(formationId);
+          const slots: LineupSlot[] = formation.slots.map((slot) => ({ ...slot, memberId: null }));
+
+          // slotKey가 있으면 그 자리에, 없으면 같은 그룹의 빈 자리에 순서대로 넣는다.
+          for (const { item, memberId } of entries) {
+            if (item.kind !== 'lineup') continue;
+            const byKey = item.slotKey ? slots.find((slot) => slot.key === item.slotKey) : undefined;
+            const target =
+              byKey && !byKey.memberId
+                ? byKey
+                : slots.find((slot) => slot.group === (item.group as PositionGroup) && !slot.memberId);
+            if (target) target.memberId = memberId;
+          }
+
+          await saveLineup({
+            matchId: match.id,
+            quarter: boardQuarter,
+            side: boardSide,
+            formationId,
+            slots,
+            // 사진은 이미 붙어 있으면 그대로 둔다. 읽어 왔다고 원본을 지우면 안 된다.
+            photoUri: existing?.photoUri ?? null,
+            photoPath: existing?.photoPath ?? null,
+          });
+        }
       }
 
       router.back();
@@ -255,6 +273,27 @@ export default function QuickInputScreen() {
               <Txt variant="tiny" muted>
                 자동으로 두면 내용을 보고 알아서 판단해요. 참석과 회비가 섞여 있어도 괜찮아요.
               </Txt>
+
+              {hint === 'lineup' ? (
+                <>
+                  <Divider />
+                  <Txt variant="h3">몇 쿼터인가요?</Txt>
+                  <Row wrap gap={space.sm}>
+                    {[1, 2, 3, 4, 5, 6].map((value) => (
+                      <Chip
+                        key={value}
+                        label={`${value}쿼터`}
+                        selected={quarter === value}
+                        onPress={() => setQuarter(value)}
+                      />
+                    ))}
+                  </Row>
+                  <Txt variant="tiny" muted>
+                    사진이나 글에 쿼터가 적혀 있으면 그쪽을 따라요. 없을 때만 여기 고른 쿼터로 넣어요.
+                    A팀·B팀은 화이트보드에서 갈라 읽어요.
+                  </Txt>
+                </>
+              ) : null}
             </Card>
 
             <TextInput
@@ -485,11 +524,9 @@ function describe(item: ParsedItem, name: string): string {
       return `${who} · ${label} ${won(item.amount)}`;
     }
     case 'lineup':
-      return `${name} · ${item.slotKey ?? item.group}`;
+      return `${name} · ${item.quarter ?? '?'}쿼터 ${item.side ?? 'A'}팀 · ${item.slotKey ?? item.group}`;
     case 'event':
       return `${name} · ${EVENT_LABEL[item.type] ?? item.type}${item.minute != null ? ` ${item.minute}분` : ''}`;
-    case 'appearance':
-      return `${name} · ${item.quarters}쿼터`;
     case 'profile': {
       const parts = [
         item.strengths.length ? item.strengths.join(', ') : null,

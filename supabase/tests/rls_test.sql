@@ -134,21 +134,32 @@ end $$;
 do $$ begin perform pg_temp.act_as('33333333-3333-4333-8333-333333333333'); end $$;
 select (select count(*) from storage.objects) = 0 as "남의 팀은 못 본다";
 
--- ---------------------------------------------------------------- 8. 출전 쿼터
-\echo '8. 출전 쿼터는 운영진만 적고, 팀원은 본다'
+-- ---------------------------------------------------------------- 8. 쿼터별 라인업
+\echo '8. 라인업은 (경기, 쿼터, 팀) 하나에 하나. 운영진만 적고, 팀원은 본다'
 do $$ begin perform pg_temp.act_as('11111111-1111-4111-8111-111111111111'); end $$;
-insert into public.appearances (match_id, member_id, quarter) values
-  (:'match_id', (select id from public.members where name = '김병준'), 1),
-  (:'match_id', (select id from public.members where name = '김병준'), 2);
-select (select count(*) from public.appearances) = 2 as "운영진이 적은 두 쿼터";
+insert into public.lineups (match_id, quarter, side, formation_id, slots) values
+  (:'match_id', 1, 'A', '3-3-1', '[]'::jsonb),
+  (:'match_id', 1, 'B', '3-3-1', '[]'::jsonb),
+  (:'match_id', 2, 'A', '3-3-1', '[]'::jsonb);
+select (select count(*) from public.lineups) = 3 as "운영진이 적은 세 판";
 
-do $$ begin perform pg_temp.act_as('22222222-2222-4222-8222-222222222222'); end $$;
-select (select count(*) from public.appearances) = 2 as "팀원은 본다";
+-- 같은 경기·쿼터·팀에 두 판이 생기면 출전 계산이 두 배가 된다.
 do $$
 begin
-  insert into public.appearances (match_id, member_id, quarter)
-  values ((select id from public.matches limit 1), (select id from public.members where name = '이도현'), 1);
-  raise exception '선수가 출전 기록을 적을 수 있으면 안 된다';
+  insert into public.lineups (match_id, quarter, side, formation_id, slots)
+  values ((select id from public.matches limit 1), 1, 'A', '4-3-3', '[]'::jsonb);
+  raise exception '같은 쿼터·팀에 두 판이 들어가면 안 된다';
+exception
+  when unique_violation then raise notice '  통과 — 한 쿼터 한 팀에 한 판';
+end $$;
+
+do $$ begin perform pg_temp.act_as('22222222-2222-4222-8222-222222222222'); end $$;
+select (select count(*) from public.lineups) = 3 as "팀원은 본다";
+do $$
+begin
+  insert into public.lineups (match_id, quarter, side, formation_id, slots)
+  values ((select id from public.matches limit 1), 3, 'A', '3-3-1', '[]'::jsonb);
+  raise exception '선수가 라인업을 적을 수 있으면 안 된다';
 exception
   when insufficient_privilege then raise notice '  통과 — 선수 입력은 막혔다';
   when others then
@@ -157,7 +168,7 @@ exception
 end $$;
 
 do $$ begin perform pg_temp.act_as('33333333-3333-4333-8333-333333333333'); end $$;
-select (select count(*) from public.appearances) = 0 as "남의 팀은 못 본다";
+select (select count(*) from public.lineups) = 0 as "남의 팀은 못 본다";
 
 -- ---------------------------------------------------------------- 9. MVP
 \echo '9. MVP 는 팀원 누구나 한 표, 같은 기기는 한 표까지'
@@ -204,7 +215,7 @@ declare
   n   bigint;
   leaked text[] := '{}';
 begin
-  foreach tbl in array array['ledger', 'members', 'matches', 'attendance', 'appearances', 'potm_votes'] loop
+  foreach tbl in array array['ledger', 'members', 'matches', 'attendance', 'lineups', 'potm_votes'] loop
     begin
       execute format('select count(*) from public.%I', tbl) into n;
       if n > 0 then leaked := leaked || tbl; end if;

@@ -3,7 +3,6 @@ import { buildSeed, SEED_VERSION } from '@/lib/seed';
 import { toDataUri, type PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
-  Appearance,
   Attendance,
   Ledger,
   Lineup,
@@ -56,7 +55,7 @@ export class LocalRepo implements Repo {
         const parsed = JSON.parse(raw) as AppData;
         this.cache = {
           ...parsed,
-          appearances: parsed.appearances ?? [],
+          lineups: parsed.lineups ?? [],
           potmVotes: parsed.potmVotes ?? [],
           matches: (parsed.matches ?? []).map((match) => ({
             ...match,
@@ -135,17 +134,27 @@ export class LocalRepo implements Repo {
 
   saveLineup = (lineup: Lineup) =>
     this.mutate((data) => {
-      // 경기당 라인업은 하나다.
-      data.lineups = [...data.lineups.filter((row) => row.matchId !== lineup.matchId), lineup];
-    });
-
-  setAppearances = (matchId: string, memberId: string, rows: Appearance[]) =>
-    this.mutate((data) => {
-      data.appearances = [
-        ...data.appearances.filter((row) => !(row.matchId === matchId && row.memberId === memberId)),
-        ...rows,
+      // (경기, 쿼터, 팀) 하나에 하나다.
+      data.lineups = [
+        ...data.lineups.filter(
+          (row) =>
+            !(
+              row.matchId === lineup.matchId &&
+              row.quarter === lineup.quarter &&
+              row.side === lineup.side
+            ),
+        ),
+        lineup,
       ];
     });
+
+  removeLineup = (id: string) =>
+    this.mutate((data) => void (data.lineups = data.lineups.filter((row) => row.id !== id)));
+
+  /** 기기 저장소에는 스토리지가 없으니 data URI 를 그대로 들고 있는다. */
+  async saveLineupPhoto(_lineup: Lineup, photo: PickedPhoto) {
+    return { photoUri: toDataUri(photo), photoPath: null };
+  }
 
   setPotmVote = (matchId: string, ballot: string, vote: PotmVote | null) =>
     this.mutate((data) => {

@@ -36,7 +36,7 @@ export default function AnalysisScreen() {
     if (!data) return [];
     return allProfiles(data)
       .map((profile) => {
-        // 답을 안 한 횟수 = 칠 수 있었던 경기 - (참석 + 지각 + 불참)
+        // 답을 안 한 횟수 = 칠 수 있었던 경기 - (참석 + 불참). 지각은 예전 기록이라 참석에 포함된다.
         const silent = Math.max(0, profile.eligible - profile.attended - profile.late - profile.absent);
         return {
           ...profile,
@@ -126,7 +126,7 @@ export default function AnalysisScreen() {
                   </Row>
                   <Progress value={rate ?? 0} />
                   <Txt variant="tiny" muted>
-                    {row.eligible}경기 중 참석 {row.attended} · 지각 {row.late} · 불참 {row.absent} · 무응답{' '}
+                    {row.eligible}경기 중 참석 {row.attended + row.late} · 불참 {row.absent} · 무응답{' '}
                     {row.silent}
                   </Txt>
                 </View>

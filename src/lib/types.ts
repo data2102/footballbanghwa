@@ -82,6 +82,13 @@ export type Match = {
   shareToken: string | null;
 };
 
+/**
+ * 참석 상태.
+ *
+ * 'late'(지각)는 더 이상 화면에서 고를 수 없다. 참석 투표를 카톡에서 하고
+ * 그 결과를 옮겨 적는 방식이라, 왔는지 안 왔는지만 있으면 된다.
+ * 값 자체는 남긴다 — 예전에 지각으로 적어 둔 기록이 사라지면 안 된다.
+ */
 export type AttendanceStatus = 'attending' | 'absent' | 'late' | 'unknown';
 
 export type Attendance = {
@@ -134,28 +141,27 @@ export type LineupSlot = {
   memberId: string | null;
 };
 
+/** 자체경기라 한 판에 두 팀이 선다. 상대 팀이 따로 없다. */
+export type LineupSide = 'A' | 'B';
+
+/**
+ * 한 쿼터, 한 팀의 라인업.
+ *
+ * 라인업은 운동장 화이트보드에서 짜고 사진으로 들어온다. 이 앱이 하는 일은
+ * 그 사진을 옮겨 적고 손으로 고칠 수 있게 하는 것이다.
+ * (경기, 쿼터, 팀) 하나에 하나씩 있다.
+ */
 export type Lineup = {
   id: string;
   matchId: string;
-  formationId: string;
-  slots: LineupSlot[];
-  /** 선발에 못 든 참석자. 교체 명단. */
-  benchMemberIds: string[];
-};
-
-/**
- * 쿼터 단위 출전 기록.
- *
- * 조기축구 라인업의 진짜 갈등은 포메이션이 아니라 "누가 더 뛰었나" 다.
- * 출석률(왔는지)과 출전량(뛰었는지)은 다른 값이라 따로 센다.
- */
-export type Appearance = {
-  id: string;
-  matchId: string;
-  memberId: string;
   /** 1부터. 조기축구는 보통 3~4쿼터를 돈다. */
   quarter: number;
-  source: EntrySource;
+  side: LineupSide;
+  formationId: string;
+  slots: LineupSlot[];
+  /** 화이트보드 사진. 나중에 원본을 다시 볼 수 있어야 한다. */
+  photoUri: string | null;
+  photoPath: string | null;
 };
 
 /**
@@ -183,7 +189,7 @@ export type AppData = {
   attendance: Attendance[];
   ledger: Ledger[];
   events: MatchEvent[];
+  /** (경기, 쿼터, 팀) 하나에 하나. 출전 기록은 여기서 계산한다. */
   lineups: Lineup[];
-  appearances: Appearance[];
   potmVotes: PotmVote[];
 };

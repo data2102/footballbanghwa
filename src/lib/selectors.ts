@@ -2,12 +2,12 @@
 import { daysUntil, shiftPeriod, thisPeriod } from '@/lib/format';
 import type {
   AppData,
-  Appearance,
   Attendance,
   AttendanceStatus,
   Ledger,
   Match,
   MatchEvent,
+  LineupSide,
   Member,
   PositionGroup,
 } from '@/lib/types';
@@ -287,14 +287,61 @@ export const STRENGTH_SUGGESTIONS = [
 
 // ------------------------------------------------------------------ 출전 시간
 
-/** 경기 하나에서 각자 몇 쿼터를 뛰었는지. */
+/**
+ * 한 경기에서 각자 몇 쿼터를, 어느 자리에서 뛰었는지.
+ *
+ * 라인업에서 계산한다. 따로 적지 않는다 — 라인업에 누가 어느 자리에 섰는지가
+ * 이미 들어 있어서, 같은 사실을 두 곳에 적으면 반드시 어긋난다.
+ */
+export type QuarterPlay = {
+  member: Member;
+  /** 뛴 쿼터들. 오름차순. */
+  quarters: number[];
+  /** 그 경기에서 섰던 자리들. 여러 자리를 돌았으면 여러 개. */
+  positions: PositionGroup[];
+  /** 어느 팀이었는지. 쿼터마다 팀이 바뀌면 여러 개. */
+  sides: LineupSide[];
+};
+
+export function quarterPlay(data: AppData, matchId: string): Map<string, QuarterPlay> {
+  const byMember = new Map<string, QuarterPlay>();
+  const members = memberMap(data.members);
+
+  for (const lineup of data.lineups) {
+    if (lineup.matchId !== matchId) continue;
+    for (const slot of lineup.slots) {
+      if (!slot.memberId) continue;
+      const member = members.get(slot.memberId);
+      if (!member) continue;
+
+      const row =
+        byMember.get(slot.memberId) ??
+        ({ member, quarters: [], positions: [], sides: [] } as QuarterPlay);
+      if (!row.quarters.includes(lineup.quarter)) row.quarters.push(lineup.quarter);
+      if (!row.positions.includes(slot.group)) row.positions.push(slot.group);
+      if (!row.sides.includes(lineup.side)) row.sides.push(lineup.side);
+      byMember.set(slot.memberId, row);
+    }
+  }
+
+  for (const row of byMember.values()) row.quarters.sort((a, b) => a - b);
+  return byMember;
+}
+
+/** 그 경기에서 각자 뛴 쿼터 수. */
 export function quartersForMatch(data: AppData, matchId: string): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const row of data.appearances) {
-    if (row.matchId !== matchId) continue;
-    counts.set(row.memberId, (counts.get(row.memberId) ?? 0) + 1);
+  for (const [memberId, play] of quarterPlay(data, matchId)) {
+    counts.set(memberId, play.quarters.length);
   }
   return counts;
+}
+
+/** "강*순 DF 1Q,2Q (2)" 한 줄. 화면마다 다시 만들지 않게 모아 둔다. */
+export function playLabel(play: QuarterPlay): string {
+  const positions = play.positions.join('·');
+  const quarters = play.quarters.map((q) => `${q}Q`).join(',');
+  return [positions, quarters, `(${play.quarters.length})`].filter(Boolean).join(' ');
 }
 
 export type PlayingTime = {
@@ -308,7 +355,7 @@ export type PlayingTime = {
 };
 
 /**
- * 최근 경기 기준 출전량. 라인업 배정의 공정성 근거가 된다.
+ * 최근 경기 기준 출전량.
  *
  * 시즌 전체로 재면 최근에 계속 빠진 사람이 영원히 앞자리를 차지한다.
  * 기본 6경기로 끊어서 "요즘 덜 뛴 사람"을 본다.
@@ -323,9 +370,12 @@ export function playingTime(data: AppData, recentMatches = 6, excludeMatchId?: s
   );
 
   const quarters = new Map<string, number>();
-  for (const row of data.appearances) {
-    if (!scope.has(row.matchId)) continue;
-    quarters.set(row.memberId, (quarters.get(row.memberId) ?? 0) + 1);
+  for (const lineup of data.lineups) {
+    if (!scope.has(lineup.matchId)) continue;
+    for (const slot of lineup.slots) {
+      if (!slot.memberId) continue;
+      quarters.set(slot.memberId, (quarters.get(slot.memberId) ?? 0) + 1);
+    }
   }
 
   const attended = new Map<string, number>();
@@ -362,6 +412,25 @@ export function fairnessOrder(data: AppData, pool: Member[], excludeMatchId?: st
     if (lv !== rv) return lv - rv;
     return a.name.localeCompare(b.name, 'ko');
   });
+}
+
+/**
+ * 이 사람이 주로 어느 자리에서 뛰었는지. 많이 선 순서.
+ *
+ * 회원 카드에 적어 둔 "볼 수 있는 자리"와 다르다 — 이건 실제로 뛴 기록이다.
+ * 본인은 미드라고 적어 뒀는데 계속 수비를 봤다면 그게 드러나야 한다.
+ */
+export function playedPositions(data: AppData, memberId: string): { group: PositionGroup; count: number }[] {
+  const counts = new Map<PositionGroup, number>();
+  for (const lineup of data.lineups) {
+    for (const slot of lineup.slots) {
+      if (slot.memberId !== memberId) continue;
+      counts.set(slot.group, (counts.get(slot.group) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([group, count]) => ({ group, count }))
+    .sort((a, b) => b.count - a.count);
 }
 
 // ------------------------------------------------------------------ MVP
@@ -424,7 +493,7 @@ export type Ranking = {
  */
 export function rankings(data: AppData): Ranking[] {
   const stats = playerStats(data);
-  const time = playingTime(data, 99);
+  const time = playingTime(data, 999);
   const profiles = allProfiles(data);
   const wins = potmWins(data);
 
@@ -544,7 +613,3 @@ export function teamRecord(data: AppData): TeamRecord {
   return record;
 }
 
-/** 이 경기에서 뛴 쿼터를 한 명분 세는 작은 도우미. 화면에서 자주 쓴다. */
-export function quartersOf(appearances: Appearance[], matchId: string, memberId: string): number {
-  return appearances.filter((row) => row.matchId === matchId && row.memberId === memberId).length;
-}

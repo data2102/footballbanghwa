@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { attendanceForMatch, tallyAttendance, unrespondedMembers } from '@/lib/selectors';
 import { formatDate } from '@/lib/format';
@@ -20,21 +21,27 @@ import {
 } from '@/components/ui';
 import { AttendanceNudge } from '@/features/attendance/AttendanceNudge';
 import { MatchPicker } from '@/components/MatchPicker';
-import { QuickInputFab } from '@/components/QuickInputFab';
 import { usePalette } from '@/theme';
 import type { AttendanceStatus } from '@/lib/types';
 
+/*
+ * 참석·불참·미투표 셋뿐이다.
+ *
+ * 지각을 뺐다. 참석 집계는 단톡방 투표를 옮겨 담는 일인데, 투표에는 지각 칸이 없다.
+ * 앱에만 있는 칸은 아무도 누르지 않으면서 매주 손가락이 지나갈 자리만 차지한다.
+ * 타입과 DB 값은 남겨 뒀다 — 예전에 지각으로 적어 둔 기록을 지우지 않으려고.
+ */
 const STATUSES: { value: AttendanceStatus; label: string; short: string }[] = [
   { value: 'attending', label: '참석', short: '참' },
-  { value: 'late', label: '지각', short: '늦' },
   { value: 'absent', label: '불참', short: '불' },
-  { value: 'unknown', label: '미정', short: '?' },
+  { value: 'unknown', label: '미투표', short: '?' },
 ];
 
 type Filter = 'all' | AttendanceStatus;
 
 export default function AttendanceScreen() {
   const p = usePalette();
+  const router = useRouter();
   const data = useStore((state) => state.data);
   const activeMatchId = useStore((state) => state.activeMatchId);
   const setAttendance = useStore((state) => state.setAttendance);
@@ -81,8 +88,8 @@ export default function AttendanceScreen() {
                 suffix={`/ ${data.members.filter((m) => m.active).length}명`}
                 caption={
                   tally?.unknown
-                    ? `지각 ${tally.late}명 포함이에요. ${tally.unknown}명은 아직 답이 없어요.`
-                    : `지각 ${tally?.late ?? 0}명 포함이에요. 전원 응답했어요.`
+                    ? `${tally.unknown}명은 아직 투표를 안 했어요.`
+                    : '전원 투표했어요.'
                 }
               />
               <Txt variant="tiny" muted>
@@ -98,10 +105,23 @@ export default function AttendanceScreen() {
                   {pending.length > 8 ? ` 외 ${pending.length - 8}명` : ''}
                 </Txt>
               ) : null}
+            </Card>
+
+            {/*
+              참석 투표는 단톡방에서 한다. 그래서 이 화면에서 제일 먼저 하는 일은
+              그 투표 화면을 찍어서 넣는 것이다. 아래 명단 체크는 빠진 사람 고칠 때만 쓴다.
+            */}
+            <Card>
+              <Txt variant="h3">단톡방 투표 옮겨 담기</Txt>
               <Txt variant="tiny" muted>
-                단톡방 투표를 그대로 복사하거나, 손으로 쓴 명단을 찍어서 오른쪽 아래 버튼에 넣으면 한 번에
-                반영돼요.
+                카톡 투표 화면을 찍거나 대화를 그대로 붙여넣으면 명단에 맞춰 읽어요. 읽은 결과는
+                체크로 확인한 뒤에만 저장돼요.
               </Txt>
+              <Button
+                label="투표 사진 올리기"
+                icon="camera"
+                onPress={() => router.push('/quick-input?hint=attendance')}
+              />
             </Card>
 
             <Segmented
@@ -207,7 +227,6 @@ export default function AttendanceScreen() {
           </>
         )}
       </Screen>
-      <QuickInputFab hint="attendance" />
     </View>
   );
 }

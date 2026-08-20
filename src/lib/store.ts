@@ -3,16 +3,17 @@ import { repo } from '@/lib/repo';
 import { supabase } from '@/lib/supabase';
 import { todayISO, uid } from '@/lib/format';
 import { ballotId } from '@/lib/ballot';
+import { DEFAULT_FORMATION } from '@/features/lineup/formations';
 import { focusMatch } from '@/lib/selectors';
 import type { PickedPhoto } from '@/lib/photo';
 import type {
   AppData,
-  Appearance,
   Attendance,
   AttendanceStatus,
   EntrySource,
   Ledger,
   Lineup,
+  LineupSide,
   Match,
   MatchEvent,
   Member,
@@ -49,8 +50,13 @@ type Store = {
   addEvent: (entry: Omit<MatchEvent, 'id'>) => Promise<void>;
   removeEvent: (id: string) => Promise<void>;
   saveLineup: (lineup: Omit<Lineup, 'id'>) => Promise<void>;
-  /** 한 사람이 이 경기에서 뛴 쿼터 수를 정한다. 0이면 기록을 지운다. */
-  setQuarters: (matchId: string, memberId: string, count: number) => Promise<void>;
+  /** 화이트보드 사진을 그 쿼터의 라인업에 붙인다. */
+  setLineupPhoto: (
+    matchId: string,
+    quarter: number,
+    side: LineupSide,
+    photo: PickedPhoto,
+  ) => Promise<void>;
   /** MVP 한 표. 같은 사람을 다시 누르면 표를 거둔다. */
   togglePotmVote: (matchId: string, memberId: string) => Promise<void>;
   /** 이 경기의 참석 링크 토큰. 없으면 만들어서 저장한다. */
@@ -187,40 +193,49 @@ export const useStore = create<Store>((set, get) => ({
   saveLineup: async (lineup) => {
     const data = get().data;
     if (!data) return;
-    const existing = data.lineups.find((row) => row.matchId === lineup.matchId);
+    const existing = data.lineups.find(
+      (row) =>
+        row.matchId === lineup.matchId &&
+        row.quarter === lineup.quarter &&
+        row.side === lineup.side,
+    );
     const row: Lineup = { ...lineup, id: existing?.id ?? uid() };
     set({
       data: {
         ...data,
-        lineups: [...data.lineups.filter((item) => item.matchId !== row.matchId), row],
+        lineups: [...data.lineups.filter((item) => item.id !== row.id), row],
       },
     });
     await persist(set, () => repo.saveLineup(row));
   },
 
-  setQuarters: async (matchId, memberId, count) => {
+  setLineupPhoto: async (matchId, quarter, side, photo) => {
     const data = get().data;
     if (!data) return;
-    const capped = Math.max(0, Math.min(count, MAX_QUARTERS));
-    const rows: Appearance[] = Array.from({ length: capped }, (_, index) => ({
+    const existing = data.lineups.find(
+      (row) => row.matchId === matchId && row.quarter === quarter && row.side === side,
+    );
+    // 사진만 먼저 올리는 경우가 있다. 라인업이 아직 없으면 빈 자리로 하나 만든다.
+    const base: Lineup = existing ?? {
       id: uid(),
       matchId,
-      memberId,
-      quarter: index + 1,
-      source: 'manual',
-    }));
-    set({
-      data: {
-        ...data,
-        appearances: [
-          ...data.appearances.filter(
-            (row) => !(row.matchId === matchId && row.memberId === memberId),
-          ),
-          ...rows,
-        ],
-      },
-    });
-    await persist(set, () => repo.setAppearances(matchId, memberId, rows));
+      quarter,
+      side,
+      formationId: DEFAULT_FORMATION.id,
+      slots: DEFAULT_FORMATION.slots.map((slot) => ({ ...slot, memberId: null })),
+      photoUri: null,
+      photoPath: null,
+    };
+    try {
+      const saved = await repo.saveLineupPhoto(base, photo);
+      const row: Lineup = { ...base, ...saved };
+      set({
+        data: { ...data, lineups: [...data.lineups.filter((item) => item.id !== row.id), row] },
+      });
+      await persist(set, () => repo.saveLineup(row));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : '사진을 저장하지 못했어요.' });
+    }
   },
 
   togglePotmVote: async (matchId, memberId) => {
@@ -317,6 +332,9 @@ export const useStore = create<Store>((set, get) => ({
 
 /** 조기축구는 보통 3~4쿼터를 돈다. 그보다 큰 값은 오타로 본다. */
 export const MAX_QUARTERS = 6;
+
+/** 화면에서 기본으로 보여 줄 쿼터 수. */
+export const DEFAULT_QUARTERS = 4;
 
 /** 이름만 알고 추가하는 회원의 나머지 기본값. 신규 회원을 만드는 곳마다 반복하지 않게 모아 둔다. */
 export function blankMemberFields(): Omit<Member, 'id' | 'teamId' | 'name'> {

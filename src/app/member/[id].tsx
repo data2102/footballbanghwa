@@ -6,6 +6,7 @@ import {
   STRENGTH_SUGGESTIONS,
   knownStrengths,
   memberProfile,
+  playedPositions,
 } from '@/lib/selectors';
 import { formatDate, formatPeriod, thisPeriod, todayISO, won } from '@/lib/format';
 import { pickPhoto } from '@/lib/photo';
@@ -51,6 +52,7 @@ export default function MemberDetailScreen() {
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
 
   const profile = useMemo(() => (data && id ? memberProfile(data, id) : null), [data, id]);
+  const played = useMemo(() => (data && id ? playedPositions(data, id) : []), [data, id]);
   const suggestions = useMemo(() => {
     const used = new Set(profile?.member.strengths ?? []);
     return [...knownStrengths(data?.members ?? []), ...STRENGTH_SUGGESTIONS]
@@ -234,6 +236,24 @@ export default function MemberDetailScreen() {
             <StatCell label="선방" value={profile.saves} />
             <StatCell label="경고·퇴장" value={profile.cards} tone={profile.cards ? p.warn : undefined} />
           </Row>
+
+          {/*
+            적어 둔 자리가 아니라 실제로 선 자리다. 본인은 미드라고 했는데 계속 수비를 봤다면
+            그게 여기서 드러난다. 라인업에서 세는 값이라 따로 적을 필요가 없다.
+          */}
+          <Divider />
+          <Txt variant="tiny" muted>주로 선 자리</Txt>
+          {played.length ? (
+            <Row wrap gap={space.sm}>
+              {played.map((row) => (
+                <Chip key={row.group} label={`${row.group} ${row.count}쿼터`} />
+              ))}
+            </Row>
+          ) : (
+            <Txt variant="small" muted>
+              아직 라인업에 들어간 적이 없어요.
+            </Txt>
+          )}
         </Card>
 
         {/* ---------------------------------------------------- 회비 */}

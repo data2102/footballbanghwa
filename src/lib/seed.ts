@@ -1,14 +1,15 @@
-import { DEFAULT_FORMATION } from '@/features/lineup/formations';
+import { formationsForSize } from '@/features/lineup/formations';
 import { shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
 import { KICKOFF, sundaysOf } from '@/lib/schedule';
 import type {
   AgeBand,
   AppData,
-  Appearance,
   Attendance,
   Ledger,
   Match,
   MatchEvent,
+  Lineup,
+  LineupSide,
   Member,
   PositionGroup,
   PotmVote,
@@ -35,7 +36,7 @@ const TEAM_ID = 'demo-team';
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 /** [이름, 포지션, 등번호, 장점, 대략적인 출석 성향(0~1)] */
 const ROSTER: [string, PositionGroup, number, string[], number][] = [
@@ -186,27 +187,42 @@ export function buildSeed(): AppData {
     }
   }
 
-  // ------------------------------------------------------------ 출전 쿼터
-  // 공정성 화면이 읽히려면 "왔는데 덜 뛴 사람"이 실제로 있어야 한다.
-  // 뒤쪽 번호(후보)일수록 쿼터가 적게 잡히도록 결정적으로 만든다.
-  const appearances: Appearance[] = [];
+  // ------------------------------------------------------------ 라인업과 출전
+  // 자체경기라 한 판에 두 팀이 선다. 쿼터마다 사람이 바뀌고, 그 기록이 곧 출전 횟수다.
+  // 공정성 화면이 읽히려면 "왔는데 덜 뛴 사람"이 실제로 있어야 해서, 명단을 쿼터마다
+  // 조금씩 밀어 가며 채운다 — 밀다 보면 끝에서 잘리는 사람이 생기고, 그게 덜 뛴 사람이다.
+  const SIDES: LineupSide[] = ['A', 'B'];
+  const SQUAD = 8;
+  const boardFormation = formationsForSize(SQUAD)[0];
+  const lineups: Lineup[] = [];
+
   for (const [matchIndex, match] of past.entries()) {
-    for (const [memberIndex, member] of members.entries()) {
-      const came = attendance.find(
-        (row) => row.matchId === match.id && row.memberId === member.id,
-      );
-      if (!came || came.status === 'absent') continue;
-      // 주전(앞 11명)은 3~4쿼터, 후보는 0~2쿼터.
-      const base = memberIndex < 11 ? 3 : 0;
-      const extra = Math.floor(noise(memberIndex + 7, matchIndex + 3) * 2);
-      const played = Math.min(4, base + extra);
-      for (let q = 1; q <= played; q += 1) {
-        appearances.push({
-          id: `app-${match.id}-${member.id}-${q}`,
+    const attendees = members.filter((member) => {
+      const row = attendance.find((item) => item.matchId === match.id && item.memberId === member.id);
+      return row?.status === 'attending' || row?.status === 'late';
+    });
+    if (attendees.length < SQUAD * 2) continue;
+
+    for (let quarter = 1; quarter <= 4; quarter += 1) {
+      for (const [sideIndex, side] of SIDES.entries()) {
+        // 쿼터마다 3칸씩 민다. 두 팀은 서로 8칸 떨어뜨려 같은 사람이 겹치지 않게 한다.
+        const offset = (quarter - 1) * 3 + sideIndex * SQUAD + matchIndex;
+        const picked = Array.from(
+          { length: SQUAD },
+          (_, i) => attendees[(offset + i) % attendees.length],
+        );
+        lineups.push({
+          id: `lineup-${match.id}-${quarter}-${side}`,
           matchId: match.id,
-          memberId: member.id,
-          quarter: q,
-          source: 'manual',
+          quarter,
+          side,
+          formationId: boardFormation.id,
+          slots: boardFormation.slots.map((slot, index) => ({
+            ...slot,
+            memberId: picked[index]?.id ?? null,
+          })),
+          photoUri: null,
+          photoPath: null,
         });
       }
     }
@@ -330,7 +346,6 @@ export function buildSeed(): AppData {
     source: 'manual',
   });
 
-  const lastMatch = past[past.length - 1];
 
   return {
     team: {
@@ -346,19 +361,7 @@ export function buildSeed(): AppData {
     attendance,
     ledger,
     events,
-    appearances,
     potmVotes,
-    lineups: [
-      {
-        id: 'lineup-last',
-        matchId: lastMatch.id,
-        formationId: DEFAULT_FORMATION.id,
-        slots: DEFAULT_FORMATION.slots.map((slot, index) => ({
-          ...slot,
-          memberId: members[index]?.id ?? null,
-        })),
-        benchMemberIds: members.slice(11, 13).map((member) => member.id),
-      },
-    ],
+    lineups,
   };
 }

@@ -1,6 +1,5 @@
 import type { PickedPhoto } from '@/lib/photo';
 import type {
-  Appearance,
   Attendance,
   AppData,
   Ledger,
@@ -30,9 +29,11 @@ export interface Repo {
   removeLedger(id: string): Promise<void>;
   saveEvents(rows: MatchEvent[]): Promise<void>;
   removeEvent(id: string): Promise<void>;
+  /** (경기, 쿼터, 팀) 하나의 라인업. 같은 자리에 다시 저장하면 덮어쓴다. */
   saveLineup(lineup: Lineup): Promise<void>;
-  /** 한 경기·한 사람의 출전 쿼터를 통째로 바꾼다. 지우고 다시 넣는 편이 어긋날 여지가 적다. */
-  setAppearances(matchId: string, memberId: string, rows: Appearance[]): Promise<void>;
+  removeLineup(id: string): Promise<void>;
+  /** 화이트보드 사진을 저장하고 라인업에 붙일 값을 돌려준다. */
+  saveLineupPhoto(lineup: Lineup, photo: PickedPhoto): Promise<{ photoUri: string; photoPath: string | null }>;
   /** 한 표를 넣거나 옮긴다. ballot 하나당 경기별로 한 표만 남는다. */
   setPotmVote(matchId: string, ballot: string, vote: PotmVote | null): Promise<void>;
 }

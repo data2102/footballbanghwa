@@ -15,7 +15,6 @@ export type ParseIntent =
   | 'lineup'
   | 'event'
   | 'profile'
-  | 'appearance'
   | 'mixed'
   | 'unknown';
 
@@ -62,6 +61,10 @@ export type LineupItem = ItemBase & {
   /** 포메이션 슬롯 키. 예: 'GK', 'DF2', 'FW1' */
   slotKey: string | null;
   group: PositionGroup;
+  /** 몇 쿼터인지. 화이트보드에 안 적혀 있으면 null(앱이 지금 보고 있는 쿼터로 넣는다). */
+  quarter: number | null;
+  /** 자체경기라 한 판에 두 팀이 선다. 왼쪽/위가 A, 오른쪽/아래가 B. */
+  side: 'A' | 'B' | null;
 };
 
 export type EventItem = ItemBase & {
@@ -80,25 +83,7 @@ export type ProfileItem = ItemBase & {
   note: string | null;
 };
 
-/**
- * 몇 쿼터 뛰었는지. "1쿼터 병준이형 빼고 도현" 같은 교체 이야기에서 나온다.
- *
- * 조기축구 라인업의 진짜 갈등은 "누가 더 뛰었나"라서, 이 값이 쌓여야 다음 주 배정에
- * 근거가 생긴다. 운동장에서 따로 입력하지 않고 하던 말 그대로 받는 게 목적이다.
- */
-export type AppearanceItem = ItemBase & {
-  kind: 'appearance';
-  /** 이 경기에서 뛴 쿼터 수. */
-  quarters: number;
-};
-
-export type ParsedItem =
-  | AttendanceItem
-  | PaymentItem
-  | LineupItem
-  | EventItem
-  | ProfileItem
-  | AppearanceItem;
+export type ParsedItem = AttendanceItem | PaymentItem | LineupItem | EventItem | ProfileItem;
 
 export type ParseResponse = {
   intent: ParseIntent;
@@ -125,8 +110,8 @@ export type ParseRequest = {
   images?: ParseImage[];
   /** 특정 기능에서 호출했다면 힌트로 넘긴다. 없으면 AI가 판단. */
   hint?: Exclude<ParseIntent, 'mixed' | 'unknown'>;
-  /** 경기가 몇 쿼터로 도는지. 쿼터 수를 보정할 때 쓴다. */
-  quarters?: number;
+  /** 지금 보고 있는 쿼터. 사진에 쿼터가 안 적혀 있을 때 여기로 넣는다. */
+  quarter?: number;
   roster: RosterEntry[];
   /** 상대 날짜("지난주 토요일") 해석 기준. YYYY-MM-DD */
   today: string;
