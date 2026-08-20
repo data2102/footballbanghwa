@@ -5,6 +5,7 @@ import type {
   Attendance,
   InventoryItem,
   Ledger,
+  MessageTemplate,
   Lineup,
   Match,
   MatchEvent,
@@ -37,13 +38,14 @@ export class SupabaseRepo implements Repo {
     };
     this.teamId = teamRow.id;
 
-    const [members, matches, ledger, inventory] = await Promise.all([
+    const [members, matches, ledger, inventory, templates] = await Promise.all([
       this.client.from('members').select('*').eq('team_id', teamRow.id),
       this.client.from('matches').select('*').eq('team_id', teamRow.id).order('date', { ascending: false }),
       this.client.from('ledger').select('*').eq('team_id', teamRow.id).order('occurred_on', { ascending: false }),
       this.client.from('inventory').select('*').eq('team_id', teamRow.id).order('name'),
+      this.client.from('message_templates').select('*').eq('team_id', teamRow.id),
     ]);
-    for (const result of [members, matches, ledger, inventory]) {
+    for (const result of [members, matches, ledger, inventory, templates]) {
       if (result.error) throw result.error;
     }
 
@@ -83,6 +85,7 @@ export class SupabaseRepo implements Repo {
       lineups: (lineups.data ?? []).map(fromLineupRow),
       potmVotes: (potmVotes.data ?? []).map(fromPotmRow),
       inventory: (inventory.data ?? []).map(fromInventoryRow),
+      templates: (templates.data ?? []).map(fromTemplateRow),
     };
   }
 
@@ -269,6 +272,21 @@ export class SupabaseRepo implements Repo {
 
   removeInventory = (id: string) => this.run(this.client.from('inventory').delete().eq('id', id));
 
+  saveTemplate = (template: MessageTemplate) =>
+    this.run(
+      this.client.from('message_templates').upsert({
+        id: template.id,
+        team_id: this.assertLoaded(),
+        title: template.title,
+        body: template.body,
+        kind: template.kind,
+        used_at: template.usedAt,
+      }),
+    );
+
+  removeTemplate = (id: string) =>
+    this.run(this.client.from('message_templates').delete().eq('id', id));
+
   removeLedger = (id: string) => this.run(this.client.from('ledger').delete().eq('id', id));
 
   saveEvents = (rows: MatchEvent[]) =>
@@ -408,6 +426,15 @@ const fromLedgerRow = (row: Row): Ledger => ({
   photoUri: null,
   photoPath: row.photo_path ?? null,
   source: row.source,
+});
+
+const fromTemplateRow = (row: Row): MessageTemplate => ({
+  id: row.id,
+  teamId: row.team_id,
+  title: row.title,
+  body: row.body,
+  kind: row.kind,
+  usedAt: row.used_at ?? null,
 });
 
 const fromInventoryRow = (row: Row): InventoryItem => ({

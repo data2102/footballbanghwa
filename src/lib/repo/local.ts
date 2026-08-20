@@ -6,6 +6,7 @@ import type {
   Attendance,
   InventoryItem,
   Ledger,
+  MessageTemplate,
   Lineup,
   Match,
   MatchEvent,
@@ -137,6 +138,12 @@ export class LocalRepo implements Repo {
 
   removeInventory = (id: string) =>
     this.mutate((data) => void (data.inventory = data.inventory.filter((row) => row.id !== id)));
+
+  saveTemplate = (template: MessageTemplate) =>
+    this.mutate((data) => void (data.templates = LocalRepo.upsert(data.templates, [template])));
+
+  removeTemplate = (id: string) =>
+    this.mutate((data) => void (data.templates = data.templates.filter((row) => row.id !== id)));
 
   saveEvents = (rows: MatchEvent[]) =>
     this.mutate((data) => void (data.events = LocalRepo.upsert(data.events, rows)));

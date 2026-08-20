@@ -19,6 +19,7 @@ const ENTRIES: Entry[] = [
   { icon: 'chart', title: '기록', help: '랭킹 여섯 가지와 경기별 기록', path: '/stats' },
   { icon: 'users', title: '출결 분석', help: '참석률과 답 안 한 횟수', path: '/analysis' },
   { icon: 'message', title: '공지 만들기', help: '틀을 고르면 문구가 나와요', path: '/notice' },
+  { icon: 'book', title: '문구 보관함', help: '자주 쓰는 글을 저장해 두고 꺼내 써요', path: '/templates' },
   { icon: 'book', title: '회칙', help: '단톡방에 붙여넣을 회칙', path: '/rules' },
   { icon: 'wallet', title: '물품 재고', help: '조끼·공·콘이 몇 개 남았나', path: '/inventory' },
   { icon: 'person', title: '팀 설정', help: '팀 이름, 회비, 경기 만들기', path: '/settings' },

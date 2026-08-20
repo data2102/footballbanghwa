@@ -48,7 +48,7 @@ const ANNUAL_DUE = 200000;
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 8;
+export const SEED_VERSION = 9;
 
 /**
  * 포지션과 장점은 엑셀에 없다. 총무가 센 건 미투표뿐이다.
@@ -428,6 +428,49 @@ export function buildSeed(): AppData {
     events,
     potmVotes,
     lineups,
+    /*
+     * 처음 쓰는 팀이 빈 화면을 보지 않게 세 벌을 깔아 둔다.
+     * 자리({날짜} 같은 것)를 실제로 써 둬야 "이렇게 쓰는 거구나"가 한눈에 보인다.
+     */
+    templates: [
+      {
+        id: 'tpl-attendance',
+        teamId: TEAM_ID,
+        title: '주중 참석 독촉',
+        kind: 'attendance' as const,
+        body:
+          '{팀} 이번 주 경기 안내드려요.\n' +
+          '{날짜} {시간} · {장소}\n' +
+          '지금까지 {참석}명 참석이에요.\n' +
+          '아직 답 안 주신 분: {미투표명단}\n' +
+          '라인업을 미리 짜야 해서요, 참석 여부만 남겨 주시면 고맙겠습니다.',
+        usedAt: null,
+      },
+      {
+        id: 'tpl-dues',
+        teamId: TEAM_ID,
+        title: '월 회비 안내',
+        kind: 'dues' as const,
+        body:
+          '{달} 회비 안내드려요.\n' +
+          '월 회비는 {월회비}, 연납은 {연납}이에요.\n' +
+          '아직 {미납}명이 안 내셨어요. 남은 금액은 모두 {미납액}이에요.\n' +
+          '계좌는 공지 참고해 주세요.',
+        usedAt: null,
+      },
+      {
+        id: 'tpl-rain',
+        teamId: TEAM_ID,
+        title: '우천 취소',
+        kind: 'notice' as const,
+        body:
+          '{팀} {날짜} 경기 취소 안내드려요.\n' +
+          '비가 와서 구장을 쓸 수 없게 됐어요.\n' +
+          '다음 주 같은 시간에 뵐게요.',
+        usedAt: null,
+      },
+    ],
+
     // 매주 들고 나가는 것들. 알고 싶은 건 몇 개 남았나 하나뿐이다.
     inventory: [
       { id: 'inv-vest', teamId: TEAM_ID, name: '조끼(주황)', quantity: 12, note: null },

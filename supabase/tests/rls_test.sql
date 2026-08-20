@@ -210,6 +210,30 @@ end $$;
 do $$ begin perform pg_temp.act_as('33333333-3333-4333-8333-333333333333'); end $$;
 select (select count(*) from public.inventory) = 0 as "남의 팀은 못 본다";
 
+-- ---------------------------------------------------------------- 9-3. 문구 보관함
+\echo '9-3. 문구는 팀원이 보고, 운영진만 고친다'
+do $$ begin perform pg_temp.act_as('11111111-1111-4111-8111-111111111111'); end $$;
+insert into public.message_templates (team_id, title, body, kind)
+values ((select id from public.teams limit 1), '주중 참석 독촉', '{날짜} 경기 있어요. {미투표명단}', 'attendance');
+select (select count(*) from public.message_templates) = 1 as "운영진이 적은 문구";
+
+do $$ begin perform pg_temp.act_as('22222222-2222-4222-8222-222222222222'); end $$;
+select (select count(*) from public.message_templates) = 1 as "팀원은 본다";
+do $$
+begin
+  update public.message_templates set body = '아무거나';
+  if found then raise exception '선수가 문구를 고칠 수 있으면 안 된다'; end if;
+  raise notice '  통과 — 선수 수정은 막혔다(0행)';
+exception
+  when insufficient_privilege then raise notice '  통과 — 선수 수정은 막혔다';
+  when others then
+    if sqlerrm like '%row-level security%' then raise notice '  통과 — 선수 수정은 막혔다';
+    else raise; end if;
+end $$;
+
+do $$ begin perform pg_temp.act_as('33333333-3333-4333-8333-333333333333'); end $$;
+select (select count(*) from public.message_templates) = 0 as "남의 팀은 못 본다";
+
 -- ---------------------------------------------------------------- 10. 참석 링크
 \echo '10. 참석 링크는 그 경기만 열고, 회비는 못 본다'
 do $$ begin perform pg_temp.act_as('11111111-1111-4111-8111-111111111111'); end $$;
@@ -239,7 +263,7 @@ declare
   n   bigint;
   leaked text[] := '{}';
 begin
-  foreach tbl in array array['ledger', 'members', 'matches', 'attendance', 'lineups', 'potm_votes', 'inventory'] loop
+  foreach tbl in array array['ledger', 'members', 'matches', 'attendance', 'lineups', 'potm_votes', 'inventory', 'message_templates'] loop
     begin
       execute format('select count(*) from public.%I', tbl) into n;
       if n > 0 then leaked := leaked || tbl; end if;

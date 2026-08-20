@@ -147,6 +147,28 @@ export type Ledger = {
 };
 
 /**
+ * 자주 쓰는 문구 초안.
+ *
+ * 총무가 단톡방에 쓰는 글은 서너 종류뿐이고 매주 숫자만 바뀐다. 그래서 문장을
+ * 통째로 저장하면 "매번 쓰기 귀찮다"가 안 풀린다 — 결국 날짜와 인원을 매번 고친다.
+ * 본문에 `{날짜}` `{미투표명단}` 같은 자리를 두면 앱이 그 주 값으로 채운다.
+ * 채우는 규칙은 `src/lib/templates.ts` 에 있다.
+ */
+export type MessageTemplate = {
+  id: string;
+  teamId: string;
+  /** 목록에서 고를 이름. "주중 참석 독촉" 처럼 짧게. */
+  title: string;
+  body: string;
+  /** 어느 화면에서 꺼내 쓸지. 참석 화면에 회비 문구가 섞이면 방해가 된다. */
+  kind: MessageTemplateKind;
+  /** 최근 쓴 순으로 앞에 둔다. 한 번도 안 썼으면 null. */
+  usedAt: string | null;
+};
+
+export type MessageTemplateKind = 'attendance' | 'dues' | 'notice';
+
+/**
  * 팀 물품.
  *
  * 조끼·공·콘처럼 매주 들고 나가는 것들이다. 알고 싶은 건 "몇 개 남았나" 하나뿐이라
@@ -233,4 +255,5 @@ export type AppData = {
   lineups: Lineup[];
   potmVotes: PotmVote[];
   inventory: InventoryItem[];
+  templates: MessageTemplate[];
 };

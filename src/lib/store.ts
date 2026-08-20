@@ -13,6 +13,7 @@ import type {
   EntrySource,
   InventoryItem,
   Ledger,
+  MessageTemplate,
   Lineup,
   LineupSide,
   Match,
@@ -59,6 +60,10 @@ type Store = {
   setLedgerPhoto: (ledgerId: string, photo: PickedPhoto) => Promise<void>;
   saveInventory: (item: Omit<InventoryItem, 'teamId'>) => Promise<void>;
   removeInventory: (id: string) => Promise<void>;
+  saveTemplate: (template: Omit<MessageTemplate, 'teamId'>) => Promise<void>;
+  removeTemplate: (id: string) => Promise<void>;
+  /** 이 문구를 꺼내 썼다고 표시한다. 매주 쓰는 게 목록 맨 앞에 오게 하는 값이다. */
+  touchTemplate: (id: string) => Promise<void>;
   removeLedger: (id: string) => Promise<void>;
   addEvent: (entry: Omit<MatchEvent, 'id'>) => Promise<void>;
   removeEvent: (id: string) => Promise<void>;
@@ -223,6 +228,38 @@ export const useStore = create<Store>((set, get) => ({
     if (!data) return;
     set({ data: { ...data, inventory: data.inventory.filter((row) => row.id !== id) } });
     await persist(set, () => repo.removeInventory(id));
+  },
+
+  saveTemplate: async (template) => {
+    const data = get().data;
+    if (!data) return;
+    const row: MessageTemplate = { ...template, teamId: data.team.id };
+    set({
+      data: {
+        ...data,
+        templates: [...data.templates.filter((item) => item.id !== row.id), row],
+      },
+    });
+    await persist(set, () => repo.saveTemplate(row));
+  },
+
+  removeTemplate: async (id) => {
+    const data = get().data;
+    if (!data) return;
+    set({ data: { ...data, templates: data.templates.filter((row) => row.id !== id) } });
+    await persist(set, () => repo.removeTemplate(id));
+  },
+
+  touchTemplate: async (id) => {
+    const data = get().data;
+    if (!data) return;
+    const found = data.templates.find((row) => row.id === id);
+    if (!found) return;
+    const row: MessageTemplate = { ...found, usedAt: new Date().toISOString() };
+    set({
+      data: { ...data, templates: data.templates.map((item) => (item.id === id ? row : item)) },
+    });
+    await persist(set, () => repo.saveTemplate(row));
   },
 
   removeLedger: async (id) => {

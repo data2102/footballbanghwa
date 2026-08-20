@@ -4,12 +4,14 @@ import { useStore } from '@/lib/store';
 import { composeMessage } from '@/lib/ai/compose';
 import { isLocalRepo } from '@/lib/repo';
 import { duesForPeriod, focusMatch, tallyAttendance } from '@/lib/selectors';
+import { fillTemplate, orderTemplates, slotValues, unfilledSlots } from '@/lib/templates';
 import { formatDate, formatPeriod, thisPeriod, won } from '@/lib/format';
 import { shareMessage, shareText } from '@/lib/share';
 import {
   Button,
   Card,
   Chip,
+  Divider,
   Row,
   Screen,
   SectionHeader,
@@ -49,6 +51,13 @@ export default function NoticeScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const touchTemplate = useStore((state) => state.touchTemplate);
+  // 저장해 둔 문구는 틀보다 앞에 둔다. 총무가 실제로 매주 쓰는 글이 이쪽이다.
+  const savedTemplates = useMemo(
+    () => (data ? orderTemplates(data.templates, 'notice') : []),
+    [data?.templates],
+  );
+
   const built = useMemo(() => (data ? build(template, data) : ''), [template, data]);
   // 손대기 전까지는 틀을 바꾸면 초안도 따라 바뀐다. 손댄 뒤에는 덮어쓰지 않는다.
   const text = touched ? draft : built;
@@ -77,6 +86,36 @@ export default function NoticeScreen() {
           <Txt variant="tiny" muted>
             틀을 고르면 앱이 아는 날짜와 인원으로 초안을 채워요. 아래에서 고칠 수 있어요.
           </Txt>
+
+          {savedTemplates.length ? (
+            <>
+              <Divider />
+              <Txt variant="h3">저장해 둔 문구</Txt>
+              <Row wrap gap={space.sm}>
+                {savedTemplates.map((row) => (
+                  <Chip
+                    key={row.id}
+                    label={row.title}
+                    onPress={() => {
+                      const filled = fillTemplate(row.body, slotValues(data));
+                      const missing = unfilledSlots(filled);
+                      setDraft(filled);
+                      setTouched(true);
+                      setNotice(
+                        missing.length
+                          ? `${missing.map((key) => `{${key}}`).join(', ')} 는 지금 채울 값이 없어요.`
+                          : null,
+                      );
+                      void touchTemplate(row.id);
+                    }}
+                  />
+                ))}
+              </Row>
+              <Txt variant="tiny" muted>
+                더보기 &gt; 문구 보관함에서 고치고 새로 만들 수 있어요.
+              </Txt>
+            </>
+          ) : null}
         </Card>
 
         <SectionHeader title="초안" />

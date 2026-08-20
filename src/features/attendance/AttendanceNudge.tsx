@@ -40,6 +40,8 @@ export function AttendanceNudge({
       namesOnHelp="누가 답을 안 했는지 단톡방에 그대로 보여요."
       namesOffHelp="인원수만 적어요. 이름이 도는 게 부담스러울 때."
       notePlaceholder="덧붙일 말 (예: 오늘 저녁까지만 알려 주세요)"
+      templateKind="attendance"
+      match={match}
       build={({ includeNames, note }) => ({
         kind: 'attendance_nudge',
         teamName,

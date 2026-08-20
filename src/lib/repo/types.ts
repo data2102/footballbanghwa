@@ -4,6 +4,7 @@ import type {
   AppData,
   InventoryItem,
   Ledger,
+  MessageTemplate,
   Lineup,
   Match,
   MatchEvent,
@@ -32,6 +33,8 @@ export interface Repo {
   saveLedgerPhoto(entry: Ledger, photo: PickedPhoto): Promise<{ photoUri: string; photoPath: string | null }>;
   saveInventory(item: InventoryItem): Promise<void>;
   removeInventory(id: string): Promise<void>;
+  saveTemplate(template: MessageTemplate): Promise<void>;
+  removeTemplate(id: string): Promise<void>;
   saveEvents(rows: MatchEvent[]): Promise<void>;
   removeEvent(id: string): Promise<void>;
   /** (경기, 쿼터, 팀) 하나의 라인업. 같은 자리에 다시 저장하면 덮어쓴다. */
