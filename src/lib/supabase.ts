@@ -1,7 +1,11 @@
 import 'react-native-url-polyfill/auto';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  createClient,
+  type SupabaseClient,
+  type WebSocketLikeConstructor,
+} from '@supabase/supabase-js';
 import { isRemoteConfigured, SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
 
 /**
@@ -25,6 +29,24 @@ const memoryStorage = (() => {
 })();
 
 /**
+ * Realtime 은 이 앱에서 안 쓰는데, 클라이언트를 만들 때 소켓 생성자부터 찾는다.
+ * Node 20 에는 전역 WebSocket 이 없어서, 미리 렌더링하는 그 순간
+ * "Node.js detected but native WebSocket not found" 로 빌드가 통째로 멈춘다.
+ * 실제로 GitHub Pages 빌드가 여기서 죽었다 — 키가 없을 때는 클라이언트를 아예
+ * 안 만드니까, 키를 넣은 다음에야 처음 드러났다.
+ *
+ * 그래서 전역 WebSocket 이 있으면 그걸 주고, 없으면 부르는 순간 터지는 것을 준다.
+ * 지금은 아무도 안 부르므로 조용하고, 나중에 Realtime 을 쓰게 되면 그 자리에서 알게 된다.
+ */
+const socketTransport =
+  (globalThis as { WebSocket?: unknown }).WebSocket ??
+  class {
+    constructor() {
+      throw new Error('이 환경에는 WebSocket 이 없어요. Realtime 은 쓰지 않습니다.');
+    }
+  };
+
+/**
  * 환경변수가 없으면 null. 호출부는 반드시 null 체크를 하고,
  * null이면 기기 저장소 기반 데모 모드로 동작한다.
  */
@@ -43,5 +65,6 @@ export const supabase: SupabaseClient | null = isRemoteConfigured
          */
         detectSessionInUrl: !isServerRender && Platform.OS === 'web',
       },
+      realtime: { transport: socketTransport as WebSocketLikeConstructor },
     })
   : null;
