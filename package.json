@@ -18,7 +18,8 @@
     "db:push": "supabase db push",
     "fn:deploy": "supabase functions deploy",
     "build:demo": "EXPO_WEB_OUTPUT=single expo export --platform web --output-dir dist-demo && node scripts/build-demo.mjs",
-    "db:test": "psql \"postgresql://postgres:postgres@127.0.0.1:54322/postgres\" -f supabase/tests/rls_test.sql"
+    "db:test": "psql \"postgresql://postgres:postgres@127.0.0.1:54322/postgres\" -f supabase/tests/rls_test.sql",
+    "import:roster": "node scripts/import-roster.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "exceljs": "^4.4.0",
     "supabase": "^2.115.0",
     "typescript": "~6.0.3"
   }

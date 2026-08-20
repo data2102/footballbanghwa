@@ -36,8 +36,11 @@ export default function AnalysisScreen() {
     if (!data) return [];
     return allProfiles(data)
       .map((profile) => {
-        // 답을 안 한 횟수 = 칠 수 있었던 경기 - (참석 + 불참). 지각은 예전 기록이라 참석에 포함된다.
-        const silent = Math.max(0, profile.eligible - profile.attended - profile.late - profile.absent);
+        // 답을 안 한 횟수 = 집계한 경기 - (참석 + 불참 + 투표만 확인된 것).
+        const silent = Math.max(
+          0,
+          profile.eligible - profile.attended - profile.late - profile.absent - profile.voted,
+        );
         return {
           ...profile,
           silent,
@@ -59,6 +62,12 @@ export default function AnalysisScreen() {
     : null;
   const totalSilent = rows.reduce((sum, row) => sum + row.silent, 0);
   const everSilent = rows.filter((row) => row.silent > 0).length;
+  // 참석·불참이 실제로 적힌 경기 수. 구간 카드를 띄울지 정한다.
+  const decidedMatches = new Set(
+    data.attendance
+      .filter((row) => row.status === 'attending' || row.status === 'late' || row.status === 'absent')
+      .map((row) => row.matchId),
+  ).size;
 
   return (
     <Screen>
@@ -73,9 +82,17 @@ export default function AnalysisScreen() {
               : '모두 매번 답을 줬어요.'
           }
         />
+        <Txt variant="tiny" muted>
+          집계를 안 한 주는 세지 않아요. 아무도 답을 안 남긴 경기는 총무가 그 주를 건너뛴
+          것이지 전원이 답을 안 한 게 아니에요.
+        </Txt>
       </Card>
 
-      {played.length ? (
+      {/*
+        참석률 구간은 참석·불참을 밝힌 경기가 어느 정도 쌓여야 뜻이 있다.
+        두어 경기로 나누면 모두가 0%·50%·100% 셋 중 하나가 되어 읽을 게 없다.
+      */}
+      {decidedMatches >= 4 ? (
         <Card>
           <Row justify="space-between">
             <Stat label="80% 이상" value={`${played.filter((r) => (r.rate ?? 0) >= 0.8).length}명`} tone={p.ok} />
@@ -83,7 +100,8 @@ export default function AnalysisScreen() {
             <Stat label="50% 미만" value={`${played.filter((r) => (r.rate ?? 0) < 0.5).length}명`} tone={p.danger} />
           </Row>
           <Txt variant="tiny" muted>
-            가입한 뒤에 치른 경기만 세요. 늦게 들어온 사람이 낮게 잡히지 않아요.
+              가입한 뒤에 치른 경기만 세요. 늦게 들어온 사람이 낮게 잡히지 않아요.
+            참석률은 참석·불참을 밝힌 경기만으로 내요 — 투표만 확인된 기록은 빼요.
           </Txt>
         </Card>
       ) : null}
@@ -126,8 +144,10 @@ export default function AnalysisScreen() {
                   </Row>
                   <Progress value={rate ?? 0} />
                   <Txt variant="tiny" muted>
-                    {row.eligible}경기 중 참석 {row.attended + row.late} · 불참 {row.absent} · 무응답{' '}
-                    {row.silent}
+                    {row.eligible}경기 중 무응답 {row.silent}
+                    {row.attended + row.late ? ` · 참석 ${row.attended + row.late}` : ''}
+                    {row.absent ? ` · 불참 ${row.absent}` : ''}
+                    {row.voted ? ` · 투표만 확인 ${row.voted}` : ''}
                   </Txt>
                 </View>
               </View>

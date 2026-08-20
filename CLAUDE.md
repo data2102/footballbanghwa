@@ -20,8 +20,9 @@ npm start          # Expo 개발 서버, QR 찍어 Expo Go 로 실기기 확인
 npm run start:tunnel  # 폰과 맥이 다른 네트워크일 때
 npm run typecheck  # tsc --noEmit
 npm run build:web  # 정적 웹 번들 (dist/)
-npm run db:push    # supabase db push
+npm run db:push    # supabase db push (스키마만 올린다. 데이터는 import:roster 로)
 npm run fn:deploy  # Edge Function 3개 배포
+npm run import:roster -- <엑셀>  # 총무 엑셀 -> Supabase 적재 SQL (실명, 커밋 금지)
 ```
 
 **커밋 전에 반드시 두 가지를 통과시킨다.** 타입만 맞고 번들이 깨지는 경우가 실제로 있다.
@@ -82,6 +83,25 @@ npm run typecheck && npm run build:web
 
 `quarterPlay()` · `quartersForMatch()` · `playingTime()` 이 전부 `data.lineups` 를 읽는다.
 출전 수를 어딘가에 저장하고 싶어지면 먼저 이걸 의심한다.
+
+### 미투표는 "줄이 없음"이고, voted 는 "투표는 했는데 모른다"이다
+
+총무가 몇 해 동안 엑셀에 센 건 참석·불참이 아니라 **답을 했나 안 했나**뿐이다.
+그 자료를 옮기면 `voted` 가 된다 — 참석으로 올려 넣지 않는다. 다음 주 라인업이
+그 거짓말 위에서 짜인다.
+
+- 미투표 = attendance 줄이 아예 없음. 그래서 `unrespondedMembers()` 가 줄 없는 사람을 센다.
+- 응답이 **한 건도 없는 경기**는 참석률·무응답 분모에서 뺀다(`memberProfile`).
+  총무가 그 주 체크를 건너뛴 것이지 아흔 명이 다 같이 답을 안 한 게 아니다.
+- 참석률 분모에서도 `voted` 를 뺀다. 모르는 걸 불참 쪽에 세면 옛 기록만 있는 사람이 전부 0%가 된다.
+
+### 실명은 저장소에 들어오지 않는다
+
+데모 명단(`src/lib/roster2026.ts`)은 이름 가운데를 가린다(이*훈). 실제 명단을 DB 에
+넣을 때는 `npm run import:roster -- <엑셀>` 이 원본에서 읽어 SQL 만 만들고, 그 SQL 은
+`.gitignore` 에 있다. **엑셀도 만들어진 SQL 도 커밋하지 않는다.**
+
+`db push` 는 스키마만 올린다 — 데이터는 이 SQL 로 따로 넣는다.
 
 ### 회비는 금액이 아니라 "그 달이 채워졌나"로 본다
 

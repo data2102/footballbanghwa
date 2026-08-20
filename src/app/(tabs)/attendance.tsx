@@ -68,6 +68,9 @@ export default function AttendanceScreen() {
     attending: { fg: p.ok, bg: p.okSoft, line: p.okLine },
     late: { fg: p.warn, bg: p.warnSoft, line: p.warnLine },
     absent: { fg: p.danger, bg: p.dangerSoft, line: p.dangerLine },
+    // 예전 엑셀에서 옮겨 온 "투표는 했는데 뭐라고 했는지 모름". 파랑으로 두어
+    // 참석(초록)·불참(빨강)과 섞이지 않게 한다.
+    voted: { fg: p.primaryStrong, bg: p.primarySoft, line: p.primary },
     unknown: { fg: p.textMuted, bg: p.surfaceAlt, line: p.borderStrong },
   };
 
@@ -95,6 +98,15 @@ export default function AttendanceScreen() {
               <Txt variant="tiny" muted>
                 {formatDate(match.date)} {match.kickoff} · {match.venue}
               </Txt>
+              {/*
+                예전 엑셀에서 옮겨 온 주는 "투표했다"까지만 안다. 그 말을 안 해 두면
+                아흔 명이 아무 표시도 없이 놓여 있어서 앱이 고장 난 것처럼 보인다.
+              */}
+              {tally?.voted ? (
+                <Txt variant="tiny" color={p.primaryStrong}>
+                  {tally.voted}명은 투표한 것만 확인됐어요. 참석인지 불참인지는 안 적혀 있어요.
+                </Txt>
+              ) : null}
               {/*
                 이름을 나열하는 건 "이 사람들만 찌르면 된다"를 보여 주려는 것이다.
                 아직 전원이 미응답이면 그 목록은 아래 명단과 똑같아서 줄만 차지한다.

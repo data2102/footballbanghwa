@@ -1,6 +1,7 @@
 import { formationsForSize } from '@/features/lineup/formations';
 import { shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
 import { KICKOFF, sundaysOf } from '@/lib/schedule';
+import { ROSTER_2026, TRACKED_DATES } from '@/lib/roster2026';
 import type {
   AgeBand,
   AppData,
@@ -18,10 +19,17 @@ import type {
 /**
  * 데모 모드에서 앱을 처음 열었을 때 채워 넣는 예시 팀.
  *
- * 명단은 실제 팀 단톡방에서 가져왔지만 이름 가운데 글자를 가렸다(강*순).
- * 저장소가 공개라 남의 실명을 그대로 두지 않는다. 가린 탓에 김*수처럼 겹치는
- * 이름이 생기는데, 실제로도 동명이인은 있으니 그대로 둔다 — 등번호로 구분한다.
- * 화면들이 제대로 보이려면 이력이 어느 정도 쌓여 있어야 해서, 지난 시즌 8경기를 만들어 둔다.
+ * 명단과 미투표 기록은 총무가 쓰던 2026년 엑셀 그대로다(`roster2026.ts`).
+ * 이름만 가운데 글자를 가렸다(이*훈) — 저장소가 공개라 남의 실명을 두지 않는다.
+ * 가린 탓에 겹치는 이름이 생기는데 실제로도 동명이인이 있으니 그대로 둔다. 등번호로 가른다.
+ *
+ * **엑셀에 있는 건 미투표뿐이다.** 참석·불참은 세지 않았다. 그래서 집계한 24주에는
+ * 투표한 사람을 voted 로만 두고 참석 여부를 지어내지 않는다.
+ *
+ * 다만 그러면 출전·라인업·MVP 화면이 통째로 비어서 확인이 안 된다. 그래서 엑셀이
+ * 다루지 않는 주(8.9 이후)에만 데모용 참석·라인업을 만들고, 그 경기 메모에
+ * "데모"라고 적어 둔다 — 나중에 실제 기록과 섞이지 않게.
+ *
  * 값은 전부 결정적으로 만든다 — 앱을 다시 열 때마다 출석률이 달라지면 데모가 아니라 소음이다.
  */
 const TEAM_ID = 'demo-team';
@@ -40,60 +48,26 @@ const ANNUAL_DUE = 200000;
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 7;
+export const SEED_VERSION = 8;
 
-/** [이름, 포지션, 등번호, 장점, 대략적인 출석 성향(0~1)] */
-const ROSTER: [string, PositionGroup, number, string[], number][] = [
-  ['강*순', 'DF', 2, ['수비 리딩', '헤딩'], 1.0],
-  ['김*훈', 'MF', 3, ['드리블', '스피드'], 0.95],
-  ['김*욱', 'FW', 4, ['헤딩'], 0.9],
-  ['임*석', 'DF', 5, ['헤딩'], 0.85],
-  ['강*수', 'MF', 6, ['패스'], 0.8],
-  ['강*구', 'DF', 7, ['수비 리딩'], 0.75],
-  ['고*훈', 'MF', 8, ['중거리'], 0.7],
-  ['공*민', 'FW', 9, ['스피드', '드리블'], 0.65],
-  ['곽*곤', 'DF', 10, ['수비 리딩', '헤딩'], 0.6],
-  ['곽*문', 'MF', 11, ['드리블', '스피드'], 0.5],
-  ['권*성', 'FW', 12, ['오른발', '스피드'], 0.45],
-  ['권*현', 'DF', 13, ['헤딩'], 0.35],
-  ['기*현', 'MF', 14, ['패스'], 1.0],
-  ['김*욱', 'DF', 15, ['수비 리딩'], 0.95],
-  ['김*환', 'MF', 16, ['중거리'], 0.9],
-  ['김*규', 'FW', 17, ['마무리'], 0.85],
-  ['김*식', 'DF', 18, ['수비 리딩', '헤딩'], 0.8],
-  ['김*열', 'GK', 1, ['선방', '빌드업'], 0.75],
-  ['김*혁', 'FW', 19, ['위치선정', '마무리'], 0.7],
-  ['김*호', 'DF', 20, ['헤딩'], 0.65],
-  ['김*호', 'MF', 22, ['패스'], 0.6],
-  ['김*훈', 'DF', 23, ['수비 리딩'], 0.5],
-  ['김*창', 'MF', 24, ['중거리'], 0.45],
-  ['김*훈', 'FW', 25, ['왼발', '마무리'], 0.35],
-  ['김*관', 'DF', 26, ['수비 리딩', '헤딩'], 1.0],
-  ['김*문', 'MF', 27, ['드리블', '스피드'], 0.95],
-  ['김*수', 'GK', 21, ['선방'], 0.9],
-  ['김*수', 'DF', 28, ['헤딩'], 0.85],
-  ['김*욱', 'MF', 29, ['패스'], 0.8],
-  ['김*준', 'DF', 30, ['수비 리딩'], 0.75],
-  ['김*균', 'MF', 32, ['중거리'], 0.7],
-  ['김*주', 'FW', 33, ['스피드', '드리블'], 0.65],
-  ['김*영', 'DF', 34, ['수비 리딩', '헤딩'], 0.6],
-  ['김*만', 'GK', 31, ['선방', '빌드업'], 0.5],
-  ['김*성', 'FW', 35, ['오른발', '스피드'], 0.45],
-  ['김*수', 'DF', 36, ['헤딩'], 0.35],
-  ['김*식', 'MF', 37, ['패스'], 1.0],
-  ['김*중', 'DF', 38, ['수비 리딩'], 0.95],
-  ['노*택', 'MF', 39, ['중거리'], 0.9],
-  ['문*민', 'FW', 40, ['마무리'], 0.85],
-  ['박*근', 'DF', 42, ['수비 리딩', '헤딩'], 0.8],
-  ['박*진', 'MF', 43, ['드리블', '스피드'], 0.75],
-  ['박*호', 'FW', 44, ['위치선정', '마무리'], 0.7],
-  ['서*기', 'DF', 45, ['헤딩'], 0.65],
-  ['서*훈', 'MF', 46, ['패스'], 0.6],
-  ['서*태', 'DF', 47, ['수비 리딩'], 0.5],
-  ['서*석', 'GK', 41, ['선방'], 0.45],
-  ['성*혁', 'FW', 48, ['왼발', '마무리'], 0.35],
-  ['소*장', 'DF', 49, ['수비 리딩', '헤딩'], 1.0],
-  ['송*주', 'MF', 50, ['드리블', '스피드'], 0.95],
+/**
+ * 포지션과 장점은 엑셀에 없다. 총무가 센 건 미투표뿐이다.
+ * 화면을 확인하려면 자리가 있어야 해서 명단 순서대로 돌려 넣는다 — 실제 자리가 아니다.
+ * 실제 DB 로 옮길 때는 회원 상세에서 사람이 직접 고른다.
+ */
+const POSITION_CYCLE: PositionGroup[] = ['DF', 'MF', 'FW', 'DF', 'MF', 'GK', 'DF', 'MF', 'FW', 'MF'];
+
+const STRENGTH_CYCLE: string[][] = [
+  ['수비 리딩', '헤딩'],
+  ['패스'],
+  ['마무리', '위치선정'],
+  ['헤딩'],
+  ['드리블', '스피드'],
+  ['선방', '빌드업'],
+  ['수비 리딩'],
+  ['중거리'],
+  ['왼발', '스피드'],
+  ['체력'],
 ];
 
 /** 주 포지션 옆에 자연스럽게 겸하는 자리. 골키퍼는 겸하지 않는다. */
@@ -102,9 +76,6 @@ const SECOND_POSITION: Partial<Record<PositionGroup, PositionGroup>> = {
   MF: 'DF',
   FW: 'MF',
 };
-
-/** 조기축구 연령대는 30~50대가 두껍고 60대가 얇다. 그 비율로 돌린다. */
-const AGE_BANDS: AgeBand[] = ['40', '30', '50', '40', '30', '40', '50', '60', '40', '30'];
 
 const VENUES = ['방화근린공원 축구장', '마곡 체육공원', '개화산 생활체육관'];
 /** 지난 경기 메모에 남기는 스코어. 승패 자동 판정이 이걸 읽는다. */
@@ -128,29 +99,34 @@ function noise(a: number, b: number): number {
 }
 
 export function buildSeed(): AppData {
-  const members: Member[] = ROSTER.map(([name, position, backNumber, strengths], index) => ({
-    id: `m${index + 1}`,
-    teamId: TEAM_ID,
-    name,
-    nickname: null,
-    role: index === 0 ? 'manager' : index === 1 ? 'coach' : index === 2 ? 'treasurer' : 'player',
-    backNumber,
-    // 조기축구는 한 자리만 보는 사람이 드물다. 주 포지션 옆에 볼 수 있는 자리를 하나 더 둔다.
-    positions: SECOND_POSITION[position] ? [position, SECOND_POSITION[position]] : [position],
-    ageBand: AGE_BANDS[index % AGE_BANDS.length],
-    strengths,
-    note: index === 3 ? '작년에 발목 다친 적 있어요. 연속 출전은 피하는 게 좋아요.' : null,
-    photoUri: null,
-    photoPath: null,
-    // 뒤쪽 두 명은 최근에 들어왔다. 출석률 분모가 다르게 잡히는지 확인하는 시드다.
-    joinedOn: index >= 44 ? daysFromToday(-35) : daysFromToday(-400),
-    active: true,
-  }));
+  const members: Member[] = ROSTER_2026.map((entry, index) => {
+    const position = POSITION_CYCLE[index % POSITION_CYCLE.length];
+    return {
+      id: `m${index + 1}`,
+      teamId: TEAM_ID,
+      name: entry.name,
+      nickname: null,
+      role: index === 0 ? 'manager' : index === 1 ? 'coach' : index === 2 ? 'treasurer' : 'player',
+      // 엑셀 전체명단의 번호를 그대로 등번호로 쓴다. 동명이인을 가르는 건 이것뿐이다.
+      backNumber: index + 1,
+      // 조기축구는 한 자리만 보는 사람이 드물다. 주 포지션 옆에 볼 수 있는 자리를 하나 더 둔다.
+      positions: SECOND_POSITION[position] ? [position, SECOND_POSITION[position]] : [position],
+      ageBand: entry.ageBand as AgeBand,
+      strengths: STRENGTH_CYCLE[index % STRENGTH_CYCLE.length],
+      note: null,
+      photoUri: null,
+      photoPath: null,
+      // 엑셀이 1월 4일부터 이 사람들을 세고 있었으니 그 전부터 있던 것으로 둔다.
+      joinedOn: `${SEASON_YEAR - 1}-12-01`,
+      active: true,
+    };
+  });
 
   // ------------------------------------------------------------ 경기
   // 매주 일요일 아침 자체경기. 상대 팀이 없으니 opponent 는 비운다.
   // 한 해치를 미리 깔아 두어야 화면에서 날짜만 고르면 된다.
   const today = todayISO();
+  const tracked = new Set(TRACKED_DATES);
   const allSundays = sundaysOf(SEASON_YEAR).map((date, index) => ({
     id: `match-${date}`,
     teamId: TEAM_ID,
@@ -159,32 +135,72 @@ export function buildSeed(): AppData {
     venue: VENUES[index % VENUES.length],
     opponent: null,
     status: date < today ? ('finished' as const) : ('scheduled' as const),
-    note: date < today ? SCORES[index % SCORES.length] : null,
+    // 엑셀이 센 주에는 스코어를 지어내지 않는다. 총무가 적은 건 미투표뿐이다.
+    note:
+      date < today && !tracked.has(date) ? `${SCORES[index % SCORES.length]} (데모)` : null,
     shareToken: null,
   }));
 
-  // 기록을 쌓을 대상은 가장 최근에 치른 여덟 경기다. 쉰 경기에 전부 기록을 만들면
-  // 데모가 무거워지기만 하고 화면에서 보는 건 똑같다.
-  const past = allSundays.filter((match) => match.status === 'finished').slice(-8);
+  /*
+   * 엑셀이 실제로 센 주와, 그 밖의 주를 갈라 둔다.
+   *
+   * 총무는 미투표만, 그것도 24주만 셌다. 3월 전체와 4월 초는 아예 빈칸이다 —
+   * 아흔 명이 다 같이 답을 안 한 게 아니라 그 주에 체크를 건너뛴 것이다.
+   * 그 주에는 참석 기록을 하나도 만들지 않는다. `memberProfile` 이 응답 0건인 경기를
+   * 분모에서 빼기 때문에, 안 만드는 것만으로 "집계 안 함"이 표현된다.
+   */
+  const trackedMatches = allSundays.filter((match) => tracked.has(match.date));
+
+  /*
+   * 데모용으로 참석·라인업을 채울 경기.
+   *
+   * 엑셀이 안 다루는 주(8.9 이후) 중 이미 지난 것만 고른다. 엑셀 기간을 건드리면
+   * 총무가 센 숫자와 어긋나고, 그러면 이 화면을 못 믿게 된다.
+   */
+  const demoMatches = allSundays
+    .filter((match) => match.status === 'finished' && !tracked.has(match.date))
+    .slice(-2);
+
   const upcoming =
     allSundays.find((match) => match.status === 'scheduled') ?? allSundays[allSundays.length - 1];
 
   // ------------------------------------------------------------ 참석
   const attendance: Attendance[] = [];
-  for (const [matchIndex, match] of past.entries()) {
+
+  /*
+   * 엑셀에서 옮긴 24주. 답을 안 한 사람은 줄을 만들지 않고(= 미투표),
+   * 나머지는 voted 로 둔다 — "투표는 했는데 참석인지 불참인지 우리는 모른다".
+   * 참석으로 바꿔 넣으면 다음 주 라인업이 그 거짓말 위에서 짜인다.
+   */
+  for (const match of trackedMatches) {
     for (const [memberIndex, member] of members.entries()) {
-      if (member.joinedOn && match.date < member.joinedOn) continue;
-      const roll = noise(memberIndex + 1, matchIndex + 1);
-      const rate = ROSTER[memberIndex][4];
-      // 아예 답을 안 한 경우. 출결 분석의 "무응답"이 0이면 그 화면을 확인할 수 없다.
-      if (noise(memberIndex + 31, matchIndex + 17) > 0.88) continue;
-      const status = roll < rate - 0.08 ? 'attending' : roll < rate ? 'late' : 'absent';
+      if (ROSTER_2026[memberIndex].silent.includes(match.date)) continue;
+      attendance.push({
+        id: `att-${match.id}-${member.id}`,
+        matchId: match.id,
+        memberId: member.id,
+        status: 'voted',
+        note: null,
+        source: 'manual',
+        updatedAt: match.date,
+      });
+    }
+  }
+
+  /*
+   * 데모 경기에만 참석·불참을 만든다. 이 두 주는 엑셀에 없는 날이다.
+   * 여기서는 전원이 답한 것으로 둔다 — 무응답을 더 얹으면 화면의 총계가
+   * 총무가 엑셀에 센 124번과 안 맞아서, 맞는지 확인할 수가 없어진다.
+   */
+  for (const [matchIndex, match] of demoMatches.entries()) {
+    for (const [memberIndex, member] of members.entries()) {
+      const status = noise(memberIndex + 1, matchIndex + 1) < 0.55 ? 'attending' : 'absent';
       attendance.push({
         id: `att-${match.id}-${member.id}`,
         matchId: match.id,
         memberId: member.id,
         status,
-        note: status === 'late' ? '조금 늦게 왔어요' : null,
+        note: null,
         source: 'manual',
         updatedAt: match.date,
       });
@@ -200,7 +216,7 @@ export function buildSeed(): AppData {
   const boardFormation = formationsForSize(SQUAD)[0];
   const lineups: Lineup[] = [];
 
-  for (const [matchIndex, match] of past.entries()) {
+  for (const [matchIndex, match] of demoMatches.entries()) {
     const attendees = members.filter((member) => {
       const row = attendance.find((item) => item.matchId === match.id && item.memberId === member.id);
       return row?.status === 'attending' || row?.status === 'late';
@@ -236,7 +252,7 @@ export function buildSeed(): AppData {
   // 가장 최근 세 경기에만 표가 있다. "아직 투표 전"인 경기도 보여야 화면이 다 확인된다.
   // past 는 오래된 순이라 뒤에서 세 개를 고른다.
   const potmVotes: PotmVote[] = [];
-  for (const [matchIndex, match] of past.slice(-3).entries()) {
+  for (const [matchIndex, match] of demoMatches.entries()) {
     // 한 경기에 6표. 표를 몰아주지 않고 두세 명에게 갈리게 둔다.
     for (let v = 0; v < 6; v += 1) {
       const pick = Math.floor(noise(matchIndex + 11, v + 5) * 11);
@@ -250,7 +266,7 @@ export function buildSeed(): AppData {
   }
 
   // ------------------------------------------------------------ 경기 기록
-  // 골잡이가 분명해야 랭킹 화면이 읽힌다.
+  // 골잡이가 분명해야 랭킹 화면이 읽힌다. 엑셀에 없는 데모 경기에만 붙인다.
   const scorers: [string, number][] = [['m10', 7], ['m11', 5], ['m9', 2], ['m7', 1]];
   const assisters: [string, number][] = [['m9', 6], ['m11', 4], ['m6', 3], ['m10', 2]];
   const events: MatchEvent[] = [];
@@ -258,7 +274,7 @@ export function buildSeed(): AppData {
 
   for (const [memberId, count] of scorers) {
     for (let n = 0; n < count; n += 1) {
-      const match = past[n % past.length];
+      const match = demoMatches[n % demoMatches.length];
       events.push({
         id: `ev-g-${seq++}`,
         matchId: match.id,
@@ -270,7 +286,7 @@ export function buildSeed(): AppData {
   }
   for (const [memberId, count] of assisters) {
     for (let n = 0; n < count; n += 1) {
-      const match = past[n % past.length];
+      const match = demoMatches[n % demoMatches.length];
       events.push({
         id: `ev-a-${seq++}`,
         matchId: match.id,
@@ -283,13 +299,13 @@ export function buildSeed(): AppData {
   for (let n = 0; n < 9; n += 1) {
     events.push({
       id: `ev-s-${seq++}`,
-      matchId: past[n % past.length].id,
+      matchId: demoMatches[n % demoMatches.length].id,
       memberId: 'm1',
       minute: 20 + Math.floor(noise(seq, n) * 50),
       type: 'save',
     });
   }
-  events.push({ id: 'ev-y-1', matchId: past[2].id, memberId: 'm4', minute: 63, type: 'yellow' });
+  events.push({ id: 'ev-y-1', matchId: demoMatches[0].id, memberId: 'm4', minute: 63, type: 'yellow' });
 
   // ------------------------------------------------------------ 회비·장부
   const period = thisPeriod();
@@ -331,7 +347,7 @@ export function buildSeed(): AppData {
     });
   });
 
-  for (const [index, match] of past.slice(-4).entries()) {
+  for (const [index, match] of demoMatches.entries()) {
     ledger.push({
       id: `exp-ground-${index}`,
       teamId: TEAM_ID,

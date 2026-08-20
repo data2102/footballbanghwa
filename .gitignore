@@ -50,3 +50,7 @@ example
 supabase/.temp/
 supabase/.branches/
 dist-demo/
+
+# 총무 엑셀에서 만든 적재 SQL. 실명이 들어 있어서 커밋하지 않는다.
+import.sql
+import-*.sql

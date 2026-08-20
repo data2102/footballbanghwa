@@ -40,7 +40,8 @@ const STATUS_LABEL: Record<AttendanceStatus, string> = {
   attending: '참석',
   absent: '불참',
   late: '지각',
-  unknown: '미정',
+  voted: '투표함',
+  unknown: '미투표',
 };
 
 const EVENT_LABEL: Record<string, string> = {

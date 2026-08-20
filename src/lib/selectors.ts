@@ -56,7 +56,7 @@ export type AttendanceTally = Record<AttendanceStatus, number>;
 
 export function tallyAttendance(data: AppData, matchId: string): AttendanceTally {
   const rows = attendanceForMatch(data, matchId);
-  const tally: AttendanceTally = { attending: 0, absent: 0, late: 0, unknown: 0 };
+  const tally: AttendanceTally = { attending: 0, absent: 0, late: 0, voted: 0, unknown: 0 };
   for (const member of data.members) {
     if (!member.active) continue;
     tally[rows.get(member.id)?.status ?? 'unknown'] += 1;
@@ -218,12 +218,28 @@ export function eventsForMatch(data: AppData, matchId: string): MatchEvent[] {
 
 export type MemberProfile = {
   member: Member;
-  /** 가입 이후 치른 경기 수. 출석률의 분모. */
+  /**
+   * 가입 이후 치렀고 **집계가 남아 있는** 경기 수. 무응답의 분모.
+   *
+   * 아무도 응답을 안 남긴 경기는 뺀다. 총무가 그 주에 체크를 건너뛴 것이지
+   * 아흔 명이 다 같이 답을 안 한 게 아니다. 안 빼면 집계를 쉰 주가
+   * 전원 무응답으로 잡혀서 명단 전체가 빨개진다.
+   */
   eligible: number;
   attended: number;
   late: number;
   absent: number;
-  /** 0~1. eligible 이 0이면 null (아직 칠 경기가 없었다는 뜻). */
+  /**
+   * 투표는 했는데 참석·불참을 모르는 횟수.
+   * 예전 엑셀에서 옮겨 온 기록이 여기 들어온다.
+   */
+  voted: number;
+  /**
+   * 0~1. 참석·불참을 밝힌 경기 중 참석 비율.
+   *
+   * voted 는 분모에서 뺀다 — 참석인지 불참인지 모르는 걸 불참 쪽에 세면
+   * 옛 기록만 있는 사람이 전부 0%로 보인다. 셀 게 없으면 null.
+   */
   rate: number | null;
   /** 최근 경기부터 앞으로 5개. 라인업 짤 때 폼을 보는 용도. */
   recent: { matchId: string; date: string; status: AttendanceStatus }[];
@@ -246,11 +262,15 @@ export function memberProfile(data: AppData, memberId: string, period = thisPeri
   const member = data.members.find((row) => row.id === memberId);
   if (!member) return null;
 
+  // 응답이 한 건이라도 남아 있는 경기. 없으면 그 주는 집계를 안 한 것이다.
+  const counted = new Set(data.attendance.map((row) => row.matchId));
+
   // 가입 전 경기는 출석률에서 뺀다. 새로 들어온 회원이 부당하게 낮게 잡히지 않게.
   const played = data.matches
     .filter((match) => match.status !== 'canceled')
     .filter((match) => !member.joinedOn || match.date >= member.joinedOn)
     .filter((match) => daysUntil(match.date) <= 0 || match.status === 'finished')
+    .filter((match) => counted.has(match.id))
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const byMatch = new Map(
@@ -260,12 +280,16 @@ export function memberProfile(data: AppData, memberId: string, period = thisPeri
   let attended = 0;
   let late = 0;
   let absent = 0;
+  let voted = 0;
   for (const match of played) {
     const status = byMatch.get(match.id)?.status ?? 'unknown';
     if (status === 'attending') attended += 1;
     else if (status === 'late') late += 1;
     else if (status === 'absent') absent += 1;
+    else if (status === 'voted') voted += 1;
   }
+  // 참석 여부를 실제로 밝힌 횟수. 이게 0이면 참석률을 낼 수 없다.
+  const decided = attended + late + absent;
 
   const events = data.events.filter((row) => row.memberId === memberId);
   const count = (type: MatchEvent['type']) => events.filter((row) => row.type === type).length;
@@ -281,8 +305,9 @@ export function memberProfile(data: AppData, memberId: string, period = thisPeri
     attended,
     late,
     absent,
+    voted,
     // 지각도 나온 것으로 친다. 안 나온 사람과 같이 묶으면 지각 표시를 할 이유가 없다.
-    rate: played.length ? (attended + late) / played.length : null,
+    rate: decided ? (attended + late) / decided : null,
     recent: played.slice(0, 5).map((match) => ({
       matchId: match.id,
       date: match.date,

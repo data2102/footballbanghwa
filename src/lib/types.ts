@@ -9,7 +9,8 @@ export type PositionGroup = 'GK' | 'DF' | 'MF' | 'FW';
  * 연령대. 조기축구는 나이대가 팀 운영에 실제로 영향을 준다 —
  * 쿼터 배분이나 포지션을 정할 때 참고한다. 생년월일까지 받을 이유는 없다.
  */
-export type AgeBand = '30' | '40' | '50' | '60';
+/** 조기축구는 나이대가 쿼터 배분과 포지션에 실제로 영향을 준다. */
+export type AgeBand = '20' | '30' | '40' | '50' | '60';
 
 export type Member = {
   id: string;
@@ -94,7 +95,17 @@ export type Match = {
  * 그 결과를 옮겨 적는 방식이라, 왔는지 안 왔는지만 있으면 된다.
  * 값 자체는 남긴다 — 예전에 지각으로 적어 둔 기록이 사라지면 안 된다.
  */
-export type AttendanceStatus = 'attending' | 'absent' | 'late' | 'unknown';
+/**
+ * 참석 상태.
+ *
+ * voted 는 "투표는 했는데 참석인지 불참인지 우리가 모른다"이다. 총무가 몇 해 동안
+ * 엑셀에 센 건 답을 했나 안 했나뿐이라, 그 자료를 옮기면 이 상태가 된다.
+ * 참석으로 바꿔 넣으면 안 된다 — 다음 주 라인업이 그 거짓말 위에서 짜인다.
+ *
+ * late 는 화면에서 뺐다. 카톡 투표에 지각 칸이 없어서 아무도 안 눌렀다.
+ * 예전에 적어 둔 기록을 지우지 않으려고 값만 남겨 뒀다.
+ */
+export type AttendanceStatus = 'attending' | 'absent' | 'late' | 'voted' | 'unknown';
 
 export type Attendance = {
   id: string;

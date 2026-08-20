@@ -30,7 +30,7 @@ import type { AgeBand, AttendanceStatus, MemberRole, PositionGroup } from '@/lib
 const POSITIONS: PositionGroup[] = ['GK', 'DF', 'MF', 'FW'];
 
 /** 조기축구는 나이대가 쿼터 배분과 포지션에 실제로 영향을 준다. */
-const AGE_BANDS: AgeBand[] = ['30', '40', '50', '60'];
+const AGE_BANDS: AgeBand[] = ['20', '30', '40', '50', '60'];
 const ROLES: { value: MemberRole; label: string }[] = [
   { value: 'manager', label: '감독' },
   { value: 'coach', label: '코치' },
@@ -449,6 +449,7 @@ function AttendanceDot({ date, status }: { date: string; status: AttendanceStatu
     attending: { label: '참', fg: p.ok, bg: p.okSoft },
     late: { label: '늦', fg: p.warn, bg: p.warnSoft },
     absent: { label: '불', fg: p.danger, bg: p.dangerSoft },
+    voted: { label: '투', fg: p.primaryStrong, bg: p.primarySoft },
     unknown: { label: '?', fg: p.textFaint, bg: p.surfaceAlt },
   };
   const tone = map[status];
