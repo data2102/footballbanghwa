@@ -42,7 +42,11 @@ import type { LineupSide, LineupSlot, PositionGroup } from '@/lib/types';
  * 출전.
  *
  * 이 팀은 자체경기를 한다. 라인업은 운동장 화이트보드 한 장에 두 팀이 같이 그려지고,
- * 쿼터마다 사람이 바뀐다. 그래서 화면도 (쿼터 × 팀) 한 칸씩 본다.
+ * 쿼터마다 사람이 바뀐다. 그래서 화면도 판 하나에 두 팀을 같이 얹는다 — 위가 A팀,
+ * 아래가 B팀. 팀을 하나씩 따로 보여 주면 옮겨 적는 사람이 화이트보드와 화면을 번갈아
+ * 보며 머릿속에서 두 장을 합쳐야 한다.
+ *
+ * 자리를 누르면 그 팀이 "지금 채우는 팀"이 되고, 포메이션과 대기 명단이 그 팀을 따라간다.
  *
  * 앱에서 라인업을 "짜는" 게 아니다. 이미 화이트보드에서 짜고 왔다. 여기서 하는 일은
  * 그걸 옮겨 담아서 "누가 몇 번, 몇 쿼터에 뛰었나"를 셀 수 있게 만드는 것이다.
@@ -60,21 +64,30 @@ export default function LineupScreen() {
   const setLineupPhoto = useStore((state) => state.setLineupPhoto);
 
   const [quarter, setQuarter] = useState(1);
+  /** 지금 포메이션·대기 명단이 따라가는 팀. 자리를 누르면 그쪽으로 옮겨 간다. */
   const [side, setSide] = useState<LineupSide>('A');
-  const [formationId, setFormationId] = useState(DEFAULT_FORMATION.id);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [slots, setSlots] = useState<LineupSlot[]>(DEFAULT_FORMATION.slots.map(toEmpty));
-  const [dirty, setDirty] = useState(false);
+  const [formationIds, setFormationIds] = useState<Record<LineupSide, string>>({
+    A: DEFAULT_FORMATION.id,
+    B: DEFAULT_FORMATION.id,
+  });
+  const [slotsBySide, setSlotsBySide] = useState<Record<LineupSide, LineupSlot[]>>({
+    A: DEFAULT_FORMATION.slots.map(toEmpty),
+    B: DEFAULT_FORMATION.slots.map(toEmpty),
+  });
+  const [selected, setSelected] = useState<{ side: LineupSide; key: string } | null>(null);
+  const [dirty, setDirty] = useState<Record<LineupSide, boolean>>({ A: false, B: false });
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState<SummarySort>('least');
 
-  const saved = useMemo(
-    () =>
+  const savedBySide = useMemo(() => {
+    const find = (which: LineupSide) =>
       data?.lineups.find(
-        (row) => row.matchId === activeMatchId && row.quarter === quarter && row.side === side,
-      ) ?? null,
-    [data?.lineups, activeMatchId, quarter, side],
-  );
+        (row) => row.matchId === activeMatchId && row.quarter === quarter && row.side === which,
+      ) ?? null;
+    return { A: find('A'), B: find('B') };
+  }, [data?.lineups, activeMatchId, quarter]);
+
+  const saved = savedBySide[side];
 
   const available = useMemo(
     () => (data && activeMatchId ? availableMembers(data, activeMatchId) : []),
@@ -93,23 +106,24 @@ export default function LineupScreen() {
     return Math.min(MAX_QUARTERS, Math.max(DEFAULT_QUARTERS, ...used, 0));
   }, [data?.lineups, activeMatchId]);
 
-  // 경기·쿼터·팀 중 하나라도 바뀌면 그 칸에 저장된 라인업을 다시 불러온다.
+  // 경기나 쿼터가 바뀌면 그 쿼터에 저장된 두 팀을 한꺼번에 다시 불러온다.
   // 저장된 게 없으면 참석 인원에 맞는 규격으로 시작한다 — 자체경기라 한 팀은 그 절반이다.
   useEffect(() => {
-    if (saved) {
-      setFormationId(saved.formationId);
-      setSlots(saved.slots);
-    } else {
-      const half = Math.floor(available.length / 2);
-      const fit =
-        (half > 0 ? formationsForSize(sizeForCount(half))[0] : undefined) ?? DEFAULT_FORMATION;
-      setFormationId(fit.id);
-      setSlots(fit.slots.map(toEmpty));
-    }
-    setSelectedKey(null);
-    setDirty(false);
+    const half = Math.floor(available.length / 2);
+    const fit =
+      (half > 0 ? formationsForSize(sizeForCount(half))[0] : undefined) ?? DEFAULT_FORMATION;
+    const load = (row: typeof savedBySide.A) =>
+      row
+        ? { id: row.formationId, slots: row.slots }
+        : { id: fit.id, slots: fit.slots.map(toEmpty) };
+    const a = load(savedBySide.A);
+    const b = load(savedBySide.B);
+    setFormationIds({ A: a.id, B: b.id });
+    setSlotsBySide({ A: a.slots, B: b.slots });
+    setSelected(null);
+    setDirty({ A: false, B: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeMatchId, quarter, side, saved?.id]);
+  }, [activeMatchId, quarter, savedBySide.A?.id, savedBySide.B?.id]);
 
   const members = useMemo(() => memberMap(data?.members ?? []), [data?.members]);
   const play = useMemo(
@@ -129,16 +143,23 @@ export default function LineupScreen() {
   if (!data) return null;
   const match = data.matches.find((item) => item.id === activeMatchId);
 
+  const slots = slotsBySide[side];
+  const formationId = formationIds[side];
   const formation = findFormation(formationId);
-  const assignedIds = new Set(slots.map((slot) => slot.memberId).filter(Boolean) as string[]);
+  const other: LineupSide = side === 'A' ? 'B' : 'A';
+
   // 이 쿼터의 다른 팀에 이미 선 사람. 한 쿼터에 두 팀을 동시에 뛸 수는 없다.
-  const otherSide = data.lineups.find(
-    (row) => row.matchId === activeMatchId && row.quarter === quarter && row.side !== side,
-  );
+  // 저장된 것이 아니라 지금 화면에 놓인 것을 본다 — 두 팀을 같이 짜는 중이니까.
   const takenByOther = new Set(
-    (otherSide?.slots ?? []).map((slot) => slot.memberId).filter(Boolean) as string[],
+    slotsBySide[other].map((slot) => slot.memberId).filter(Boolean) as string[],
   );
+  const assignedIds = new Set([
+    ...(slots.map((slot) => slot.memberId).filter(Boolean) as string[]),
+    ...takenByOther,
+  ]);
   const bench = available.filter((member) => !assignedIds.has(member.id));
+  /** 아직 안 올린 팀. 둘 다 손댔으면 한 번에 올린다. */
+  const unsaved = (['A', 'B'] as LineupSide[]).filter((which) => dirty[which]);
 
   /** 이 경기의 출전 요약. 참석했는데 한 번도 안 뛴 사람도 0으로 넣는다. */
   const summary = available
@@ -161,33 +182,49 @@ export default function LineupScreen() {
       );
     });
 
+  /** 지금 채우는 팀의 자리들만 바꾼다. */
+  function updateSlots(which: LineupSide, next: (prev: LineupSlot[]) => LineupSlot[]) {
+    setSlotsBySide((prev) => ({ ...prev, [which]: next(prev[which]) }));
+    setDirty((prev) => ({ ...prev, [which]: true }));
+  }
+
   function changeFormation(nextId: string) {
     const next = findFormation(nextId);
     // 포메이션을 바꿔도 이미 배치한 선수는 그룹별로 최대한 유지한다.
-    const pool = [...slots].filter((slot) => slot.memberId);
-    const mapped = next.slots.map((slot) => {
-      const index = pool.findIndex((candidate) => candidate.group === slot.group);
-      const taken = index >= 0 ? pool.splice(index, 1)[0] : null;
-      return { ...slot, memberId: taken?.memberId ?? null };
+    updateSlots(side, (prev) => {
+      const pool = prev.filter((slot) => slot.memberId);
+      return next.slots.map((slot) => {
+        const index = pool.findIndex((candidate) => candidate.group === slot.group);
+        const taken = index >= 0 ? pool.splice(index, 1)[0] : null;
+        return { ...slot, memberId: taken?.memberId ?? null };
+      });
     });
-    setFormationId(nextId);
-    setSlots(mapped);
-    setSelectedKey(null);
-    setDirty(true);
+    setFormationIds((prev) => ({ ...prev, [side]: nextId }));
+    setSelected(null);
   }
 
-  /** 슬롯을 두 번 누르면 자리 교체, 대기 선수를 누르면 배치. */
-  function handleSlotPress(key: string) {
-    if (!selectedKey) {
-      setSelectedKey(key);
+  /**
+   * 자리를 누르면 그 팀이 지금 채우는 팀이 된다. 같은 팀에서 두 자리를 차례로 누르면
+   * 서로 바뀐다. 다른 팀 자리를 누르면 교체가 아니라 그쪽으로 넘어간 것으로 본다 —
+   * 두 팀 사이에 자리를 맞바꾸는 건 실수인 경우가 훨씬 많다.
+   */
+  function handleSlotPress(which: LineupSide, key: string) {
+    if (which !== side) {
+      setSide(which);
+      setSelected({ side: which, key });
       return;
     }
-    if (selectedKey === key) {
-      setSelectedKey(null);
+    if (!selected || selected.side !== which) {
+      setSelected({ side: which, key });
       return;
     }
-    setSlots((prev) => {
-      const a = prev.find((slot) => slot.key === selectedKey);
+    if (selected.key === key) {
+      setSelected(null);
+      return;
+    }
+    const from = selected.key;
+    updateSlots(which, (prev) => {
+      const a = prev.find((slot) => slot.key === from);
       const b = prev.find((slot) => slot.key === key);
       if (!a || !b) return prev;
       return prev.map((slot) => {
@@ -196,21 +233,18 @@ export default function LineupScreen() {
         return slot;
       });
     });
-    setSelectedKey(null);
-    setDirty(true);
+    setSelected(null);
   }
 
   function assign(memberId: string) {
+    const member = members.get(memberId);
     const targetKey =
-      selectedKey ??
-      // 선택된 자리가 없으면 이 사람이 볼 수 있는 빈 자리를 먼저 찾는다.
-      slots.find((slot) => {
-        const member = members.get(memberId);
-        return !slot.memberId && member ? playsPosition(member, slot.group) : false;
-      })?.key ??
+      (selected?.side === side ? selected.key : null) ??
+      // 고른 자리가 없으면 이 사람이 볼 수 있는 빈 자리를 먼저 찾는다.
+      slots.find((slot) => !slot.memberId && member && playsPosition(member, slot.group))?.key ??
       slots.find((slot) => !slot.memberId)?.key;
     if (!targetKey) return;
-    setSlots((prev) =>
+    updateSlots(side, (prev) =>
       prev.map((slot) => {
         if (slot.key === targetKey) return { ...slot, memberId };
         // 다른 자리에 이미 있으면 비운다.
@@ -218,8 +252,13 @@ export default function LineupScreen() {
         return slot;
       }),
     );
-    setSelectedKey(null);
-    setDirty(true);
+    // 한 쿼터에 두 팀을 동시에 뛸 수는 없다. 상대편에 있던 사람이면 거기서 뺀다.
+    if (takenByOther.has(memberId)) {
+      updateSlots(other, (prev) =>
+        prev.map((slot) => (slot.memberId === memberId ? { ...slot, memberId: null } : slot)),
+      );
+    }
+    setSelected(null);
   }
 
   async function attachPhoto(source: 'camera' | 'library') {
@@ -262,9 +301,24 @@ export default function LineupScreen() {
               ) : null}
             </ScrollView>
 
+            {/*
+              판에는 두 팀이 같이 보인다. 이 칸은 "지금 어느 팀을 채우는가"만 고른다 —
+              포메이션과 아래 대기 명단이 이 팀을 따라간다. 자리를 누르면 자동으로 넘어간다.
+            */}
+            <Row justify="space-between">
+              <Txt variant="tiny" muted>
+                지금 채우는 팀
+              </Txt>
+              <Txt variant="tiny" muted>
+                위 A팀 · 아래 B팀
+              </Txt>
+            </Row>
             <Segmented
               value={side}
-              onChange={setSide}
+              onChange={(next) => {
+                setSide(next);
+                setSelected(null);
+              }}
               options={[
                 { value: 'A' as LineupSide, label: 'A팀' },
                 { value: 'B' as LineupSide, label: 'B팀' },
@@ -355,14 +409,24 @@ export default function LineupScreen() {
             </ScrollView>
 
             <Pitch
-              slots={slots}
+              top={{
+                side: 'A',
+                slots: slotsBySide.A,
+                label: `A팀 ${short(findFormation(formationIds.A).label)}`,
+              }}
+              bottom={{
+                side: 'B',
+                slots: slotsBySide.B,
+                label: `B팀 ${short(findFormation(formationIds.B).label)}`,
+              }}
               members={members}
-              selectedKey={selectedKey}
+              selected={selected}
               onSelectSlot={handleSlotPress}
             />
 
             <Txt variant="tiny" muted>
-              자리를 누른 뒤 아래 이름을 누르면 배치돼요. 자리 두 곳을 차례로 누르면 서로 바뀌어요.
+              자리를 누른 뒤 아래 이름을 누르면 배치돼요. 같은 팀에서 자리 두 곳을 차례로 누르면
+              서로 바뀌고, 다른 팀 자리를 누르면 그 팀을 채우는 것으로 넘어가요.
             </Txt>
 
             <SectionHeader title={`대기 (${bench.length}명)`} />
@@ -390,31 +454,33 @@ export default function LineupScreen() {
 
             <Row gap={space.sm}>
               <Button
-                label="전부 비우기"
+                label={`${side}팀 비우기`}
                 tone="neutral"
                 small
                 style={{ flex: 1 }}
-                onPress={() => {
-                  setSlots((prev) => prev.map((slot) => ({ ...slot, memberId: null })));
-                  setDirty(true);
-                }}
+                onPress={() =>
+                  updateSlots(side, (prev) => prev.map((slot) => ({ ...slot, memberId: null })))
+                }
               />
               <Button
-                label={dirty ? '이 쿼터 저장하기' : '저장했어요'}
+                label={unsaved.length ? `${unsaved.join('·')}팀 저장하기` : '저장했어요'}
                 small
                 style={{ flex: 1 }}
-                disabled={!dirty}
+                disabled={unsaved.length === 0}
                 onPress={async () => {
-                  await saveLineup({
-                    matchId: match.id,
-                    quarter,
-                    side,
-                    formationId,
-                    slots,
-                    photoUri: saved?.photoUri ?? null,
-                    photoPath: saved?.photoPath ?? null,
-                  });
-                  setDirty(false);
+                  // 두 팀을 같이 짜니 저장도 같이 한다. 손댄 쪽만 올린다.
+                  for (const which of unsaved) {
+                    await saveLineup({
+                      matchId: match.id,
+                      quarter,
+                      side: which,
+                      formationId: formationIds[which],
+                      slots: slotsBySide[which],
+                      photoUri: savedBySide[which]?.photoUri ?? null,
+                      photoPath: savedBySide[which]?.photoPath ?? null,
+                    });
+                  }
+                  setDirty({ A: false, B: false });
                 }}
               />
             </Row>
@@ -483,6 +549,11 @@ export default function LineupScreen() {
       <QuickInputFab hint="lineup" />
     </View>
   );
+}
+
+/** 판 가운데 띠에는 "3-3-1"까지만. 인원 규격은 위 칩에 이미 보인다. */
+function short(label: string): string {
+  return label.replace(/\s*\(.*\)$/, '');
 }
 
 function toEmpty(slot: Omit<LineupSlot, 'memberId'>): LineupSlot {
