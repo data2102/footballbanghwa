@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { attendanceForMatch, tallyAttendance, unrespondedMembers } from '@/lib/selectors';
 import { formatDate } from '@/lib/format';
+import { pickPhoto } from '@/lib/photo';
+import { handOffPhotos } from '@/lib/photoHandoff';
 import {
   Avatar,
   Button,
@@ -56,6 +58,7 @@ export default function AttendanceScreen() {
    */
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [selecting, setSelecting] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const rows = useMemo(
     () => (data && activeMatchId ? attendanceForMatch(data, activeMatchId) : new Map()),
@@ -158,11 +161,27 @@ export default function AttendanceScreen() {
               </Txt>
               <Row gap={space.sm}>
                 <Button
-                  label="투표 사진 올리기"
+                  label={picking ? '사진첩 여는 중' : '투표 사진 올리기'}
                   icon="camera"
                   tone="neutral"
                   style={{ flex: 1 }}
-                  onPress={() => router.push('/quick-input?hint=attendance')}
+                  disabled={picking}
+                  /*
+                   * 사진첩은 누른 이 자리에서 연다. 브라우저가 "사용자가 누른 그 순간"이
+                   * 아니면 파일 선택을 안 열어 주기 때문에, 화면을 먼저 띄우고 열 수는 없다.
+                   * 고른 사진만 검토 화면으로 넘긴다.
+                   */
+                  onPress={async () => {
+                    setPicking(true);
+                    try {
+                      const photo = await pickPhoto('library');
+                      if (!photo) return;
+                      handOffPhotos([photo]);
+                      router.push('/quick-input?hint=attendance');
+                    } finally {
+                      setPicking(false);
+                    }
+                  }}
                 />
                 <Button
                   label={selecting ? '고르기 그만두기' : '여러 명 한 번에'}

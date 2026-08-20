@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { blankMemberFields, useStore } from '@/lib/store';
 import { parseText } from '@/lib/ai/client';
 import { isLocalRepo } from '@/lib/repo';
 import { pickPhoto, type PickedPhoto } from '@/lib/photo';
+import { takeHandedPhotos } from '@/lib/photoHandoff';
 import { findFormation, normalizeFormationId } from '@/features/lineup/formations';
 import { formatDate, todayISO, won } from '@/lib/format';
 import { availableMembers } from '@/lib/selectors';
@@ -97,8 +98,19 @@ export default function QuickInputScreen() {
     [data?.members],
   );
 
+  /*
+   * 참석 탭에서 사진을 고르고 넘어오면 그 사진을 들고 시작한다.
+   * 브라우저가 "누른 그 순간"이 아니면 사진첩을 안 열어 줘서, 여는 건 버튼 쪽에서 한다.
+   */
+  useEffect(() => {
+    const handed = takeHandedPhotos();
+    if (handed) setPhotos(handed);
+  }, []);
+
   if (!data) return null;
   const match = data.matches.find((item) => item.id === activeMatchId) ?? null;
+  /** AI 에 실제로 가는 장수. 긴 캡처는 한 장이 여러 조각이 된다. */
+  const sliceCount = photos.reduce((sum, photo) => sum + photo.parts.length, 0);
 
   function memberIdOf(item: ParsedItem, index: number): string | null {
     return overrides[index] ?? item.memberId;
@@ -325,6 +337,22 @@ export default function QuickInputScreen() {
               ) : null}
             </Card>
 
+            {/*
+              어느 경기에 들어가는지는 저장하기 직전이 아니라 올리기 전에 보여야 한다.
+              참석 탭에서 날짜를 고르고 넘어왔는데 화면이 아무 말도 안 하면,
+              그 날짜로 가는 게 맞는지 확인할 길이 없다.
+            */}
+            {match ? (
+              <Card style={{ backgroundColor: p.primarySoft, borderColor: p.primarySoft }}>
+                <Txt variant="small" color={p.primaryStrong}>
+                  {formatDate(match.date)} 경기에 들어가요
+                </Txt>
+                <Txt variant="tiny" muted>
+                  다른 날짜에 넣으려면 참석 탭에서 날짜를 먼저 고르고 오세요.
+                </Txt>
+              </Card>
+            ) : null}
+
             <TextInput
               multiline
               value={text}
@@ -333,6 +361,16 @@ export default function QuickInputScreen() {
               placeholderTextColor={p.textFaint}
               style={inputStyle}
             />
+
+            {/*
+              길쭉한 캡처는 줄이면 이름이 뭉개져서 잘라 보낸다. 그 사실을 안 알리면
+              "왜 이건 잘 읽히지" 나 "왜 이건 오래 걸리지"가 설명되지 않는다.
+            */}
+            {sliceCount > photos.length ? (
+              <Txt variant="tiny" muted>
+                긴 캡처라 {sliceCount}조각으로 나눠 읽어요. 글자를 줄이지 않으니 이름이 또렷해요.
+              </Txt>
+            ) : null}
 
             <Row gap={space.sm}>
               <Button
