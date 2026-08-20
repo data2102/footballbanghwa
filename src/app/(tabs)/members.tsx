@@ -21,7 +21,6 @@ import {
   space,
 } from '@/components/ui';
 import { Icon } from '@/components/icons';
-import { QuickInputFab } from '@/components/QuickInputFab';
 import { usePalette } from '@/theme';
 import type { PositionGroup } from '@/lib/types';
 
@@ -73,142 +72,139 @@ export default function MembersScreen() {
   const unpaidCount = profiles.filter((profile) => profile.outstanding > 0).length;
 
   return (
-    <View style={{ flex: 1 }}>
-      <Screen>
-        <Card>
-          <Hero
-            label="팀 평균 출석률"
-            value={teamRate === null ? '-' : `${teamRate}%`}
-            suffix={teamRate === null ? undefined : `· ${profiles.length}명`}
-            caption={
-              unpaidCount
-                ? `이번 달 회비는 ${unpaidCount}명이 아직이에요`
-                : '이번 달 회비는 다 걷혔어요'
-            }
-          />
-        </Card>
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: space.sm,
-            backgroundColor: p.surface,
-            borderColor: p.borderStrong,
-            borderWidth: 1,
-            borderRadius: radius.sm,
-            paddingHorizontal: space.md,
-          }}
-        >
-          <Icon name="search" size={17} color={p.textFaint} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="이름, 등번호, 장점으로 찾기"
-            placeholderTextColor={p.textFaint}
-            style={{ flex: 1, paddingVertical: space.md, color: p.text, fontSize: 15 }}
-          />
-        </View>
-
-        <Row gap={space.sm} wrap>
-          {POSITIONS.map((item) => (
-            <Chip
-              key={item}
-              label={item === 'ALL' ? '전체' : item}
-              selected={position === item}
-              onPress={() => setPosition(item)}
-            />
-          ))}
-        </Row>
-
-        <Segmented
-          value={sort}
-          onChange={setSort}
-          options={[
-            { value: 'rate', label: '출석률 순' },
-            { value: 'unpaid', label: '미납 순' },
-            { value: 'name', label: '이름 순' },
-          ]}
+    <Screen>
+      <Card>
+        <Hero
+          label="팀 평균 출석률"
+          value={teamRate === null ? '-' : `${teamRate}%`}
+          suffix={teamRate === null ? undefined : `· ${profiles.length}명`}
+          caption={
+            unpaidCount
+              ? `이번 달 회비는 ${unpaidCount}명이 아직이에요`
+              : '이번 달 회비는 다 걷혔어요'
+          }
         />
+      </Card>
 
-        <Card style={{ padding: space.sm, gap: 0 }}>
-          {filtered.length === 0 ? (
-            <Empty text="찾는 회원이 없어요." />
-          ) : (
-            filtered.map((profile, index) => (
-              <View key={profile.member.id}>
-                {index > 0 ? <Divider /> : null}
-                <MemberRow
-                  profile={profile}
-                  picking={picking}
-                  picked={picked.has(profile.member.id)}
-                  onPress={() => {
-                    if (!picking) {
-                      router.push(`/member/${profile.member.id}`);
-                      return;
-                    }
-                    setPicked((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(profile.member.id)) next.delete(profile.member.id);
-                      else next.add(profile.member.id);
-                      return next;
-                    });
-                  }}
-                />
-              </View>
-            ))
-          )}
-        </Card>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: space.sm,
+          backgroundColor: p.surface,
+          borderColor: p.borderStrong,
+          borderWidth: 1,
+          borderRadius: radius.sm,
+          paddingHorizontal: space.md,
+        }}
+      >
+        <Icon name="search" size={17} color={p.textFaint} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="이름, 등번호, 장점으로 찾기"
+          placeholderTextColor={p.textFaint}
+          style={{ flex: 1, paddingVertical: space.md, color: p.text, fontSize: 15 }}
+        />
+      </View>
 
-        {picking ? (
-          <>
-            <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
-              지운 회원은 명단에서 사라지지만 지난 기록은 그대로 남아요.
-            </Txt>
-            <Row gap={space.sm}>
-              <Button
-                label="그만두기"
-                tone="neutral"
-                style={{ flex: 1 }}
-                onPress={() => {
-                  setPicking(false);
-                  setPicked(new Set());
-                }}
-              />
-              <Button
-                label={picked.size ? `${picked.size}명 지우기` : '지울 회원 고르기'}
-                tone="danger"
-                style={{ flex: 1 }}
-                disabled={picked.size === 0}
-                onPress={async () => {
-                  for (const id of picked) await removeMember(id);
-                  setPicked(new Set());
-                  setPicking(false);
-                }}
-              />
-            </Row>
-          </>
+      <Row gap={space.sm} wrap>
+        {POSITIONS.map((item) => (
+          <Chip
+            key={item}
+            label={item === 'ALL' ? '전체' : item}
+            selected={position === item}
+            onPress={() => setPosition(item)}
+          />
+        ))}
+      </Row>
+
+      <Segmented
+        value={sort}
+        onChange={setSort}
+        options={[
+          { value: 'rate', label: '출석률 순' },
+          { value: 'unpaid', label: '미납 순' },
+          { value: 'name', label: '이름 순' },
+        ]}
+      />
+
+      <Card style={{ padding: space.sm, gap: 0 }}>
+        {filtered.length === 0 ? (
+          <Empty text="찾는 회원이 없어요." />
         ) : (
+          filtered.map((profile, index) => (
+            <View key={profile.member.id}>
+              {index > 0 ? <Divider /> : null}
+              <MemberRow
+                profile={profile}
+                picking={picking}
+                picked={picked.has(profile.member.id)}
+                onPress={() => {
+                  if (!picking) {
+                    router.push(`/member/${profile.member.id}`);
+                    return;
+                  }
+                  setPicked((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(profile.member.id)) next.delete(profile.member.id);
+                    else next.add(profile.member.id);
+                    return next;
+                  });
+                }}
+              />
+            </View>
+          ))
+        )}
+      </Card>
+
+      {picking ? (
+        <>
+          <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
+            지운 회원은 명단에서 사라지지만 지난 기록은 그대로 남아요.
+          </Txt>
           <Row gap={space.sm}>
             <Button
-              label="회원 추가하기"
-              icon="plus"
+              label="그만두기"
               tone="neutral"
               style={{ flex: 1 }}
-              onPress={() => router.push('/settings')}
+              onPress={() => {
+                setPicking(false);
+                setPicked(new Set());
+              }}
             />
             <Button
-              label="정리하기"
-              icon="trash"
-              tone="neutral"
+              label={picked.size ? `${picked.size}명 지우기` : '지울 회원 고르기'}
+              tone="danger"
               style={{ flex: 1 }}
-              onPress={() => setPicking(true)}
+              disabled={picked.size === 0}
+              onPress={async () => {
+                for (const id of picked) await removeMember(id);
+                setPicked(new Set());
+                setPicking(false);
+              }}
             />
           </Row>
-        )}
-      </Screen>
-      <QuickInputFab hint="profile" />
-    </View>
+        </>
+      ) : (
+        <Row gap={space.sm}>
+          <Button
+            label="회원 추가하기"
+            icon="plus"
+            tone="neutral"
+            style={{ flex: 1 }}
+            onPress={() => router.push('/settings')}
+          />
+          <Button
+            label="정리하기"
+            icon="trash"
+            tone="neutral"
+            style={{ flex: 1 }}
+            onPress={() => setPicking(true)}
+          />
+        </Row>
+      )}
+    </Screen>
   );
 }
 

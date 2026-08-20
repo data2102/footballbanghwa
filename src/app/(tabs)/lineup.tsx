@@ -34,7 +34,6 @@ import {
   space,
 } from '@/components/ui';
 import { MatchPicker } from '@/components/MatchPicker';
-import { QuickInputFab } from '@/components/QuickInputFab';
 import { usePalette } from '@/theme';
 import type { LineupSide, LineupSlot, PositionGroup } from '@/lib/types';
 
@@ -273,281 +272,278 @@ export default function LineupScreen() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <Screen>
-        <MatchPicker />
-        {!match ? (
-          <Card>
-            <Empty text={'경기를 먼저 만들어 주세요.\n설정에서 추가할 수 있어요.'} />
-          </Card>
-        ) : (
-          <>
-            {/* 쿼터 → 팀 순으로 좁혀 간다. 화이트보드를 읽는 순서와 같다. */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: space.sm }}
-            >
-              {Array.from({ length: quarterCount }, (_, index) => index + 1).map((value) => (
-                <Chip
-                  key={value}
-                  label={`${value}쿼터`}
-                  selected={value === quarter}
-                  onPress={() => setQuarter(value)}
-                />
-              ))}
-              {quarterCount < MAX_QUARTERS ? (
-                <Chip label="+ 쿼터" onPress={() => setQuarter(quarterCount + 1)} />
-              ) : null}
-            </ScrollView>
+    <Screen>
+      <MatchPicker />
+      {!match ? (
+        <Card>
+          <Empty text={'경기를 먼저 만들어 주세요.\n설정에서 추가할 수 있어요.'} />
+        </Card>
+      ) : (
+        <>
+          {/* 쿼터 → 팀 순으로 좁혀 간다. 화이트보드를 읽는 순서와 같다. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: space.sm }}
+          >
+            {Array.from({ length: quarterCount }, (_, index) => index + 1).map((value) => (
+              <Chip
+                key={value}
+                label={`${value}쿼터`}
+                selected={value === quarter}
+                onPress={() => setQuarter(value)}
+              />
+            ))}
+            {quarterCount < MAX_QUARTERS ? (
+              <Chip label="+ 쿼터" onPress={() => setQuarter(quarterCount + 1)} />
+            ) : null}
+          </ScrollView>
 
-            {/*
-              판에는 두 팀이 같이 보인다. 이 칸은 "지금 어느 팀을 채우는가"만 고른다 —
-              포메이션과 아래 대기 명단이 이 팀을 따라간다. 자리를 누르면 자동으로 넘어간다.
-            */}
-            <Row justify="space-between">
-              <Txt variant="tiny" muted>
-                지금 채우는 팀
-              </Txt>
-              <Txt variant="tiny" muted>
-                위 A팀 · 아래 B팀
-              </Txt>
-            </Row>
-            <Segmented
-              value={side}
-              onChange={(next) => {
-                setSide(next);
-                setSelected(null);
-              }}
-              options={[
-                { value: 'A' as LineupSide, label: 'A팀' },
-                { value: 'B' as LineupSide, label: 'B팀' },
-              ]}
-            />
-
-            {/* 화이트보드 사진이 원본이다. 옮겨 적은 게 맞는지 여기서 대조한다. */}
-            <Card>
-              <Row justify="space-between">
-                <Txt variant="h3">
-                  {quarter}쿼터 {SIDE_LABEL[side]} 화이트보드
-                </Txt>
-                {saved?.photoUri ? <Txt variant="tiny" color={p.ok}>사진 있어요</Txt> : null}
-              </Row>
-
-              {saved?.photoUri ? (
-                <Image
-                  source={{ uri: saved.photoUri }}
-                  accessibilityLabel={`${quarter}쿼터 ${SIDE_LABEL[side]} 화이트보드 사진`}
-                  resizeMode="contain"
-                  style={{
-                    width: '100%',
-                    aspectRatio: 4 / 3,
-                    borderRadius: radius.md,
-                    backgroundColor: p.surfaceAlt,
-                  }}
-                />
-              ) : (
-                <Txt variant="tiny" muted>
-                  운동장에서 찍어 두면 나중에 옮겨 적을 때 대조할 수 있어요. 사진을 올려도 아래
-                  전술판에서 그대로 고칠 수 있어요.
-                </Txt>
-              )}
-
-              <Row gap={space.sm}>
-                <Button
-                  label={saved?.photoUri ? '다시 찍기' : '화이트보드 찍기'}
-                  icon="camera"
-                  tone="neutral"
-                  small
-                  style={{ flex: 1 }}
-                  disabled={busy}
-                  onPress={() => attachPhoto('camera')}
-                />
-                <Button
-                  label="앨범에서 고르기"
-                  tone="neutral"
-                  small
-                  style={{ flex: 1 }}
-                  disabled={busy}
-                  onPress={() => attachPhoto('library')}
-                />
-              </Row>
-            </Card>
-
-            {/* 인원 규격을 먼저 고르고, 그 안에서 포메이션을 고른다. */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: space.sm }}
-            >
-              {FORMATION_SIZES.map((size) => (
-                <Chip
-                  key={size}
-                  label={`${size}인`}
-                  selected={size === formation.size}
-                  onPress={() => {
-                    const next = formationsForSize(size)[0];
-                    if (next) changeFormation(next.id);
-                  }}
-                />
-              ))}
-            </ScrollView>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: space.sm }}
-            >
-              {formationsForSize(formation.size).map((option) => (
-                <Chip
-                  key={option.id}
-                  label={option.label}
-                  selected={option.id === formationId}
-                  onPress={() => changeFormation(option.id)}
-                />
-              ))}
-            </ScrollView>
-
-            <Pitch
-              top={{
-                side: 'A',
-                slots: slotsBySide.A,
-                label: `A팀 ${short(findFormation(formationIds.A).label)}`,
-              }}
-              bottom={{
-                side: 'B',
-                slots: slotsBySide.B,
-                label: `B팀 ${short(findFormation(formationIds.B).label)}`,
-              }}
-              members={members}
-              selected={selected}
-              onSelectSlot={handleSlotPress}
-            />
-
+          {/*
+            판에는 두 팀이 같이 보인다. 이 칸은 "지금 어느 팀을 채우는가"만 고른다 —
+            포메이션과 아래 대기 명단이 이 팀을 따라간다. 자리를 누르면 자동으로 넘어간다.
+          */}
+          <Row justify="space-between">
             <Txt variant="tiny" muted>
-              자리를 누른 뒤 아래 이름을 누르면 배치돼요. 같은 팀에서 자리 두 곳을 차례로 누르면
-              서로 바뀌고, 다른 팀 자리를 누르면 그 팀을 채우는 것으로 넘어가요.
+              지금 채우는 팀
             </Txt>
+            <Txt variant="tiny" muted>
+              위 A팀 · 아래 B팀
+            </Txt>
+          </Row>
+          <Segmented
+            value={side}
+            onChange={(next) => {
+              setSide(next);
+              setSelected(null);
+            }}
+            options={[
+              { value: 'A' as LineupSide, label: 'A팀' },
+              { value: 'B' as LineupSide, label: 'B팀' },
+            ]}
+          />
 
-            <SectionHeader title={`대기 (${bench.length}명)`} />
-            <Card>
-              {available.length === 0 ? (
-                <Empty text={'참석으로 표시된 인원이 없어요.\n참석 탭에서 먼저 집계해 주세요.'} />
-              ) : bench.length === 0 ? (
-                <Empty text="참석자 전원을 배치했어요." />
-              ) : (
-                <Row wrap gap={space.sm}>
-                  {bench.map((member) => {
-                    const count = (play.get(member.id)?.quarters ?? []).length;
-                    const other = takenByOther.has(member.id);
-                    return (
-                      <Chip
-                        key={member.id}
-                        label={`${member.name} · ${count}쿼터${other ? ' · 상대편' : ''}`}
-                        onPress={() => assign(member.id)}
-                      />
-                    );
-                  })}
-                </Row>
-              )}
-            </Card>
+          {/* 화이트보드 사진이 원본이다. 옮겨 적은 게 맞는지 여기서 대조한다. */}
+          <Card>
+            <Row justify="space-between">
+              <Txt variant="h3">
+                {quarter}쿼터 {SIDE_LABEL[side]} 화이트보드
+              </Txt>
+              {saved?.photoUri ? <Txt variant="tiny" color={p.ok}>사진 있어요</Txt> : null}
+            </Row>
+
+            {saved?.photoUri ? (
+              <Image
+                source={{ uri: saved.photoUri }}
+                accessibilityLabel={`${quarter}쿼터 ${SIDE_LABEL[side]} 화이트보드 사진`}
+                resizeMode="contain"
+                style={{
+                  width: '100%',
+                  aspectRatio: 4 / 3,
+                  borderRadius: radius.md,
+                  backgroundColor: p.surfaceAlt,
+                }}
+              />
+            ) : (
+              <Txt variant="tiny" muted>
+                운동장에서 찍어 두면 나중에 옮겨 적을 때 대조할 수 있어요. 사진을 올려도 아래
+                전술판에서 그대로 고칠 수 있어요.
+              </Txt>
+            )}
 
             <Row gap={space.sm}>
               <Button
-                label={`${side}팀 비우기`}
+                label={saved?.photoUri ? '다시 찍기' : '화이트보드 찍기'}
+                icon="camera"
                 tone="neutral"
                 small
                 style={{ flex: 1 }}
-                onPress={() =>
-                  updateSlots(side, (prev) => prev.map((slot) => ({ ...slot, memberId: null })))
-                }
+                disabled={busy}
+                onPress={() => attachPhoto('camera')}
               />
               <Button
-                label={unsaved.length ? `${unsaved.join('·')}팀 저장하기` : '저장했어요'}
+                label="앨범에서 고르기"
+                tone="neutral"
                 small
                 style={{ flex: 1 }}
-                disabled={unsaved.length === 0}
-                onPress={async () => {
-                  // 두 팀을 같이 짜니 저장도 같이 한다. 손댄 쪽만 올린다.
-                  for (const which of unsaved) {
-                    await saveLineup({
-                      matchId: match.id,
-                      quarter,
-                      side: which,
-                      formationId: formationIds[which],
-                      slots: slotsBySide[which],
-                      photoUri: savedBySide[which]?.photoUri ?? null,
-                      photoPath: savedBySide[which]?.photoPath ?? null,
-                    });
-                  }
-                  setDirty({ A: false, B: false });
-                }}
+                disabled={busy}
+                onPress={() => attachPhoto('library')}
               />
             </Row>
+          </Card>
 
-            <ShareLineup
-              teamName={data.team.name}
-              match={match}
-              formationId={formationId}
-              slots={slots}
-              members={members}
-              bench={bench}
-            />
+          {/* 인원 규격을 먼저 고르고, 그 안에서 포메이션을 고른다. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: space.sm }}
+          >
+            {FORMATION_SIZES.map((size) => (
+              <Chip
+                key={size}
+                label={`${size}인`}
+                selected={size === formation.size}
+                onPress={() => {
+                  const next = formationsForSize(size)[0];
+                  if (next) changeFormation(next.id);
+                }}
+              />
+            ))}
+          </ScrollView>
 
-            {/* 이 화면의 결론. 위에서 옮겨 적은 게 여기 숫자로 모인다. */}
-            <SectionHeader title="이 경기 출전" />
-            <Segmented
-              value={sort}
-              onChange={setSort}
-              options={[
-                { value: 'least' as SummarySort, label: '덜 뛴 순' },
-                { value: 'position' as SummarySort, label: '포지션 순' },
-              ]}
-            />
-            <Card style={{ padding: space.sm, gap: 0 }}>
-              {summary.length === 0 ? (
-                <Empty text={'참석자가 정해지면 여기서 세요.\n쿼터마다 라인업을 넣으면 자동으로 쌓여요.'} />
-              ) : (
-                summary.map((row, index) => {
-                  const time = recentTime.get(row.member.id);
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: space.sm }}
+          >
+            {formationsForSize(formation.size).map((option) => (
+              <Chip
+                key={option.id}
+                label={option.label}
+                selected={option.id === formationId}
+                onPress={() => changeFormation(option.id)}
+              />
+            ))}
+          </ScrollView>
+
+          <Pitch
+            top={{
+              side: 'A',
+              slots: slotsBySide.A,
+              label: `A팀 ${short(findFormation(formationIds.A).label)}`,
+            }}
+            bottom={{
+              side: 'B',
+              slots: slotsBySide.B,
+              label: `B팀 ${short(findFormation(formationIds.B).label)}`,
+            }}
+            members={members}
+            selected={selected}
+            onSelectSlot={handleSlotPress}
+          />
+
+          <Txt variant="tiny" muted>
+            자리를 누른 뒤 아래 이름을 누르면 배치돼요. 같은 팀에서 자리 두 곳을 차례로 누르면
+            서로 바뀌고, 다른 팀 자리를 누르면 그 팀을 채우는 것으로 넘어가요.
+          </Txt>
+
+          <SectionHeader title={`대기 (${bench.length}명)`} />
+          <Card>
+            {available.length === 0 ? (
+              <Empty text={'참석으로 표시된 인원이 없어요.\n참석 탭에서 먼저 집계해 주세요.'} />
+            ) : bench.length === 0 ? (
+              <Empty text="참석자 전원을 배치했어요." />
+            ) : (
+              <Row wrap gap={space.sm}>
+                {bench.map((member) => {
+                  const count = (play.get(member.id)?.quarters ?? []).length;
+                  const other = takenByOther.has(member.id);
                   return (
-                    <View key={row.member.id}>
-                      {index > 0 ? <Divider /> : null}
-                      <Row justify="space-between" style={{ padding: space.sm }}>
-                        <View style={{ flexShrink: 1 }}>
-                          <Txt variant="body">
-                            {row.member.name} {row.label}
-                          </Txt>
-                          <Txt variant="tiny" muted>
-                            {time?.perMatch != null
-                              ? `최근 평균 ${time.perMatch.toFixed(1)}쿼터`
-                              : '최근 출전 기록 없음'}
-                          </Txt>
-                        </View>
-                        <Txt
-                          variant="h3"
-                          tabular
-                          color={row.quarters.length === 0 ? p.danger : p.text}
-                          style={{ minWidth: 34, textAlign: 'right' }}
-                        >
-                          {row.quarters.length}
-                        </Txt>
-                      </Row>
-                    </View>
+                    <Chip
+                      key={member.id}
+                      label={`${member.name} · ${count}쿼터${other ? ' · 상대편' : ''}`}
+                      onPress={() => assign(member.id)}
+                    />
                   );
-                })
-              )}
-            </Card>
+                })}
+              </Row>
+            )}
+          </Card>
 
-            <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
-              화이트보드를 찍어서 올리면 &ldquo;사진으로 넣기&rdquo;로 자리까지 읽어 줘요. 읽은
-              결과는 확인한 뒤에만 저장돼요.
-            </Txt>
-          </>
-        )}
-      </Screen>
-      <QuickInputFab hint="lineup" />
-    </View>
+          <Row gap={space.sm}>
+            <Button
+              label={`${side}팀 비우기`}
+              tone="neutral"
+              small
+              style={{ flex: 1 }}
+              onPress={() =>
+                updateSlots(side, (prev) => prev.map((slot) => ({ ...slot, memberId: null })))
+              }
+            />
+            <Button
+              label={unsaved.length ? `${unsaved.join('·')}팀 저장하기` : '저장했어요'}
+              small
+              style={{ flex: 1 }}
+              disabled={unsaved.length === 0}
+              onPress={async () => {
+                // 두 팀을 같이 짜니 저장도 같이 한다. 손댄 쪽만 올린다.
+                for (const which of unsaved) {
+                  await saveLineup({
+                    matchId: match.id,
+                    quarter,
+                    side: which,
+                    formationId: formationIds[which],
+                    slots: slotsBySide[which],
+                    photoUri: savedBySide[which]?.photoUri ?? null,
+                    photoPath: savedBySide[which]?.photoPath ?? null,
+                  });
+                }
+                setDirty({ A: false, B: false });
+              }}
+            />
+          </Row>
+
+          <ShareLineup
+            teamName={data.team.name}
+            match={match}
+            formationId={formationId}
+            slots={slots}
+            members={members}
+            bench={bench}
+          />
+
+          {/* 이 화면의 결론. 위에서 옮겨 적은 게 여기 숫자로 모인다. */}
+          <SectionHeader title="이 경기 출전" />
+          <Segmented
+            value={sort}
+            onChange={setSort}
+            options={[
+              { value: 'least' as SummarySort, label: '덜 뛴 순' },
+              { value: 'position' as SummarySort, label: '포지션 순' },
+            ]}
+          />
+          <Card style={{ padding: space.sm, gap: 0 }}>
+            {summary.length === 0 ? (
+              <Empty text={'참석자가 정해지면 여기서 세요.\n쿼터마다 라인업을 넣으면 자동으로 쌓여요.'} />
+            ) : (
+              summary.map((row, index) => {
+                const time = recentTime.get(row.member.id);
+                return (
+                  <View key={row.member.id}>
+                    {index > 0 ? <Divider /> : null}
+                    <Row justify="space-between" style={{ padding: space.sm }}>
+                      <View style={{ flexShrink: 1 }}>
+                        <Txt variant="body">
+                          {row.member.name} {row.label}
+                        </Txt>
+                        <Txt variant="tiny" muted>
+                          {time?.perMatch != null
+                            ? `최근 평균 ${time.perMatch.toFixed(1)}쿼터`
+                            : '최근 출전 기록 없음'}
+                        </Txt>
+                      </View>
+                      <Txt
+                        variant="h3"
+                        tabular
+                        color={row.quarters.length === 0 ? p.danger : p.text}
+                        style={{ minWidth: 34, textAlign: 'right' }}
+                      >
+                        {row.quarters.length}
+                      </Txt>
+                    </Row>
+                  </View>
+                );
+              })
+            )}
+          </Card>
+
+          <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
+            화이트보드를 찍어서 올리면 &ldquo;사진으로 넣기&rdquo;로 자리까지 읽어 줘요. 읽은
+            결과는 확인한 뒤에만 저장돼요.
+          </Txt>
+        </>
+      )}
+    </Screen>
   );
 }
 
