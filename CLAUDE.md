@@ -193,6 +193,38 @@ grant execute on function public.어떤함수(인자) to service_role;
 이걸 빠뜨려서 모든 팀의 기기 토큰이 열린 적이 있다. `supabase/tests/rls_test.sql` 에
 "앱에서는 못 부른다" 케이스를 넣어 두면 다음에 잡힌다.
 
+## 배포는 전부 push 로 한다
+
+터미널에서 손으로 올리는 단계를 남겨 두면, 맥북 코드가 옛날일 때 옛날 것이 올라가고
+화면에는 똑같은 오류만 뜬다. 무엇이 문제인지 보이지 않아서 몇 번을 왕복했다.
+
+- **웹 화면** — `.github/workflows/deploy-web.yml`. push 하면 GitHub Pages 로.
+- **AI 함수** — `.github/workflows/deploy-functions.yml`. `supabase/functions/` 아래가
+  바뀐 커밋에서만 돈다. `SUPABASE_ACCESS_TOKEN` 시크릿 하나가 필요하고, 프로젝트 ref 는
+  `EXPO_PUBLIC_SUPABASE_URL` 에서 뽑는다.
+
+`npm run fn:deploy` 는 남겨 뒀지만 이제 급할 때만 쓴다.
+
+**스키마(`db push`)와 데이터 적재는 여전히 손으로 한다.** 되돌리기가 어려운 일이라
+push 한 번에 도는 자리에 두지 않는다.
+
+### AI 프록시를 Render 로 옮기는 건 나중에 다시 본다
+
+지금은 Supabase Edge Function 이 Anthropic 앞을 막고 있다. Render 같은 곳으로 옮기자는
+얘기가 나왔고, 되긴 한다 — 하지만 지금 옮길 이유는 없다고 판단했다. 배포 자동화는
+Actions 로 이미 얻었고, 옮기면 잃는 게 있다:
+
+- Edge Function 은 **로그인한 팀원인지 검사를 공짜로 해 준다.** 다른 데 올리면 그걸
+  직접 만들어야 하고, 안 만들면 주소만 아는 사람이 우리 Anthropic 키로 요청을 날린다.
+- 함수 세 개를 Deno 에서 다시 써야 하고 CORS 도 새로 짜야 한다.
+
+**옮길 만해지는 신호**는 이런 것들이다. 하나라도 걸리면 그때 다시 계산한다.
+- Edge Function 실행 한도(무료 월 50만 회)나 실행 시간에 걸린다
+- 사진을 여러 장 보내는 요청이 Deno 런타임 제한에 자꾸 걸린다
+- 함수에서 npm 패키지를 무겁게 쓰게 된다
+
+옮기게 되면 인증부터 설계한다 — Supabase JWT 를 프록시에서 검증하는 게 최소 조건이다.
+
 ## 자주 걸리는 것
 
 - **Node 20.12 이상이어야 한다.** 그 아래에서는 `.env` 가 생기는 순간
