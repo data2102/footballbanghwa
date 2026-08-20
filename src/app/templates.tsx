@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, TextInput, View } from 'react-native';
 import { useStore } from '@/lib/store';
+import { templatesAreLocal } from '@/lib/repo';
 import { uid } from '@/lib/format';
 import {
   KIND_LABEL,
+  STARTER_TEMPLATES,
   fillTemplate,
   orderTemplates,
   slotValues,
@@ -239,6 +241,16 @@ export default function TemplatesScreen() {
           {'{날짜}'} {'{미투표명단}'} 같은 자리를 넣어 두면 꺼낼 때마다 그 주 값으로 채워져요.
           참석·회비 화면에서 바로 꺼내 쓸 수 있어요.
         </Txt>
+        {/*
+          표가 아직 없으면 기기에 담는다. 그 사실을 안 알리면 폰에서 안 보일 때
+          앱이 고장 난 줄 안다.
+        */}
+        {templatesAreLocal() ? (
+          <Txt variant="tiny" color={p.warn}>
+            지금은 이 기기에만 저장돼요. 맥북에서 npm run db:push 를 한 번 하면 그때부터
+            팀 전체가 같은 문구를 보고, 여기 있던 것도 자동으로 옮겨져요.
+          </Txt>
+        ) : null}
       </Card>
 
       <Segmented
@@ -291,7 +303,31 @@ export default function TemplatesScreen() {
         )}
       </Card>
 
-      <Button label="문구 새로 적기" icon="plus" onPress={startNew} />
+      <Row gap={space.sm}>
+        {/*
+          빈 화면에서 시작하려면 무엇을 어떻게 적을지부터 막힌다.
+          자리를 써 둔 글 세 벌을 넣어 주면 고쳐 쓰는 것으로 시작할 수 있다.
+        */}
+        {data.templates.length === 0 ? (
+          <Button
+            label="기본 문구 넣기"
+            tone="neutral"
+            style={{ flex: 1 }}
+            onPress={async () => {
+              for (const starter of STARTER_TEMPLATES) {
+                await saveTemplate({ id: uid(), usedAt: null, ...starter });
+              }
+              setNotice('세 벌을 넣었어요. 눌러서 팀에 맞게 고치세요.');
+            }}
+          />
+        ) : null}
+        <Button
+          label="문구 새로 적기"
+          icon="plus"
+          style={{ flex: 1 }}
+          onPress={startNew}
+        />
+      </Row>
 
       {notice ? (
         <Txt variant="small" color={p.ok} style={{ textAlign: 'center' }}>

@@ -13,6 +13,13 @@ import type {
   PotmVote,
   Team,
 } from '@/lib/types';
+import {
+  drainDeviceTemplates,
+  isMissingTable,
+  readDeviceTemplates,
+  removeDeviceTemplate,
+  saveDeviceTemplate,
+} from './deviceTemplates';
 import type { Repo } from './types';
 
 /** 로그인한 사용자가 속한 첫 번째 팀의 데이터를 통째로 읽고 쓴다. */
@@ -45,8 +52,28 @@ export class SupabaseRepo implements Repo {
       this.client.from('inventory').select('*').eq('team_id', teamRow.id).order('name'),
       this.client.from('message_templates').select('*').eq('team_id', teamRow.id),
     ]);
-    for (const result of [members, matches, ledger, inventory, templates]) {
+    for (const result of [members, matches, ledger, inventory]) {
       if (result.error) throw result.error;
+    }
+
+    /*
+     * 문구 표는 없을 수도 있다. 표를 만들려면 db push 가 필요한데, 문구 하나 적자고
+     * 터미널을 열게 하면 아무도 안 쓴다. 없으면 기기에 담아 두고 그대로 쓴다.
+     * 표가 생기면 기기에 있던 것을 한 번 옮기고, 그때부터 DB 만 본다.
+     */
+    let templateRows: MessageTemplate[];
+    if (templates.error) {
+      if (!isMissingTable(templates.error)) throw templates.error;
+      this.templatesOnDevice = true;
+      templateRows = await readDeviceTemplates(teamRow.id);
+    } else {
+      this.templatesOnDevice = false;
+      templateRows = (templates.data ?? []).map(fromTemplateRow);
+      const stranded = await drainDeviceTemplates(teamRow.id);
+      for (const row of stranded) {
+        await this.saveTemplate(row).catch(() => {});
+        templateRows = [...templateRows.filter((item) => item.id !== row.id), row];
+      }
     }
 
     const matchIds = (matches.data ?? []).map((row: { id: string }) => row.id);
@@ -85,7 +112,7 @@ export class SupabaseRepo implements Repo {
       lineups: (lineups.data ?? []).map(fromLineupRow),
       potmVotes: (potmVotes.data ?? []).map(fromPotmRow),
       inventory: (inventory.data ?? []).map(fromInventoryRow),
-      templates: (templates.data ?? []).map(fromTemplateRow),
+      templates: templateRows,
     };
   }
 
@@ -272,20 +299,47 @@ export class SupabaseRepo implements Repo {
 
   removeInventory = (id: string) => this.run(this.client.from('inventory').delete().eq('id', id));
 
-  saveTemplate = (template: MessageTemplate) =>
-    this.run(
-      this.client.from('message_templates').upsert({
-        id: template.id,
-        team_id: this.assertLoaded(),
-        title: template.title,
-        body: template.body,
-        kind: template.kind,
-        used_at: template.usedAt,
-      }),
-    );
+  /** 문구 표가 없는 팀에서는 기기에 담는다. load() 가 정해 준다. */
+  private templatesOnDevice = false;
 
-  removeTemplate = (id: string) =>
-    this.run(this.client.from('message_templates').delete().eq('id', id));
+  /** 이 팀의 문구가 지금 기기에만 있는지. 화면이 그 사실을 알린다. */
+  get templatesAreLocal(): boolean {
+    return this.templatesOnDevice;
+  }
+
+  async saveTemplate(template: MessageTemplate) {
+    const teamId = this.assertLoaded();
+    if (this.templatesOnDevice) {
+      await saveDeviceTemplate({ ...template, teamId });
+      return;
+    }
+    const { error } = await this.client.from('message_templates').upsert({
+      id: template.id,
+      team_id: teamId,
+      title: template.title,
+      body: template.body,
+      kind: template.kind,
+      used_at: template.usedAt,
+    });
+    if (!error) return;
+    // 표가 없어진 경우까지 오류로 올리면 문구를 못 적는다. 기기로 내려가서 담는다.
+    if (!isMissingTable(error)) throw error;
+    this.templatesOnDevice = true;
+    await saveDeviceTemplate({ ...template, teamId });
+  }
+
+  async removeTemplate(id: string) {
+    const teamId = this.assertLoaded();
+    if (this.templatesOnDevice) {
+      await removeDeviceTemplate(teamId, id);
+      return;
+    }
+    const { error } = await this.client.from('message_templates').delete().eq('id', id);
+    if (!error) return;
+    if (!isMissingTable(error)) throw error;
+    this.templatesOnDevice = true;
+    await removeDeviceTemplate(teamId, id);
+  }
 
   removeLedger = (id: string) => this.run(this.client.from('ledger').delete().eq('id', id));
 

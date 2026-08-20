@@ -2,6 +2,7 @@ import { formationsForSize } from '@/features/lineup/formations';
 import { shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
 import { KICKOFF, sundaysOf } from '@/lib/schedule';
 import { ROSTER_2026, TRACKED_DATES } from '@/lib/roster2026';
+import { STARTER_TEMPLATES } from '@/lib/templates';
 import type {
   AgeBand,
   AppData,
@@ -428,48 +429,13 @@ export function buildSeed(): AppData {
     events,
     potmVotes,
     lineups,
-    /*
-     * 처음 쓰는 팀이 빈 화면을 보지 않게 세 벌을 깔아 둔다.
-     * 자리({날짜} 같은 것)를 실제로 써 둬야 "이렇게 쓰는 거구나"가 한눈에 보인다.
-     */
-    templates: [
-      {
-        id: 'tpl-attendance',
-        teamId: TEAM_ID,
-        title: '주중 참석 독촉',
-        kind: 'attendance' as const,
-        body:
-          '{팀} 이번 주 경기 안내드려요.\n' +
-          '{날짜} {시간} · {장소}\n' +
-          '지금까지 {참석}명 참석이에요.\n' +
-          '아직 답 안 주신 분: {미투표명단}\n' +
-          '라인업을 미리 짜야 해서요, 참석 여부만 남겨 주시면 고맙겠습니다.',
-        usedAt: null,
-      },
-      {
-        id: 'tpl-dues',
-        teamId: TEAM_ID,
-        title: '월 회비 안내',
-        kind: 'dues' as const,
-        body:
-          '{달} 회비 안내드려요.\n' +
-          '월 회비는 {월회비}, 연납은 {연납}이에요.\n' +
-          '아직 {미납}명이 안 내셨어요. 남은 금액은 모두 {미납액}이에요.\n' +
-          '계좌는 공지 참고해 주세요.',
-        usedAt: null,
-      },
-      {
-        id: 'tpl-rain',
-        teamId: TEAM_ID,
-        title: '우천 취소',
-        kind: 'notice' as const,
-        body:
-          '{팀} {날짜} 경기 취소 안내드려요.\n' +
-          '비가 와서 구장을 쓸 수 없게 됐어요.\n' +
-          '다음 주 같은 시간에 뵐게요.',
-        usedAt: null,
-      },
-    ],
+    // 문구 초안. 화면의 "기본 문구 넣기"와 같은 목록을 쓴다 — 두 곳에 적으면 어긋난다.
+    templates: STARTER_TEMPLATES.map((starter, index) => ({
+      id: `tpl-${index + 1}`,
+      teamId: TEAM_ID,
+      usedAt: null,
+      ...starter,
+    })),
 
     // 매주 들고 나가는 것들. 알고 싶은 건 몇 개 남았나 하나뿐이다.
     inventory: [

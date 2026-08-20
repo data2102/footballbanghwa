@@ -140,6 +140,45 @@ export function orderTemplates(templates: MessageTemplate[], kind?: MessageTempl
     });
 }
 
+/**
+ * 처음 여는 팀에 넣어 주는 세 벌.
+ *
+ * 빈 화면에 "적어 보세요"만 있으면 무엇을 어떻게 적으라는 건지 알 수 없다.
+ * 자리를 실제로 써 둔 글이 하나 있어야 "이렇게 쓰는 거구나"가 한눈에 보인다.
+ */
+export const STARTER_TEMPLATES: { title: string; kind: MessageTemplateKind; body: string }[] = [
+  {
+    title: '주중 참석 독촉',
+    kind: 'attendance',
+    body: [
+      '{팀} 이번 주 경기 안내드려요.',
+      '{날짜} {시간} · {장소}',
+      '지금까지 {참석}명 참석이에요.',
+      '아직 답 안 주신 분: {미투표명단}',
+      '라인업을 미리 짜야 해서요, 참석 여부만 남겨 주시면 고맙겠습니다.',
+    ].join('\n'),
+  },
+  {
+    title: '월 회비 안내',
+    kind: 'dues',
+    body: [
+      '{달} 회비 안내드려요.',
+      '월 회비는 {월회비}, 연납은 {연납}이에요.',
+      '아직 {미납}명이 안 내셨어요. 남은 금액은 모두 {미납액}이에요.',
+      '계좌는 공지 참고해 주세요.',
+    ].join('\n'),
+  },
+  {
+    title: '우천 취소',
+    kind: 'notice',
+    body: [
+      '{팀} {날짜} 경기 취소 안내드려요.',
+      '비가 와서 구장을 쓸 수 없게 됐어요.',
+      '다음 주 같은 시간에 뵐게요.',
+    ].join('\n'),
+  },
+];
+
 export const KIND_LABEL: Record<MessageTemplateKind, string> = {
   attendance: '참석',
   dues: '회비',
