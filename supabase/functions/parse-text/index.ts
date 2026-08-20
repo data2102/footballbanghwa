@@ -118,6 +118,16 @@ Deno.serve(async (req) => {
   const text = (body.text ?? '').trim();
   const images = (body.images ?? []).slice(0, MAX_IMAGES);
 
+  /*
+   * 요청이 어떤 모양으로 왔는지 한 줄 남긴다. 사진이 커서 잘린 건지, 형식이 안 맞는 건지,
+   * 아예 함수에 안 닿은 건지를 대시보드 로그만 보고 가릴 수 있어야 한다.
+   */
+  console.log(
+    `요청: 글 ${text.length}자, 사진 ${images.length}장 [` +
+      images.map((i) => `${i.mediaType} ${Math.round((i.data?.length ?? 0) / 1024)}KB`).join(', ') +
+      `], 명단 ${(body.roster ?? []).length}명`,
+  );
+
   if (!text && images.length === 0) {
     return json({ error: '분석할 내용이 없습니다. 글을 쓰거나 사진을 올려주세요.' }, 400);
   }
