@@ -46,6 +46,7 @@ export default function AttendancePhotoScreen() {
   const clearAttendance = useStore((s) => s.clearAttendance);
   const updateMember = useStore((s) => s.updateMember);
   const addMember = useStore((s) => s.addMember);
+  const clearStoreError = useStore((s) => s.clearError);
 
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [busy, setBusy] = useState(false);
@@ -142,6 +143,9 @@ export default function AttendancePhotoScreen() {
     if (!result || !match) return;
     setBusy(true);
     setError(null);
+    setErrorDetail(null);
+    // 앞서 남은 오류가 있으면 이번 결과와 헷갈린다.
+    clearStoreError();
     try {
       /*
        * 상태별로 모아서 한 번에 보낸다. 한 명씩 부르면 아흔 명일 때 왕복이 아흔 번이고,
@@ -182,6 +186,21 @@ export default function AttendancePhotoScreen() {
         // 미투표는 "줄이 없음"이다. 새 상태를 쓰는 게 아니라 있던 줄을 지운다.
         if (status === 'pending') await clearAttendance(match.id, ids);
         else await setAttendanceMany(match.id, ids, status as AttendanceStatus);
+      }
+
+      /*
+       * 스토어는 저장이 실패해도 던지지 않는다. 화면을 먼저 바꿔 두고(낙관적 갱신)
+       * 오류는 error 에 담아만 둔다. 그래서 여기서 확인하지 않으면 **실패했는데도
+       * "저장했어요" 하고 화면이 닫힌다.** 실제로 그렇게 아흔 명이 통째로 날아갔다 —
+       * 화면에는 저장된 것처럼 보이고, 다시 들어가면 하나도 없었다.
+       */
+      const failed = useStore.getState().error;
+      if (failed) {
+        setError(explainSaveFailure(failed));
+        setErrorDetail(failed);
+        setShowDetail(false);
+        setBusy(false);
+        return;
       }
       router.back();
     } catch (caught) {
@@ -510,6 +529,29 @@ export default function AttendancePhotoScreen() {
               <Txt variant="small" color={p.danger}>
                 {error}
               </Txt>
+              {errorDetail ? (
+                <View style={{ gap: space.xs, marginTop: space.sm }}>
+                  <Row gap={space.sm}>
+                    <Button
+                      label={showDetail ? '자세히 접기' : '자세히 보기'}
+                      tone="neutral"
+                      small
+                      onPress={() => setShowDetail((was) => !was)}
+                    />
+                    <Button
+                      label="원인 복사하기"
+                      tone="neutral"
+                      small
+                      onPress={() => shareText(errorDetail, '저장 실패 원인')}
+                    />
+                  </Row>
+                  {showDetail ? (
+                    <Txt variant="tiny" color={p.danger} selectable>
+                      {errorDetail}
+                    </Txt>
+                  ) : null}
+                </View>
+              ) : null}
             </Card>
           ) : null}
 
@@ -532,6 +574,23 @@ export default function AttendancePhotoScreen() {
       )}
     </Screen>
   );
+}
+
+/**
+ * 저장이 왜 막혔는지 사람 말로 옮긴다.
+ *
+ * 제일 흔한 건 권한이다. 참석 표는 "운영진이거나 자기 자신"만 쓸 수 있어서, 내 회원 줄의
+ * 역할이 선수(player)면 남의 참석은 한 줄도 안 들어간다. 영어 원문만 보여 주면
+ * 무엇을 해야 하는지 알 수 없다.
+ */
+function explainSaveFailure(raw: string): string {
+  if (/row-level security|violates row-level|42501|permission denied/i.test(raw)) {
+    return '저장할 권한이 없어요. 남의 참석은 감독·코치·총무만 바꿀 수 있어요. 팀 운영진에게 역할을 올려 달라고 해 주세요.';
+  }
+  if (/failed to fetch|network/i.test(raw)) {
+    return '서버에 닿지 못했어요. 인터넷을 확인하고 다시 눌러 주세요.';
+  }
+  return `저장하지 못했어요. (${raw.slice(0, 120)})`;
 }
 
 function nameOf(item: ParsedItem, byId: Map<string, { name: string }>): string {

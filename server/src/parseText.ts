@@ -34,8 +34,11 @@ const MAX_ROSTER = 200;
  *
  * 이제 앱이 사진 한 장씩 따로 보낸다(src/lib/ai/client.ts 의 MAX_SLICES_PER_CALL).
  * 여기 값은 그 약속을 넘겨 받지 않도록 막는 울타리다. 두 값은 같이 움직인다.
+ *
+ * **한 사진의 조각을 갈라 받으면 안 된다.** 말머리가 없는 조각만 받은 요청은 무슨 칸인지
+ * 알 수 없어서 사람이 통째로 빠지거나 엉뚱한 칸으로 간다. 그래서 MAX_TILES 만큼 받는다.
  */
-const MAX_IMAGES = 4;
+const MAX_IMAGES = 6;
 /*
  * Anthropic 호출을 우리가 먼저 끊는 시간. Supabase 워커가 죽는 한도보다 짧아야
  * "왜 실패했는지"를 우리가 적어 보낼 수 있다. 넘기면 그냥 WORKER_RESOURCE_LIMIT 만 남는다.

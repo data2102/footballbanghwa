@@ -155,11 +155,21 @@ async function slice(uri: string, width: number, height: number): Promise<PhotoP
     tileHeight = Math.round(step / (1 - OVERLAP));
   }
 
+  /*
+   * 앞 조각이 이 조각의 시작점 아래로 얼마나 더 덮고 있는지. 겹치는 만큼이다.
+   * 남은 자투리가 이 안에 들어오면 앞 조각에 이미 다 있으니 건너뛴다.
+   */
+  const covered = tileHeight - step;
+
   const parts: PhotoPart[] = [];
   for (let top = 0; top < height; top += step) {
     const cropHeight = Math.min(tileHeight, height - top);
-    // 마지막 자투리가 한 줄도 안 되면 앞 조각에 이미 들어가 있다.
-    if (cropHeight < tileHeight * 0.2 && parts.length) break;
+    /*
+     * 전에는 "자투리가 조각 높이의 20% 미만이면 버린다"였다. 그런데 앞 조각이 덮는 건
+     * 겹침(8%)뿐이라, 그 사이 12% 가 통째로 사라졌다 — 1080폭이면 168px, 이름 한두 줄이다.
+     * 하필 카톡 투표 화면은 불참이 맨 아래에 있어서 불참만 골라 빠졌다.
+     */
+    if (parts.length && height - top <= covered) break;
 
     let piece = ImageManipulator.manipulate(uri).crop({
       originX: 0,
