@@ -189,10 +189,27 @@ export const ROSTER_SCHEMA = {
     absent: indexList('불참한'),
     late: indexList('지각·늦참으로 적힌'),
     pending: indexList('미참여(아직 투표 안 함)'),
+    /*
+     * 못 찾은 이름도 **어느 칸에 있었는지** 같이 받는다.
+     * 이름만 받으면 사람이 "이 사람이에요"로 연결해 줘도 참석인지 미투표인지 알 수 없어서
+     * 어디에 넣을지 정할 수가 없다. 실제로 그래서 연결 기능을 붙일 수 없었다.
+     */
     unmatched: {
       type: 'array',
-      items: { type: 'string' },
-      description: '화면에는 있는데 명단에서 못 찾은 이름들. 글자 그대로 넣는다.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'status'],
+        properties: {
+          name: { type: 'string', description: '화면에 적힌 그대로.' },
+          status: {
+            type: 'string',
+            enum: ['attending', 'absent', 'late', 'pending'],
+            description: '그 이름이 있던 칸.',
+          },
+        },
+      },
+      description: '화면에는 있는데 명단에서 못 찾은 이름들.',
     },
     summary: {
       type: 'string',

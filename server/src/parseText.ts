@@ -48,6 +48,8 @@ type RosterEntry = {
   id: string;
   name: string;
   nickname: string | null;
+  /** 카톡에서 쓰는 다른 이름들. 사람이 한 번 알려 준 것이라 이름보다 강한 단서다. */
+  aliases?: string[];
   backNumber: number | null;
   position: string | null;
 };
@@ -129,6 +131,30 @@ function expandRoster(parsed: Record<string, unknown>, roster: RosterEntry[]) {
         note: null,
       });
     }
+  }
+
+  /*
+   * 못 찾은 이름도 항목으로 만든다. memberId 가 비어 있을 뿐 어느 칸에 있었는지는 안다.
+   * 그래야 검토 화면에서 "참석 15명" 묶음 안에 같이 서고, 사람이 "이 사람이에요"를
+   * 골라 주면 그 칸에 그대로 들어간다. 목록 밖에 따로 두면 연결해도 넣을 데가 없다.
+   */
+  const unmatched = Array.isArray(parsed.unmatched) ? parsed.unmatched : [];
+  for (const raw of unmatched) {
+    const one = raw as { name?: unknown; status?: unknown };
+    const name = typeof one?.name === 'string' ? one.name.trim() : '';
+    if (!name) continue;
+    const status = STATUS_ORDER.includes(one?.status as (typeof STATUS_ORDER)[number])
+      ? (one.status as string)
+      : 'pending';
+    items.push({
+      kind: 'attendance',
+      memberId: null,
+      memberName: name,
+      confidence: 'low',
+      quote: STATUS_QUOTE[status],
+      status,
+      note: null,
+    });
   }
 
   // 명단에 없는 번호를 골랐다면 조용히 넘기지 않는다. 그만큼 사람이 빠진 것이다.
@@ -277,9 +303,17 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
     compact
       ? roster
           .map((one, at) => {
-            const extra = [one.nickname, one.backNumber ? `${one.backNumber}번` : null]
+            /*
+             * 별명을 같이 적는다. 카톡 이름("화이팅", "Bong")은 실제 이름과 글자가 안 겹쳐서
+             * 이게 없으면 영영 못 맞힌다. 사람이 한 번 알려 준 값이라 이름만큼 믿을 만하다.
+             */
+            const extra = [
+              one.nickname,
+              ...(one.aliases ?? []),
+              one.backNumber ? `${one.backNumber}번` : null,
+            ]
               .filter(Boolean)
-              .join(' ');
+              .join(', ');
             return extra ? `${at} ${one.name} (${extra})` : `${at} ${one.name}`;
           })
           .join('\n')
@@ -364,7 +398,13 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
       intent: compact ? 'attendance' : (parsed.intent ?? 'unknown'),
       formation: parsed.formation ?? null,
       items,
-      unmatched: parsed.unmatched ?? [],
+      /*
+       * 앱에는 이름만 준다. 칸 정보는 위에서 항목으로 펼쳐 넣었고,
+       * 여기는 "명단에서 못 찾은 이름" 목록을 보여 주는 자리다(앱 타입 그대로).
+       */
+      unmatched: (parsed.unmatched ?? []).map((one) =>
+        typeof one === 'string' ? one : String((one as { name?: unknown })?.name ?? ''),
+      ).filter(Boolean),
       summary: parsed.summary ?? '',
       usage: {
         inputTokens: response.usage.input_tokens,

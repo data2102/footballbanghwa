@@ -200,6 +200,7 @@ export class SupabaseRepo implements Repo {
         team_id: this.assertLoaded(),
         name: member.name,
         nickname: member.nickname,
+        aliases: member.aliases,
         role: member.role,
         back_number: member.backNumber,
         // 단수 칸은 옛 앱을 위해 첫 자리를 그대로 채워 둔다.
@@ -438,6 +439,7 @@ const fromMemberRow = (row: Row): Member => ({
   teamId: row.team_id,
   name: row.name,
   nickname: row.nickname,
+  aliases: row.aliases ?? [],
   role: row.role,
   backNumber: row.back_number,
   // 예전 행에는 배열이 없고 단수 칸만 있다. 있으면 그걸 첫 칸으로 본다.

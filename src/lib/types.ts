@@ -18,6 +18,14 @@ export type Member = {
   name: string;
   /** 팀 내 별명. "철수형", "막내" 같이 문자로 들어오는 호칭을 매칭할 때 쓴다. */
   nickname: string | null;
+  /**
+   * 카톡 등에서 이 사람을 가리키는 다른 이름들. 예: ['화이팅', 'Bong', '윤석훈-SHY'].
+   *
+   * 투표 화면 사진을 읽을 때 카톡 별명은 실제 이름과 글자가 안 겹쳐서 영영 못 맞힌다.
+   * 사람이 한 번 "이 사람이에요"를 고르면 여기 담고, 다음부터는 명단과 같이 보낸다.
+   * nickname 은 한 칸이라 하나밖에 못 담아서 따로 둔다.
+   */
+  aliases: string[];
   role: MemberRole;
   backNumber: number | null;
   /**

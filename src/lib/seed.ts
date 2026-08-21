@@ -49,7 +49,7 @@ const ANNUAL_DUE = 200000;
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 9;
+export const SEED_VERSION = 10;
 
 /**
  * 포지션과 장점은 엑셀에 없다. 총무가 센 건 미투표뿐이다.
@@ -107,6 +107,7 @@ export function buildSeed(): AppData {
       teamId: TEAM_ID,
       name: entry.name,
       nickname: null,
+      aliases: [],
       role: index === 0 ? 'manager' : index === 1 ? 'coach' : index === 2 ? 'treasurer' : 'player',
       // 엑셀 전체명단의 번호를 그대로 등번호로 쓴다. 동명이인을 가르는 건 이것뿐이다.
       backNumber: index + 1,

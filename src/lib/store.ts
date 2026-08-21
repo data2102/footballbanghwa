@@ -504,6 +504,7 @@ export const DEFAULT_QUARTERS = 4;
 export function blankMemberFields(): Omit<Member, 'id' | 'teamId' | 'name'> {
   return {
     nickname: null,
+    aliases: [],
     role: 'player',
     backNumber: null,
     positions: [],

@@ -23,7 +23,8 @@ export type IconName =
   | 'search'
   | 'trash'
   | 'menu'
-  | 'book';
+  | 'book'
+  | 'edit';
 
 type Props = { name: IconName; size?: number; color: string };
 
@@ -168,6 +169,14 @@ export function Icon({ name, size = 22, color }: Props) {
       return (
         <Svg {...common}>
           <Path d="M4 7h16M9.5 7V4.8h5V7M6.5 7l.8 12.2h9.4L17.5 7" />
+        </Svg>
+      );
+    case 'edit':
+      return (
+        <Svg {...common}>
+          {/* 연필. 고칠 수 있는 자리에만 쓴다 — 이름, 메모처럼 눌러서 바꾸는 것. */}
+          <Path d="M4 20h4l10-10a2.5 2.5 0 0 0-3.5-3.5L4.5 16.5 4 20Z" />
+          <Path d="M13.5 7 17 10.5" />
         </Svg>
       );
   }

@@ -10,6 +10,7 @@ import {
 } from '@/lib/selectors';
 import { formatDate, formatPeriod, thisPeriod, todayISO, won } from '@/lib/format';
 import { pickPhoto } from '@/lib/photo';
+import { Icon } from '@/components/icons';
 import {
   Avatar,
   Button,
@@ -45,6 +46,15 @@ export default function MemberDetailScreen() {
 
   const data = useStore((state) => state.data);
   const updateMember = useStore((state) => state.updateMember);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+
+  async function saveName() {
+    const cleaned = nameDraft.trim();
+    if (!cleaned || !member) return;
+    await updateMember({ ...member, name: cleaned });
+    setEditingName(false);
+  }
   const addLedger = useStore((state) => state.addLedger);
   const setMemberPhoto = useStore((state) => state.setMemberPhoto);
 
@@ -108,7 +118,48 @@ export default function MemberDetailScreen() {
               )}
             </Pressable>
             <View style={{ flex: 1, gap: space.xs }}>
-              <Txt variant="h2">{member.name}</Txt>
+              {/*
+                이름을 고칠 수 있어야 한다. 동명이인이 실제로 있어서 "김영호(40대후반)" 처럼
+                구분해 적어야 하는데, 명단을 옮겨 넣은 뒤에는 고칠 데가 없었다.
+              */}
+              {editingName ? (
+                <Row gap={space.sm}>
+                  <TextInput
+                    value={nameDraft}
+                    onChangeText={setNameDraft}
+                    autoFocus
+                    selectTextOnFocus
+                    onSubmitEditing={saveName}
+                    placeholder="김영호(40대후반)"
+                    placeholderTextColor={p.textFaint}
+                    style={{
+                      flex: 1,
+                      backgroundColor: p.surfaceAlt,
+                      borderRadius: radius.sm,
+                      paddingHorizontal: space.md,
+                      paddingVertical: space.sm,
+                      color: p.text,
+                      fontSize: 20,
+                      fontWeight: '700',
+                    }}
+                  />
+                  <Button label="저장" small disabled={!nameDraft.trim()} onPress={saveName} />
+                </Row>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    setNameDraft(member.name);
+                    setEditingName(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="이름 고치기"
+                >
+                  <Row gap={space.xs}>
+                    <Txt variant="h2">{member.name}</Txt>
+                    <Icon name="edit" size={16} color={p.textFaint} />
+                  </Row>
+                </Pressable>
+              )}
               <Txt variant="tiny" muted>
                 {member.positions.length ? member.positions.join('·') : '포지션 미정'}
                 {member.backNumber != null ? ` · ${member.backNumber}번` : ''}
@@ -167,6 +218,32 @@ export default function MemberDetailScreen() {
             </View>
           ) : null}
         </Card>
+
+        {/* ------------------------------------------------ 카톡 이름 */}
+        {member.aliases.length ? (
+          <>
+            <SectionHeader title="카톡에서 쓰는 이름" />
+            <Card>
+              <Txt variant="small" muted>
+                투표 사진에서 이 이름이 보이면 이 사람으로 읽어요. 잘못 이어졌으면 눌러서 빼세요.
+              </Txt>
+              <Row wrap gap={space.sm}>
+                {member.aliases.map((alias) => (
+                  <Chip
+                    key={alias}
+                    label={`${alias} ×`}
+                    onPress={() =>
+                      updateMember({
+                        ...member,
+                        aliases: member.aliases.filter((one) => one !== alias),
+                      })
+                    }
+                  />
+                ))}
+              </Row>
+            </Card>
+          </>
+        ) : null}
 
         {/* ---------------------------------------------------- 장점 */}
         <SectionHeader title="장점" />

@@ -20,6 +20,7 @@ export function toRoster(members: Member[]): RosterEntry[] {
       id: member.id,
       name: member.name,
       nickname: member.nickname,
+      aliases: member.aliases,
       backNumber: member.backNumber,
       // AI 에는 대표 포지션 하나만 넘긴다. 명단이 길어지면 토큰이 그만큼 늘어난다.
       position: member.positions[0] ?? null,

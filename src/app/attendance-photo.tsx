@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useStore } from '@/lib/store';
+import { blankMemberFields, useStore } from '@/lib/store';
 import { parseText, type ParseProgress } from '@/lib/ai/client';
 import { wakeAiServer } from '@/lib/ai/aiFetch';
 import { BUILD_ID, detailOf } from '@/lib/ai/invokeError';
@@ -44,6 +44,8 @@ export default function AttendancePhotoScreen() {
   const activeMatchId = useStore((s) => s.activeMatchId);
   const setAttendanceMany = useStore((s) => s.setAttendanceMany);
   const clearAttendance = useStore((s) => s.clearAttendance);
+  const updateMember = useStore((s) => s.updateMember);
+  const addMember = useStore((s) => s.addMember);
 
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [busy, setBusy] = useState(false);
@@ -53,6 +55,17 @@ export default function AttendancePhotoScreen() {
   const [showDetail, setShowDetail] = useState(false);
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [checked, setChecked] = useState<Set<number>>(new Set());
+  /**
+   * 못 찾은 이름을 사람이 이어 준 결과. 줄 번호 -> 회원 id.
+   *
+   * 이어 주면 그 카톡 이름을 회원의 별명으로 같이 저장한다. 그래야 다음 주에 안 묻는다 —
+   * "화이팅" 같은 이름은 실제 이름과 글자가 안 겹쳐서 AI 가 영영 못 맞힌다.
+   */
+  const [links, setLinks] = useState<Record<number, string>>({});
+  /** 새 회원으로 만들 줄들. */
+  const [asNew, setAsNew] = useState<Set<number>>(new Set());
+  /** 지금 명단을 펼쳐 놓은 줄. */
+  const [pickerAt, setPickerAt] = useState<number | null>(null);
 
   useEffect(() => {
     /*
@@ -135,12 +148,35 @@ export default function AttendancePhotoScreen() {
        * 중간에 하나가 실패하면 어디까지 저장됐는지 알 수 없다.
        */
       const buckets = new Map<string, string[]>();
-      result.items.forEach((item, at) => {
-        if (!checked.has(at) || item.kind !== 'attendance' || !item.memberId) return;
+      for (const [at, item] of result.items.entries()) {
+        if (!checked.has(at) || item.kind !== 'attendance') continue;
+
+        // links 는 인덱스 접근이라 없는 줄이면 undefined 다. null 로 맞춰 둔다.
+        let memberId: string | null = item.memberId ?? links[at] ?? null;
+
+        // 사람이 "이 사람이에요"로 이어 준 이름은 그 회원의 별명으로 남긴다.
+        if (!item.memberId && links[at]) {
+          const member = byId.get(links[at]);
+          const alias = item.memberName.trim();
+          if (member && alias && !member.aliases.includes(alias)) {
+            await updateMember({ ...member, aliases: [...member.aliases, alias] });
+          }
+        }
+
+        // 명단에 없던 사람은 새로 만든다. 만든 회원에게 바로 참석이 붙는다.
+        if (!memberId && asNew.has(at)) {
+          const created = await addMember({
+            name: item.memberName.trim(),
+            ...blankMemberFields(),
+          });
+          memberId = created?.id ?? null;
+        }
+
+        if (!memberId) continue;
         const list = buckets.get(item.status) ?? [];
-        list.push(item.memberId);
+        list.push(memberId);
         buckets.set(item.status, list);
-      });
+      }
 
       for (const [status, ids] of buckets) {
         // 미투표는 "줄이 없음"이다. 새 상태를 쓰는 게 아니라 있던 줄을 지운다.
@@ -352,7 +388,8 @@ export default function AttendancePhotoScreen() {
                           const next = new Set(prev);
                           for (const { at, item } of group.rows) {
                             if (all) next.delete(at);
-                            else if (item.kind === 'attendance' && item.memberId) next.add(at);
+                            else if (item.kind === 'attendance' && (item.memberId || links[at] || asNew.has(at)))
+                              next.add(at);
                           }
                           return next;
                         })
@@ -384,14 +421,83 @@ export default function AttendancePhotoScreen() {
                           >
                             <Checkbox checked={checked.has(at)} onToggle={() => {}} />
                           </View>
-                          <Txt variant="body" style={{ flex: 1 }}>
-                            {nameOf(item, byId)}
-                          </Txt>
-                          {item.kind === 'attendance' && !item.memberId ? (
-                            <Chip label="명단에 없음" tone={{ fg: p.danger, bg: p.dangerSoft }} />
-                          ) : null}
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <Txt variant="body">{nameOf(item, byId)}</Txt>
+                            {!item.memberId && links[at] ? (
+                              <Txt variant="tiny" muted>
+                                {`${byId.get(links[at])?.name ?? ''} 로 넣고, 이 이름을 별명으로 기억해요`}
+                              </Txt>
+                            ) : !item.memberId && asNew.has(at) ? (
+                              <Txt variant="tiny" muted>
+                                새 회원으로 만들어서 넣어요
+                              </Txt>
+                            ) : null}
+                          </View>
                         </Row>
                       </Pressable>
+
+                      {/*
+                        명단에서 못 찾은 이름은 여기서 끝내야 한다. 회색 칩으로 보여 주기만 하면
+                        그 사람은 매주 조용히 빠진다. 한 번 이어 주면 별명으로 남아 다음부터 안 묻는다.
+                      */}
+                      {item.kind === 'attendance' && !item.memberId ? (
+                        <View style={{ paddingHorizontal: space.sm, paddingBottom: space.sm, gap: space.xs }}>
+                          <Row wrap gap={space.sm}>
+                            <Chip
+                              label={links[at] ? '다시 고르기' : '명단에서 고르기'}
+                              tone={links[at] ? undefined : { fg: p.warn, bg: p.warnSoft }}
+                              onPress={() => setPickerAt(pickerAt === at ? null : at)}
+                            />
+                            <Chip
+                              label={asNew.has(at) ? '새 회원 취소' : '새 회원으로 추가'}
+                              tone={asNew.has(at) ? undefined : { fg: p.warn, bg: p.warnSoft }}
+                              onPress={() => {
+                                setAsNew((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(at)) next.delete(at);
+                                  else next.add(at);
+                                  return next;
+                                });
+                                setLinks((prev) => {
+                                  const next = { ...prev };
+                                  delete next[at];
+                                  return next;
+                                });
+                                setPickerAt(null);
+                              }}
+                            />
+                          </Row>
+                          {pickerAt === at ? (
+                            <ScrollView
+                              horizontal
+                              showsHorizontalScrollIndicator={false}
+                              contentContainerStyle={{ gap: space.sm, paddingVertical: space.xs }}
+                            >
+                              {members.map((member) => (
+                                <Chip
+                                  key={member.id}
+                                  label={member.name}
+                                  tone={
+                                    links[at] === member.id
+                                      ? { fg: p.primaryStrong, bg: p.primarySoft }
+                                      : undefined
+                                  }
+                                  onPress={() => {
+                                    setLinks((prev) => ({ ...prev, [at]: member.id }));
+                                    setAsNew((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(at);
+                                      return next;
+                                    });
+                                    setChecked((prev) => new Set(prev).add(at));
+                                    setPickerAt(null);
+                                  }}
+                                />
+                              ))}
+                            </ScrollView>
+                          ) : null}
+                        </View>
+                      ) : null}
                     </View>
                   ))}
                 </Card>

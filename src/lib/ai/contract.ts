@@ -25,6 +25,8 @@ export type RosterEntry = {
   id: string;
   name: string;
   nickname: string | null;
+  /** 카톡에서 쓰는 다른 이름들. 사람이 한 번 알려 준 것이라 이름보다 강한 단서다. */
+  aliases: string[];
   backNumber: number | null;
   position: PositionGroup | null;
 };
