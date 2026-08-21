@@ -177,7 +177,7 @@ export default function AttendanceScreen() {
                       const photo = await pickPhoto('library');
                       if (!photo) return;
                       handOffPhotos([photo]);
-                      router.push('/quick-input?hint=attendance');
+                      router.push('/attendance-photo');
                     } finally {
                       setPicking(false);
                     }
