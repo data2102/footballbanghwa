@@ -28,7 +28,7 @@ import {
 } from '@/components/ui';
 import { MatchPicker } from '@/components/MatchPicker';
 import { usePalette } from '@/theme';
-import type { LineupSide, LineupSlot } from '@/lib/types';
+import type { LineupSide, LineupSlot, PositionGroup } from '@/lib/types';
 
 /**
  * 출전.
@@ -66,6 +66,9 @@ function optionsFor(size: number) {
 }
 
 const SIDES: LineupSide[] = ['A', 'B'];
+
+/** 같은 횟수끼리는 이 차례로 묶는다. 골키퍼부터 앞으로 — 화이트보드에 적는 차례와 같다. */
+const GROUP_ORDER: PositionGroup[] = ['GK', 'DF', 'MF', 'FW'];
 
 export default function LineupScreen() {
   const p = usePalette();
@@ -192,9 +195,17 @@ export default function LineupScreen() {
         spot: spotOf.get(member.id) ?? null,
         band: member.ageBand ? `${member.ageBand}대` : '연령대 모름',
         positions: member.positions.length ? member.positions.join('·') : '포지션 미정',
+        group: (member.positions[0] ?? 'MF') as PositionGroup,
       };
     })
-    .sort((a, b) => a.count - b.count || a.member.name.localeCompare(b.member.name, 'ko'));
+    // 덜 뛴 순이 먼저다. 같은 횟수 안에서는 포지션끼리 붙여 놓는다 —
+    // 다음에 넣을 사람을 고를 때 "이 자리에 넣을 사람"을 한 덩어리로 보게 된다.
+    .sort(
+      (a, b) =>
+        a.count - b.count ||
+        GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) ||
+        a.member.name.localeCompare(b.member.name, 'ko'),
+    );
 
   /** 지금 채우는 팀의 자리들만 바꾼다. */
   function updateSlots(which: LineupSide, next: (prev: LineupSlot[]) => LineupSlot[]) {
@@ -493,7 +504,7 @@ export default function LineupScreen() {
           <SectionHeader title={`출전 명단 (${roster.length}명)`} />
           <Txt variant="tiny" color={notice ? p.warn : undefined} muted={!notice}>
             {notice ??
-              '덜 뛴 순이에요. 자리를 먼저 누르면 그 자리에, 안 누르면 볼 수 있는 빈 자리에 들어가요.'}
+              '덜 뛴 순이에요. 같은 횟수는 포지션끼리 묶었어요. 자리를 먼저 누르면 그 자리에 들어가요.'}
           </Txt>
           <Card style={{ padding: space.sm, gap: 0 }}>
             {roster.length === 0 ? (
