@@ -1,0 +1,43 @@
+# AI 프록시가 빌드되는지 push 마다 확인한다.
+#
+# Render 는 배포할 때 비로소 빌드한다. 거기서 깨지면 서비스가 내려간 뒤에야 알게 되고,
+# 그때는 일요일 아침일 수도 있다. 여기서 먼저 걸러 낸다.
+name: AI 서버 검사
+
+on:
+  push:
+    branches: [claude/early-soccer-team-app-2uexcc, main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/check-server.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: 켜지는지 본다
+        run: |
+          # 키 없이도 떠야 한다. 떠서 "무엇이 없다"고 말하는 게 맞는 동작이다.
+          node dist/index.mjs &
+          pid=$!
+          sleep 2
+          code=$(curl -s -o /tmp/health.json -w "%{http_code}" http://127.0.0.1:10000/health)
+          kill $pid
+          echo "health: $code $(cat /tmp/health.json)"
+          [ "$code" = "200" ] || { echo "::error::서버가 안 떴어요."; exit 1; }

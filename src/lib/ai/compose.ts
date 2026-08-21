@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { explainInvokeError } from '@/lib/ai/invokeError';
+import { callAi } from '@/lib/ai/aiFetch';
 import { formatDate, formatPeriod, won } from '@/lib/format';
 
 /**
@@ -97,13 +98,13 @@ export async function composeMessage(options: ComposeOptions): Promise<string> {
     return template(options);
   }
 
-  const { data, error } = await supabase.functions.invoke<{ message?: string; error?: string }>(
-    'compose-message',
-    { body: options },
-  );
-
-  if (error) throw new Error(await explainInvokeError(error, '문구를 만들지 못했어요.'));
-  if (data?.error) throw new Error(data.error);
-  if (!data?.message) throw new Error('문구가 비어 있어요.');
-  return data.message;
+  try {
+    const data = await callAi<{ message?: string; error?: string }>('compose-message', options);
+    if (data?.error) throw new Error(data.error);
+    if (!data?.message) throw new Error('문구가 비어 있어요.');
+    return data.message;
+  } catch (error) {
+    if (error instanceof Error && !(error as { context?: unknown }).context) throw error;
+    throw new Error(await explainInvokeError(error, '문구를 만들지 못했어요.'));
+  }
 }

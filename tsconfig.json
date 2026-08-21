@@ -12,7 +12,8 @@
     }
   },
   "exclude": [
-    "supabase/functions"
+    "supabase/functions",
+    "server"
   ],
   "include": [
     "**/*.ts",

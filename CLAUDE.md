@@ -38,13 +38,14 @@
 
 ```bash
 npm run web        # 모바일 웹 개발 서버 (가장 자주 쓴다)
+cd server && npm run dev   # AI 프록시를 손에서 띄운다
 npm run db:test    # 로컬 Supabase 에 RLS 테스트 (npx supabase start 필요)
 npm start          # Expo 개발 서버, QR 찍어 Expo Go 로 실기기 확인
 npm run start:tunnel  # 폰과 맥이 다른 네트워크일 때
 npm run typecheck  # tsc --noEmit
 npm run build:web  # 정적 웹 번들 (dist/)
 npm run db:push    # supabase db push (스키마만 올린다. 데이터는 import:roster 로)
-npm run fn:deploy  # Edge Function 3개 배포
+npm run fn:deploy  # Edge Function 배포 (이제 send-reminders 하나)
 npm run import:roster -- <엑셀>  # 총무 엑셀 -> Supabase 적재 SQL (실명, 커밋 금지)
 ```
 
@@ -263,7 +264,10 @@ grant execute on function public.어떤함수(인자) to service_role;
 화면에는 똑같은 오류만 뜬다. 무엇이 문제인지 보이지 않아서 몇 번을 왕복했다.
 
 - **웹 화면** — `.github/workflows/deploy-web.yml`. push 하면 GitHub Pages 로.
-- **AI 함수** — `.github/workflows/deploy-functions.yml`. `supabase/functions/` 아래가
+- **AI 서버** — Render 가 이 저장소를 보고 있다. `server/` 가 바뀐 커밋을 push 하면
+  알아서 다시 올라간다(`render.yaml`). push 전에 `.github/workflows/check-server.yml`
+  이 빌드와 기동을 먼저 확인한다 — Render 에서 깨지면 서비스가 내려간 뒤에 알게 된다.
+- **알림 함수** — `.github/workflows/deploy-functions.yml`. `supabase/functions/` 아래가
   바뀐 커밋에서만 돈다. `SUPABASE_ACCESS_TOKEN` 시크릿 하나가 필요하고, 프로젝트 ref 는
   `EXPO_PUBLIC_SUPABASE_URL` 에서 뽑는다.
 
@@ -276,26 +280,41 @@ grant execute on function public.어떤함수(인자) to service_role;
 **스키마(`db push`)와 데이터 적재는 여전히 손으로 한다.** 되돌리기가 어려운 일이라
 push 한 번에 도는 자리에 두지 않는다.
 
-### AI 프록시를 Render 로 옮기는 건 나중에 다시 본다
+### AI 프록시는 Render 에 있다 (2026-08-21 옮김)
 
-지금은 Supabase Edge Function 이 Anthropic 앞을 막고 있다. Render 같은 곳으로 옮기자는
-얘기가 나왔고, 되긴 한다 — 하지만 지금 옮길 이유는 없다고 판단했다. 배포 자동화는
-Actions 로 이미 얻었고, 옮기면 잃는 게 있다:
+`parse-text` 와 `compose-message` 는 이제 **`server/`** 의 Node 서버다. Supabase Edge
+Function 이 아니다. Anthropic 키는 여기에만 있다.
 
-- Edge Function 은 **로그인한 팀원인지 검사를 공짜로 해 준다.** 다른 데 올리면 그걸
-  직접 만들어야 하고, 안 만들면 주소만 아는 사람이 우리 Anthropic 키로 요청을 날린다.
-- 함수 세 개를 Deno 에서 다시 써야 하고 CORS 도 새로 짜야 한다.
+**옮긴 이유는 실행 시간 한도 하나다.** Edge Function 은 150초에서 끊긴다. 아흔 명
+명단을 읽는 요청이 그 벽에 붙어서, 요청을 사진 한 장씩으로 나누고 출력을 25분의 1로
+줄여도 `WORKER_RESOURCE_LIMIT` 으로 계속 죽었다. Render 에는 그 벽이 없다.
 
-**옮길 만해지는 신호**는 이런 것들이다. 하나라도 걸리면 그때 다시 계산한다.
-- Edge Function 실행 한도(무료 월 50만 회)나 실행 시간에 걸린다
-- 사진을 여러 장 보내는 요청이 Deno 런타임 제한에 자꾸 걸린다
+- **`send-reminders` 는 안 옮겼다.** AI 를 안 쓰고 service_role 로 DB 만 만진다.
+  그 키를 Render 까지 퍼뜨릴 이유가 없다. 그건 계속 `npm run fn:deploy` 자리에 있다.
+- **인증은 우리 몫이 됐다.** Edge Function 이 공짜로 해 주던 것이라, `server/src/auth.ts`
+  가 토큰을 Supabase 에 물어본다. **이게 없으면 주소만 아는 사람이 우리 키를 쓴다.**
+  `SUPABASE_URL`/`SUPABASE_ANON_KEY` 가 없으면 서버는 모든 요청을 막는다 — 열어 두지 않는다.
+- **읽는 규칙(`prompt.ts`)과 스키마(`schema.ts`)는 `server/src/` 로 같이 옮겼다.**
+  한 벌만 둔다. 두 곳에 두면 반드시 어긋난다.
+- **무료 플랜은 15분 놀면 잠들고 깨는 데 30~60초다.** 그래서 입력 화면을 열 때
+  `wakeAiServer()` 가 `/health` 를 한 번 찌른다. 사진 고르는 동안 일어난다.
+  이걸 지우면 일요일 아침 첫 사용자가 1분을 기다린다.
+- CORS 도 우리가 짠다(`ALLOWED_ORIGIN`). 배포 주소가 바뀌면 Render 환경변수도 같이 바꾼다.
 
-두 번째 신호는 2026-08-20 에 한 번 걸렸다(`WORKER_RESOURCE_LIMIT`). 옮기지 않고
-요청을 사진 한 장씩으로 나눠서 풀었다 — 위 "사진은 한 장씩 따로 보낸다" 참고.
-**나눴는데도 또 걸리면** 그때는 옮기는 쪽을 진지하게 본다.
-- 함수에서 npm 패키지를 무겁게 쓰게 된다
+**필요한 값**
 
-옮기게 되면 인증부터 설계한다 — Supabase JWT 를 프록시에서 검증하는 게 최소 조건이다.
+| 어디 | 이름 | 무엇 |
+|---|---|---|
+| Render | `ANTHROPIC_API_KEY` | 쓰던 것 그대로 |
+| Render | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | 로그인 확인용 |
+| Render | `ALLOWED_ORIGIN` | `https://data2102.github.io` |
+| GitHub Secrets | `EXPO_PUBLIC_AI_URL` | Render 가 준 주소 |
+
+`EXPO_PUBLIC_AI_URL` 이 없으면 앱이 무엇을 해야 하는지 화면에 말한다. 조용히 안 되지 않는다.
+
+**다시 옮길 만해지는 신호** — 무료 플랜의 잠들기가 실제로 거슬리거나(유료 $7),
+Anthropic 쪽 속도 제한에 걸리거나, 서버가 DB 를 만져야 해질 때. 마지막 것은
+설계를 다시 본다 — AI 프록시에 service_role 키를 두지 않는다는 선이 있다.
 
 ## 자주 걸리는 것
 

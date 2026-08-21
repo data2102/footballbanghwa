@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { callAi } from '@/lib/ai/aiFetch';
 import { describeInvokeError, failureToError } from '@/lib/ai/invokeError';
 import { todayISO } from '@/lib/format';
 import type { Member, Team } from '@/lib/types';
@@ -145,15 +146,16 @@ function mergeResponses(parts: ParseResponse[]): ParseResponse {
 }
 
 async function invokeParse(request: ParseRequest): Promise<ParseResponse> {
-  const { data, error } = await supabase!.functions.invoke<ParseResponse & { error?: string }>(
-    'parse-text',
-    { body: request },
-  );
-
-  if (error) throw failureToError(await describeInvokeError(error, 'AI 분석 요청에 실패했어요.'));
-  if (!data) throw new Error('AI 응답이 비어 있습니다.');
-  if (data.error) throw new Error(data.error);
-  return data;
+  try {
+    const data = await callAi<ParseResponse & { error?: string }>('parse-text', request);
+    if (!data) throw new Error('AI 응답이 비어 있습니다.');
+    if (data.error) throw new Error(data.error);
+    return data;
+  } catch (error) {
+    // 이미 우리말로 적어 둔 오류는 그대로 올린다. 서버가 답한 것만 풀어서 본다.
+    if (error instanceof Error && !(error as { context?: unknown }).context) throw error;
+    throw failureToError(await describeInvokeError(error, 'AI 분석 요청에 실패했어요.'));
+  }
 }
 
 /**

@@ -4,13 +4,13 @@
  * 회비 독촉은 말투 하나로 팀 분위기가 갈린다. 총무가 매달 문장을 새로 고민하지 않게,
  * 금액과 이름만 넘기면 문구가 나오게 했다. 나온 문구는 화면에서 고칠 수 있다.
  *
- * 배포: supabase functions deploy compose-message
+ * 전에는 Supabase Edge Function 이었다. parse-text 와 같이 옮겨 왔다.
  */
-import Anthropic from 'npm:@anthropic-ai/sdk@0.117.1';
-import { corsHeaders, json } from '../_shared/cors.ts';
-import { COMPOSE_SYSTEM_PROMPT } from '../_shared/prompt.ts';
+import Anthropic from '@anthropic-ai/sdk';
+import { COMPOSE_SYSTEM_PROMPT } from './prompt.ts';
+import { json, type Reply } from './reply.ts';
 
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-opus-5';
+const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-opus-5';
 const MAX_NAMES = 60;
 
 type ComposeRequest = {
@@ -35,19 +35,9 @@ type ComposeRequest = {
   draft?: string;
 };
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return json({ error: 'POST만 지원합니다.' }, 405);
-
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY 시크릿이 설정되지 않았습니다.' }, 500);
-
-  let body: ComposeRequest;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: '요청 본문이 JSON이 아닙니다.' }, 400);
-  }
+export async function handleComposeMessage(body: ComposeRequest): Promise<Reply> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return json({ error: '서버에 ANTHROPIC_API_KEY 가 없습니다.' }, 500);
 
   const kind = body.kind ?? 'dues_reminder';
   const teamName = body.teamName ?? '우리 팀';
@@ -139,4 +129,4 @@ Deno.serve(async (req) => {
     if (status && status >= 500) return json({ error: 'AI 서비스가 응답하지 않습니다.' }, 502);
     return json({ error: `문구를 만들지 못했습니다: ${message}` }, 500);
   }
-});
+}

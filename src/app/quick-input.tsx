@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { blankMemberFields, useStore } from '@/lib/store';
 import { parseText, type ParseProgress } from '@/lib/ai/client';
 import { BUILD_ID, detailOf } from '@/lib/ai/invokeError';
+import { wakeAiServer } from '@/lib/ai/aiFetch';
 import { shareText } from '@/lib/share';
 import { isLocalRepo } from '@/lib/repo';
 import { pickPhoto, type PickedPhoto } from '@/lib/photo';
@@ -112,6 +113,12 @@ export default function QuickInputScreen() {
   useEffect(() => {
     const handed = takeHandedPhotos();
     if (handed) setPhotos(handed);
+    /*
+     * AI 서버는 무료 플랜이라 15분 놀면 잠든다. 깨는 데 30~60초라, 사진을 고르고
+     * 분석을 누른 다음에 깨우기 시작하면 그 시간을 사람이 다 기다린다.
+     * 화면을 여는 순간 미리 찔러 두면 고르는 동안 일어난다.
+     */
+    wakeAiServer();
   }, []);
 
   if (!data) return null;

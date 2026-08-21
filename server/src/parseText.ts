@@ -1,14 +1,16 @@
 /**
  * parse-text — 자유 한국어 텍스트를 구조화된 팀 운영 데이터로 바꾸는 Claude 프록시.
  *
- * ANTHROPIC_API_KEY 는 이 함수 안에서만 쓰이고 클라이언트로 나가지 않는다.
- * 배포:  supabase functions deploy parse-text
- * 시크릿: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+ * ANTHROPIC_API_KEY 는 이 서버 안에서만 쓰이고 브라우저로 나가지 않는다.
+ *
+ * 전에는 Supabase Edge Function 이었다. 옮긴 이유는 실행 시간 한도(150초) 하나다 —
+ * 아흔 명 명단을 읽는 요청이 그 벽에 붙어서, 나누고 줄여도 계속 WORKER_RESOURCE_LIMIT
+ * 으로 죽었다. 읽는 규칙과 스키마는 그대로 옮겼고, HTTP 껍데기만 바뀌었다.
  */
-import Anthropic from 'npm:@anthropic-ai/sdk@0.117.1';
-import { corsHeaders, json } from '../_shared/cors.ts';
-import { NONE, PARSE_SCHEMA, ROSTER_SCHEMA } from '../_shared/schema.ts';
-import { ROSTER_PROMPT, SYSTEM_PROMPT } from '../_shared/prompt.ts';
+import Anthropic from '@anthropic-ai/sdk';
+import { NONE, PARSE_SCHEMA, ROSTER_SCHEMA } from './schema.ts';
+import { ROSTER_PROMPT, SYSTEM_PROMPT } from './prompt.ts';
+import { json, type Reply } from './reply.ts';
 
 /*
  * 기본을 Sonnet 으로 둔다.
@@ -21,7 +23,7 @@ import { ROSTER_PROMPT, SYSTEM_PROMPT } from '../_shared/prompt.ts';
  *   ANTHROPIC_MODEL=claude-opus-5
  * 어느 모델이 읽었는지는 아래 로그 줄에 남는다.
  */
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-sonnet-5';
+const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5';
 const MAX_TEXT_LENGTH = 8000;
 const MAX_ROSTER = 200;
 /*
@@ -62,7 +64,11 @@ type ParseRequest = {
   quarter?: number;
 };
 
-const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_MEDIA = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
+type AllowedMedia = (typeof ALLOWED_MEDIA)[number];
+
+const isAllowedMedia = (value: string): value is AllowedMedia =>
+  (ALLOWED_MEDIA as readonly string[]).includes(value);
 
 /*
  * 스키마에는 union 이 하나도 없다(그래야 Claude 가 받아 준다). 대신 "없음"을
@@ -193,19 +199,9 @@ function normalizeItem(raw: Record<string, unknown>) {
   }
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return json({ error: 'POST만 지원합니다.' }, 405);
-
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY 시크릿이 설정되지 않았습니다.' }, 500);
-
-  let body: ParseRequest;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: '요청 본문이 JSON이 아닙니다.' }, 400);
-  }
+export async function handleParseText(body: ParseRequest): Promise<Reply> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return json({ error: '서버에 ANTHROPIC_API_KEY 가 없습니다.' }, 500);
 
   const text = (body.text ?? '').trim();
   const images = (body.images ?? []).slice(0, MAX_IMAGES);
@@ -230,14 +226,20 @@ Deno.serve(async (req) => {
   if (text.length > MAX_TEXT_LENGTH) {
     return json({ error: `글이 너무 깁니다. ${MAX_TEXT_LENGTH}자 이하로 나눠서 보내주세요.` }, 400);
   }
+  /*
+   * 확인과 좁히기를 한 번에 한다. 확인만 하고 원래 배열을 그대로 쓰면 형식이 string 이라
+   * SDK 가 안 받는다 — Deno 에서는 타입 검사를 안 돌려서 이게 안 보였다.
+   */
+  const checked: { mediaType: AllowedMedia; data: string }[] = [];
   for (const image of images) {
-    if (!ALLOWED_MEDIA.includes(image.mediaType)) {
+    if (!isAllowedMedia(image.mediaType)) {
       return json({ error: `지원하지 않는 이미지 형식입니다: ${image.mediaType}` }, 400);
     }
     // base64 4글자가 원본 3바이트다.
     if ((image.data?.length ?? 0) * 0.75 > MAX_IMAGE_BYTES) {
       return json({ error: '사진 용량이 너무 큽니다. 앱에서 줄여서 다시 보내주세요.' }, 400);
     }
+    checked.push({ mediaType: image.mediaType, data: image.data });
   }
 
   const roster = (body.roster ?? []).slice(0, MAX_ROSTER);
@@ -290,7 +292,7 @@ Deno.serve(async (req) => {
 
   // 이미지를 글보다 앞에 두면 모델이 사진을 먼저 훑고 지시를 읽는다.
   const userContent = [
-    ...images.map((image) => ({
+    ...checked.map((image) => ({
       type: 'image' as const,
       source: { type: 'base64' as const, media_type: image.mediaType, data: image.data },
     })),
@@ -389,4 +391,4 @@ Deno.serve(async (req) => {
     if (status && status >= 500) return json({ error: 'AI 서비스가 응답하지 않습니다.' }, 502);
     return json({ error: `분석에 실패했습니다: ${message}` }, 500);
   }
-});
+}
