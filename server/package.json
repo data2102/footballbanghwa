@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "description": "우리팀 매니저의 AI 프록시. Anthropic 키는 여기에만 있다.",
-  "engines": { "node": ">=20.12" },
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.mjs --packages=external",
     "start": "node dist/index.mjs",
@@ -12,9 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.117.1"
-  },
-  "devDependencies": {
+    "@anthropic-ai/sdk": "0.117.1",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.2"
   }
