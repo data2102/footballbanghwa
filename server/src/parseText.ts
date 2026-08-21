@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NONE, PARSE_SCHEMA, ROSTER_SCHEMA } from './schema.ts';
 import { ROSTER_PROMPT, SYSTEM_PROMPT } from './prompt.ts';
 import { json, type Reply } from './reply.ts';
+import { fallbackOptions } from './fallback.ts';
 
 /*
  * 기본을 Sonnet 으로 둔다.
@@ -312,9 +313,8 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
       model: MODEL,
       // 짧은 경로는 번호만 받으므로 길게 열어 둘 이유가 없다.
       max_tokens: compact ? 4000 : 16000,
-      // 안전 분류기가 요청을 거절하면 서버가 알아서 다른 모델로 넘긴다.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
+      // 안전 분류기가 거절하면 서버가 다른 모델로 넘긴다. 받는 모델에만 붙는다.
+      ...fallbackOptions(MODEL),
       system: [
         {
           type: 'text',

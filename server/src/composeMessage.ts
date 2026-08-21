@@ -9,6 +9,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { COMPOSE_SYSTEM_PROMPT } from './prompt.ts';
 import { json, type Reply } from './reply.ts';
+import { fallbackOptions } from './fallback.ts';
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-opus-5';
 const MAX_NAMES = 60;
@@ -103,8 +104,8 @@ export async function handleComposeMessage(body: ComposeRequest): Promise<Reply>
     const response = await client.beta.messages.create({
       model: MODEL,
       max_tokens: 1000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
+      // 안전 분류기가 거절하면 서버가 다른 모델로 넘긴다. 받는 모델에만 붙는다.
+      ...fallbackOptions(MODEL),
       system: [{ type: 'text', text: COMPOSE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
       // 짧은 문구 하나라 깊게 생각할 이유가 없다. 응답이 빨라야 쓸 만하다.
       output_config: { effort: 'low' },
