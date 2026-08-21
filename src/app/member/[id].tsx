@@ -105,6 +105,57 @@ export default function MemberDetailScreen() {
       <Screen>
         {/* ---------------------------------------------------- 프로필 */}
         <Card>
+          {/*
+            이름을 고칠 때는 판을 통째로 쓴다.
+            처음에는 사진 옆 좁은 칸에 끼워 넣었는데, 폰에서는 폭이 모자라 입력칸이
+            화면 밖으로 밀리고 저장 버튼이 아예 안 보였다. 좁은 화면에서 옆으로 늘어놓지 않는다.
+          */}
+          {editingName ? (
+            <View style={{ gap: space.sm }}>
+              <Txt variant="small" muted>
+                이름 고치기
+              </Txt>
+              <TextInput
+                value={nameDraft}
+                onChangeText={setNameDraft}
+                autoFocus
+                selectTextOnFocus
+                returnKeyType="done"
+                onSubmitEditing={saveName}
+                placeholder="김영호(40대후반)"
+                placeholderTextColor={p.textFaint}
+                style={{
+                  width: '100%',
+                  backgroundColor: p.surfaceAlt,
+                  borderRadius: radius.sm,
+                  paddingHorizontal: space.md,
+                  paddingVertical: space.md,
+                  color: p.text,
+                  fontSize: 17,
+                  fontWeight: '600',
+                }}
+              />
+              <Txt variant="tiny" muted>
+                동명이인이 있으면 &ldquo;김영호(40대후반)&rdquo; 처럼 구분해 적어 주세요
+              </Txt>
+              <Row gap={space.sm}>
+                <Button
+                  label="이름 저장하기"
+                  style={{ flex: 1 }}
+                  disabled={!nameDraft.trim()}
+                  onPress={saveName}
+                />
+                {/* 취소가 없으면 한 번 열었을 때 빠져나갈 데가 없다. */}
+                <Button
+                  label="그만두기"
+                  tone="neutral"
+                  style={{ flex: 1 }}
+                  onPress={() => setEditingName(false)}
+                />
+              </Row>
+            </View>
+          ) : null}
+
           <Row gap={space.lg}>
             <Pressable
               onPress={() => changePhoto('library')}
@@ -118,48 +169,21 @@ export default function MemberDetailScreen() {
               )}
             </Pressable>
             <View style={{ flex: 1, gap: space.xs }}>
-              {/*
-                이름을 고칠 수 있어야 한다. 동명이인이 실제로 있어서 "김영호(40대후반)" 처럼
-                구분해 적어야 하는데, 명단을 옮겨 넣은 뒤에는 고칠 데가 없었다.
-              */}
-              {editingName ? (
-                <Row gap={space.sm}>
-                  <TextInput
-                    value={nameDraft}
-                    onChangeText={setNameDraft}
-                    autoFocus
-                    selectTextOnFocus
-                    onSubmitEditing={saveName}
-                    placeholder="김영호(40대후반)"
-                    placeholderTextColor={p.textFaint}
-                    style={{
-                      flex: 1,
-                      backgroundColor: p.surfaceAlt,
-                      borderRadius: radius.sm,
-                      paddingHorizontal: space.md,
-                      paddingVertical: space.sm,
-                      color: p.text,
-                      fontSize: 20,
-                      fontWeight: '700',
-                    }}
-                  />
-                  <Button label="저장" small disabled={!nameDraft.trim()} onPress={saveName} />
+              <Pressable
+                onPress={() => {
+                  setNameDraft(member.name);
+                  setEditingName(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="이름 고치기"
+              >
+                <Row gap={space.xs}>
+                  <Txt variant="h2" numberOfLines={2} style={{ flex: 1 }}>
+                    {member.name}
+                  </Txt>
+                  <Icon name="edit" size={16} color={p.textFaint} />
                 </Row>
-              ) : (
-                <Pressable
-                  onPress={() => {
-                    setNameDraft(member.name);
-                    setEditingName(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="이름 고치기"
-                >
-                  <Row gap={space.xs}>
-                    <Txt variant="h2">{member.name}</Txt>
-                    <Icon name="edit" size={16} color={p.textFaint} />
-                  </Row>
-                </Pressable>
-              )}
+              </Pressable>
               <Txt variant="tiny" muted>
                 {member.positions.length ? member.positions.join('·') : '포지션 미정'}
                 {member.backNumber != null ? ` · ${member.backNumber}번` : ''}
