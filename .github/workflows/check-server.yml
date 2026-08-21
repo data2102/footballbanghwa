@@ -28,9 +28,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm ci
+      # Render 와 같은 조건으로 돌린다. 여기서 NODE_ENV 를 빼고 검사하면
+      # devDependencies 가 깔려서 통과하는데, Render 에서는 esbuild 가 없어서 깨진다.
+      # 실제로 그렇게 한 번 놓쳤다 — 빌드는 초록인데 배포만 실패했다.
+      - run: npm ci --include=dev
+        env:
+          NODE_ENV: production
       - run: npm run typecheck
       - run: npm run build
+        env:
+          NODE_ENV: production
       - name: 켜지는지 본다
         run: |
           # 키 없이도 떠야 한다. 떠서 "무엇이 없다"고 말하는 게 맞는 동작이다.

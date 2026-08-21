@@ -312,6 +312,11 @@ Function 이 아니다. Anthropic 키는 여기에만 있다.
 
 `EXPO_PUBLIC_AI_URL` 이 없으면 앱이 무엇을 해야 하는지 화면에 말한다. 조용히 안 되지 않는다.
 
+**Render 에서 걸린 것** — `npm ci` 만 쓰면 빌드가 `esbuild: not found` 로 깨진다.
+Render 는 `NODE_ENV=production` 을 기본으로 넣고, 그러면 npm 이 devDependencies 를
+건너뛴다. `--include=dev` 가 필요하다. `check-server.yml` 도 같은 조건으로 돌린다 —
+조건이 다르면 CI 는 초록인데 배포만 깨지고, 그건 서비스가 내려간 뒤에 알게 된다.
+
 **다시 옮길 만해지는 신호** — 무료 플랜의 잠들기가 실제로 거슬리거나(유료 $7),
 Anthropic 쪽 속도 제한에 걸리거나, 서버가 DB 를 만져야 해질 때. 마지막 것은
 설계를 다시 본다 — AI 프록시에 service_role 키를 두지 않는다는 선이 있다.
