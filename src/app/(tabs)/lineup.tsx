@@ -1,18 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, ScrollView, View } from 'react-native';
+import { Image, Pressable, ScrollView, View } from 'react-native';
 import { MAX_QUARTERS, DEFAULT_QUARTERS, useStore } from '@/lib/store';
-import {
-  availableMembers,
-  memberMap,
-  playLabel,
-  playingTime,
-  playsPosition,
-  quarterPlay,
-} from '@/lib/selectors';
+import { availableMembers, memberMap, playsPosition, quarterPlay } from '@/lib/selectors';
 import { pickPhoto } from '@/lib/photo';
 import {
   DEFAULT_FORMATION,
-  FORMATION_SIZES,
+  FORMATIONS,
   findFormation,
   formationsForSize,
   sizeForCount,
@@ -35,7 +28,7 @@ import {
 } from '@/components/ui';
 import { MatchPicker } from '@/components/MatchPicker';
 import { usePalette } from '@/theme';
-import type { LineupSide, LineupSlot, PositionGroup } from '@/lib/types';
+import type { LineupSide, LineupSlot } from '@/lib/types';
 
 /**
  * 출전.
@@ -45,15 +38,34 @@ import type { LineupSide, LineupSlot, PositionGroup } from '@/lib/types';
  * 아래가 B팀. 팀을 하나씩 따로 보여 주면 옮겨 적는 사람이 화이트보드와 화면을 번갈아
  * 보며 머릿속에서 두 장을 합쳐야 한다.
  *
- * 자리를 누르면 그 팀이 "지금 채우는 팀"이 되고, 포메이션과 대기 명단이 그 팀을 따라간다.
+ * **사진도 같은 이유로 한 장이다.** 화이트보드 한 장에 두 팀이 다 있으니 A팀 사진과
+ * B팀 사진을 따로 받으면 같은 사진을 두 번 올리게 된다. 쿼터마다 한 장만 받는다.
+ *
+ * 자리를 누르면 그 팀이 "지금 채우는 팀"이 되고, 배치할 때 그 팀으로 들어간다.
  *
  * 앱에서 라인업을 "짜는" 게 아니다. 이미 화이트보드에서 짜고 왔다. 여기서 하는 일은
  * 그걸 옮겨 담아서 "누가 몇 번, 몇 쿼터에 뛰었나"를 셀 수 있게 만드는 것이다.
- * 그래서 사진이 맨 위에 있고, 아래 출전 요약이 이 화면의 결론이다.
  */
-const SIDE_LABEL: Record<LineupSide, string> = { A: 'A팀', B: 'B팀' };
-const GROUP_ORDER: PositionGroup[] = ['GK', 'DF', 'MF', 'FW'];
-type SummarySort = 'least' | 'position';
+
+/**
+ * 포메이션 고르는 줄에 쓰는 차례. 11인이 먼저다 — 인원이 모자란 날에만 아래로 내려간다.
+ * 여기에 한 줄 더하면 두 팀 모두에 바로 뜬다(`FORMATIONS`).
+ */
+const FORMATION_OPTIONS = [...FORMATIONS].sort((a, b) => b.size - a.size);
+
+/**
+ * 지금 쓰는 인원 규격을 줄 맨 앞으로 당긴다.
+ *
+ * 8인제로 잡힌 날에 11인 포메이션이 앞을 다 차지하면 **지금 고른 것이 화면 밖에 있다** —
+ * 무엇이 켜져 있는지 안 보여서 옆으로 밀어 봐야 안다. 규격이 같은 것끼리는 차례를 지킨다.
+ */
+function optionsFor(size: number) {
+  return [...FORMATION_OPTIONS].sort(
+    (a, b) => (a.size === size ? 0 : 1) - (b.size === size ? 0 : 1),
+  );
+}
+
+const SIDES: LineupSide[] = ['A', 'B'];
 
 export default function LineupScreen() {
   const p = usePalette();
@@ -63,7 +75,7 @@ export default function LineupScreen() {
   const setLineupPhoto = useStore((state) => state.setLineupPhoto);
 
   const [quarter, setQuarter] = useState(1);
-  /** 지금 포메이션·대기 명단이 따라가는 팀. 자리를 누르면 그쪽으로 옮겨 간다. */
+  /** 이름을 눌렀을 때 들어갈 팀. 자리를 누르면 그쪽으로 옮겨 간다. */
   const [side, setSide] = useState<LineupSide>('A');
   const [formationIds, setFormationIds] = useState<Record<LineupSide, string>>({
     A: DEFAULT_FORMATION.id,
@@ -76,7 +88,8 @@ export default function LineupScreen() {
   const [selected, setSelected] = useState<{ side: LineupSide; key: string } | null>(null);
   const [dirty, setDirty] = useState<Record<LineupSide, boolean>>({ A: false, B: false });
   const [busy, setBusy] = useState(false);
-  const [sort, setSort] = useState<SummarySort>('least');
+  /** 눌렀는데 아무 일도 안 일어날 때 왜 그런지 말해 준다. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const savedBySide = useMemo(() => {
     const find = (which: LineupSide) =>
@@ -86,7 +99,11 @@ export default function LineupScreen() {
     return { A: find('A'), B: find('B') };
   }, [data?.lineups, activeMatchId, quarter]);
 
-  const saved = savedBySide[side];
+  /**
+   * 이 쿼터의 화이트보드 사진. 새로 올리는 건 항상 A팀 줄에 붙이지만,
+   * 예전에 B팀 쪽에 올려 둔 사진이 있으면 그것도 보여 준다 — 안 보이면 없어진 줄 안다.
+   */
+  const boardPhoto = savedBySide.A?.photoUri ?? savedBySide.B?.photoUri ?? null;
 
   const available = useMemo(
     () => (data && activeMatchId ? availableMembers(data, activeMatchId) : []),
@@ -120,6 +137,7 @@ export default function LineupScreen() {
     setFormationIds({ A: a.id, B: b.id });
     setSlotsBySide({ A: a.slots, B: b.slots });
     setSelected(null);
+    setNotice(null);
     setDirty({ A: false, B: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMatchId, quarter, savedBySide.A?.id, savedBySide.B?.id]);
@@ -129,57 +147,54 @@ export default function LineupScreen() {
     () => (data && activeMatchId ? quarterPlay(data, activeMatchId) : new Map()),
     [data, activeMatchId],
   );
-  const recentTime = useMemo(
-    () =>
-      data
-        ? new Map(
-            playingTime(data, 6, activeMatchId ?? undefined).map((row) => [row.member.id, row]),
-          )
-        : new Map(),
-    [data, activeMatchId],
-  );
 
   if (!data) return null;
   const match = data.matches.find((item) => item.id === activeMatchId);
 
   const slots = slotsBySide[side];
   const formationId = formationIds[side];
-  const formation = findFormation(formationId);
   const other: LineupSide = side === 'A' ? 'B' : 'A';
 
-  // 이 쿼터의 다른 팀에 이미 선 사람. 한 쿼터에 두 팀을 동시에 뛸 수는 없다.
-  // 저장된 것이 아니라 지금 화면에 놓인 것을 본다 — 두 팀을 같이 짜는 중이니까.
+  const assignedIds = new Set(
+    SIDES.flatMap((which) => slotsBySide[which].map((slot) => slot.memberId)).filter(
+      Boolean,
+    ) as string[],
+  );
   const takenByOther = new Set(
     slotsBySide[other].map((slot) => slot.memberId).filter(Boolean) as string[],
   );
-  const assignedIds = new Set([
-    ...(slots.map((slot) => slot.memberId).filter(Boolean) as string[]),
-    ...takenByOther,
-  ]);
   const bench = available.filter((member) => !assignedIds.has(member.id));
   /** 아직 안 올린 팀. 둘 다 손댔으면 한 번에 올린다. */
-  const unsaved = (['A', 'B'] as LineupSide[]).filter((which) => dirty[which]);
+  const unsaved = SIDES.filter((which) => dirty[which]);
 
-  /** 이 경기의 출전 요약. 참석했는데 한 번도 안 뛴 사람도 0으로 넣는다. */
-  const summary = available
+  /** 지금 이 쿼터에 어디 서 있는가. "A팀 DF2" 처럼 자리까지 보여 준다. */
+  const spotOf = new Map<string, string>();
+  for (const which of SIDES) {
+    for (const slot of slotsBySide[which]) {
+      if (slot.memberId) spotOf.set(slot.memberId, `${which}팀 ${slot.key}`);
+    }
+  }
+
+  /**
+   * 대기와 출전을 한 목록으로 본다.
+   *
+   * 예전에는 "대기" 칩 묶음과 "이 경기 출전" 표가 따로 있었는데, 배정할 사람을 고르려면
+   * 두 곳을 번갈아 봐야 했다 — 덜 뛴 사람이 대기에 있는지는 위쪽에서 안 보인다.
+   * 한 줄에 이름·연령대·포지션·뛴 횟수를 같이 놓고 **덜 뛴 순**으로 세운다.
+   * 맨 위가 다음에 넣을 사람이다.
+   */
+  const roster = available
     .map((member) => {
-      const row = play.get(member.id);
+      const count = (play.get(member.id)?.quarters ?? []).length;
       return {
         member,
-        quarters: (row?.quarters ?? []) as number[],
-        label: row ? playLabel(row) : '아직 안 뛰었어요',
-        group: (row?.positions?.[0] ?? member.positions[0] ?? 'MF') as PositionGroup,
+        count,
+        spot: spotOf.get(member.id) ?? null,
+        band: member.ageBand ? `${member.ageBand}대` : '연령대 모름',
+        positions: member.positions.length ? member.positions.join('·') : '포지션 미정',
       };
     })
-    .sort((a, b) => {
-      if (sort === 'position') {
-        const gap = GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group);
-        if (gap !== 0) return gap;
-      }
-      return (
-        a.quarters.length - b.quarters.length || a.member.name.localeCompare(b.member.name, 'ko')
-      );
-    });
+    .sort((a, b) => a.count - b.count || a.member.name.localeCompare(b.member.name, 'ko'));
 
   /** 지금 채우는 팀의 자리들만 바꾼다. */
   function updateSlots(which: LineupSide, next: (prev: LineupSlot[]) => LineupSlot[]) {
@@ -187,10 +202,10 @@ export default function LineupScreen() {
     setDirty((prev) => ({ ...prev, [which]: true }));
   }
 
-  function changeFormation(nextId: string) {
+  function changeFormation(which: LineupSide, nextId: string) {
     const next = findFormation(nextId);
     // 포메이션을 바꿔도 이미 배치한 선수는 그룹별로 최대한 유지한다.
-    updateSlots(side, (prev) => {
+    updateSlots(which, (prev) => {
       const pool = prev.filter((slot) => slot.memberId);
       return next.slots.map((slot) => {
         const index = pool.findIndex((candidate) => candidate.group === slot.group);
@@ -198,7 +213,8 @@ export default function LineupScreen() {
         return { ...slot, memberId: taken?.memberId ?? null };
       });
     });
-    setFormationIds((prev) => ({ ...prev, [side]: nextId }));
+    setFormationIds((prev) => ({ ...prev, [which]: nextId }));
+    setSide(which);
     setSelected(null);
   }
 
@@ -235,6 +251,19 @@ export default function LineupScreen() {
     setSelected(null);
   }
 
+  /** 이미 이 팀에 서 있는 사람을 다시 누르면 뺀다. 그래야 목록 하나로 넣고 뺄 수 있다. */
+  function toggle(memberId: string) {
+    setNotice(null);
+    const here = slotsBySide[side].some((slot) => slot.memberId === memberId);
+    if (here && !selected) {
+      updateSlots(side, (prev) =>
+        prev.map((slot) => (slot.memberId === memberId ? { ...slot, memberId: null } : slot)),
+      );
+      return;
+    }
+    assign(memberId);
+  }
+
   function assign(memberId: string) {
     const member = members.get(memberId);
     const targetKey =
@@ -242,7 +271,11 @@ export default function LineupScreen() {
       // 고른 자리가 없으면 이 사람이 볼 수 있는 빈 자리를 먼저 찾는다.
       slots.find((slot) => !slot.memberId && member && playsPosition(member, slot.group))?.key ??
       slots.find((slot) => !slot.memberId)?.key;
-    if (!targetKey) return;
+    // 자리가 다 찼는데 조용히 넘어가면 사용자는 앱이 멈춘 줄 안다.
+    if (!targetKey) {
+      setNotice(`${side}팀 자리가 다 찼어요. 바꿀 자리를 먼저 누른 뒤에 이름을 눌러 주세요.`);
+      return;
+    }
     updateSlots(side, (prev) =>
       prev.map((slot) => {
         if (slot.key === targetKey) return { ...slot, memberId };
@@ -265,7 +298,8 @@ export default function LineupScreen() {
     setBusy(true);
     try {
       const photo = await pickPhoto(source);
-      if (photo) await setLineupPhoto(match.id, quarter, side, photo);
+      // 화이트보드 한 장에 두 팀이 다 있다. 쿼터마다 한 장이면 되니 A팀 줄에 붙인다.
+      if (photo) await setLineupPhoto(match.id, quarter, 'A', photo);
     } finally {
       setBusy(false);
     }
@@ -280,7 +314,7 @@ export default function LineupScreen() {
         </Card>
       ) : (
         <>
-          {/* 쿼터 → 팀 순으로 좁혀 간다. 화이트보드를 읽는 순서와 같다. */}
+          {/* 쿼터부터 좁혀 간다. 화이트보드를 읽는 순서와 같다. */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -299,43 +333,21 @@ export default function LineupScreen() {
             ) : null}
           </ScrollView>
 
-          {/*
-            판에는 두 팀이 같이 보인다. 이 칸은 "지금 어느 팀을 채우는가"만 고른다 —
-            포메이션과 아래 대기 명단이 이 팀을 따라간다. 자리를 누르면 자동으로 넘어간다.
-          */}
-          <Row justify="space-between">
-            <Txt variant="tiny" muted>
-              지금 채우는 팀
-            </Txt>
-            <Txt variant="tiny" muted>
-              위 A팀 · 아래 B팀
-            </Txt>
-          </Row>
-          <Segmented
-            value={side}
-            onChange={(next) => {
-              setSide(next);
-              setSelected(null);
-            }}
-            options={[
-              { value: 'A' as LineupSide, label: 'A팀' },
-              { value: 'B' as LineupSide, label: 'B팀' },
-            ]}
-          />
-
-          {/* 화이트보드 사진이 원본이다. 옮겨 적은 게 맞는지 여기서 대조한다. */}
+          {/* 화이트보드 사진이 원본이다. 한 장에 두 팀이 다 들어 있다. */}
           <Card>
             <Row justify="space-between">
-              <Txt variant="h3">
-                {quarter}쿼터 {SIDE_LABEL[side]} 화이트보드
-              </Txt>
-              {saved?.photoUri ? <Txt variant="tiny" color={p.ok}>사진 있어요</Txt> : null}
+              <Txt variant="h3">{quarter}쿼터 화이트보드</Txt>
+              {boardPhoto ? (
+                <Txt variant="tiny" color={p.ok}>
+                  사진 있어요
+                </Txt>
+              ) : null}
             </Row>
 
-            {saved?.photoUri ? (
+            {boardPhoto ? (
               <Image
-                source={{ uri: saved.photoUri }}
-                accessibilityLabel={`${quarter}쿼터 ${SIDE_LABEL[side]} 화이트보드 사진`}
+                source={{ uri: boardPhoto }}
+                accessibilityLabel={`${quarter}쿼터 화이트보드 사진`}
                 resizeMode="contain"
                 style={{
                   width: '100%',
@@ -346,14 +358,14 @@ export default function LineupScreen() {
               />
             ) : (
               <Txt variant="tiny" muted>
-                운동장에서 찍어 두면 나중에 옮겨 적을 때 대조할 수 있어요. 사진을 올려도 아래
-                전술판에서 그대로 고칠 수 있어요.
+                위 A팀 · 아래 B팀이 같이 그려진 화이트보드를 한 장으로 찍어 주세요. 사진을 올려도
+                아래 전술판에서 그대로 고칠 수 있어요.
               </Txt>
             )}
 
             <Row gap={space.sm}>
               <Button
-                label={saved?.photoUri ? '다시 찍기' : '화이트보드 찍기'}
+                label={boardPhoto ? '다시 찍기' : '사진 찍기'}
                 icon="camera"
                 tone="neutral"
                 small
@@ -372,39 +384,36 @@ export default function LineupScreen() {
             </Row>
           </Card>
 
-          {/* 인원 규격을 먼저 고르고, 그 안에서 포메이션을 고른다. */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: space.sm }}
-          >
-            {FORMATION_SIZES.map((size) => (
-              <Chip
-                key={size}
-                label={`${size}인`}
-                selected={size === formation.size}
-                onPress={() => {
-                  const next = formationsForSize(size)[0];
-                  if (next) changeFormation(next.id);
-                }}
-              />
-            ))}
-          </ScrollView>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: space.sm }}
-          >
-            {formationsForSize(formation.size).map((option) => (
-              <Chip
-                key={option.id}
-                label={option.label}
-                selected={option.id === formationId}
-                onPress={() => changeFormation(option.id)}
-              />
-            ))}
-          </ScrollView>
+          {/*
+            포메이션은 팀마다 따로 고른다. 자체경기라 A팀은 4-3-3, B팀은 4-4-2 인 날이 흔하다.
+            고르면 그 팀이 지금 채우는 팀이 되고, 전술판의 자리도 그 모양으로 다시 그려진다.
+          */}
+          {SIDES.map((which) => (
+            <View key={which} style={{ gap: space.xs }}>
+              <Row justify="space-between">
+                <Txt variant="tiny" muted>
+                  {which}팀 포메이션
+                </Txt>
+                <Txt variant="tiny" muted>
+                  {findFormation(formationIds[which]).size}명 자리
+                </Txt>
+              </Row>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: space.sm }}
+              >
+                {optionsFor(findFormation(formationIds[which]).size).map((option) => (
+                  <Chip
+                    key={option.id}
+                    label={option.label}
+                    selected={option.id === formationIds[which]}
+                    onPress={() => changeFormation(which, option.id)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          ))}
 
           <Pitch
             top={{
@@ -422,33 +431,27 @@ export default function LineupScreen() {
             onSelectSlot={handleSlotPress}
           />
 
-          <Txt variant="tiny" muted>
-            자리를 누른 뒤 아래 이름을 누르면 배치돼요. 같은 팀에서 자리 두 곳을 차례로 누르면
-            서로 바뀌고, 다른 팀 자리를 누르면 그 팀을 채우는 것으로 넘어가요.
-          </Txt>
-
-          <SectionHeader title={`대기 (${bench.length}명)`} />
-          <Card>
-            {available.length === 0 ? (
-              <Empty text={'참석으로 표시된 인원이 없어요.\n참석 탭에서 먼저 집계해 주세요.'} />
-            ) : bench.length === 0 ? (
-              <Empty text="참석자 전원을 배치했어요." />
-            ) : (
-              <Row wrap gap={space.sm}>
-                {bench.map((member) => {
-                  const count = (play.get(member.id)?.quarters ?? []).length;
-                  const other = takenByOther.has(member.id);
-                  return (
-                    <Chip
-                      key={member.id}
-                      label={`${member.name} · ${count}쿼터${other ? ' · 상대편' : ''}`}
-                      onPress={() => assign(member.id)}
-                    />
-                  );
-                })}
-              </Row>
-            )}
-          </Card>
+          {/* 이름을 누르면 어디로 들어가는지 여기서 정한다. 자리를 누르면 따라 바뀐다. */}
+          <Row justify="space-between">
+            <Txt variant="tiny" muted>
+              지금 채우는 팀
+            </Txt>
+            <Txt variant="tiny" muted>
+              위 A팀 · 아래 B팀
+            </Txt>
+          </Row>
+          <Segmented
+            value={side}
+            onChange={(next) => {
+              setSide(next);
+              setSelected(null);
+              setNotice(null);
+            }}
+            options={[
+              { value: 'A' as LineupSide, label: 'A팀' },
+              { value: 'B' as LineupSide, label: 'B팀' },
+            ]}
+          />
 
           <Row gap={space.sm}>
             <Button
@@ -483,6 +486,67 @@ export default function LineupScreen() {
             />
           </Row>
 
+          {/*
+            대기와 출전을 한 목록으로 본다. 맨 위가 이 경기에서 제일 덜 뛴 사람이다.
+            누르면 지금 채우는 팀으로 들어가고, 그 팀에 이미 서 있으면 빠진다.
+          */}
+          <SectionHeader title={`출전 명단 (${roster.length}명)`} />
+          <Txt variant="tiny" color={notice ? p.warn : undefined} muted={!notice}>
+            {notice ??
+              '덜 뛴 순이에요. 자리를 먼저 누르면 그 자리에, 안 누르면 볼 수 있는 빈 자리에 들어가요.'}
+          </Txt>
+          <Card style={{ padding: space.sm, gap: 0 }}>
+            {roster.length === 0 ? (
+              <Empty text={'참석으로 표시된 인원이 없어요.\n참석 탭에서 먼저 집계해 주세요.'} />
+            ) : (
+              roster.map((row, index) => {
+                const here = row.spot?.startsWith(side) ?? false;
+                return (
+                  <View key={row.member.id}>
+                    {index > 0 ? <Divider /> : null}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${row.member.name} ${row.spot ?? '대기'}`}
+                      onPress={() => toggle(row.member.id)}
+                      style={({ pressed }) => ({
+                        paddingVertical: space.sm,
+                        paddingHorizontal: space.sm,
+                        borderRadius: radius.sm,
+                        backgroundColor: here ? p.primarySoft : pressed ? p.surfaceAlt : undefined,
+                      })}
+                    >
+                      <Row justify="space-between">
+                        <View style={{ flexShrink: 1, gap: 2 }}>
+                          <Txt variant="body">{row.member.name}</Txt>
+                          <Txt variant="tiny" muted>
+                            {row.band} · {row.positions}
+                          </Txt>
+                        </View>
+                        <Row gap={space.sm}>
+                          <Txt
+                            variant="tiny"
+                            color={row.spot ? p.primaryStrong : p.textMuted}
+                            style={{ textAlign: 'right' }}
+                          >
+                            {row.spot ?? '대기'}
+                          </Txt>
+                          <Txt
+                            variant="h3"
+                            tabular
+                            color={row.count === 0 ? p.danger : p.text}
+                            style={{ minWidth: 26, textAlign: 'right' }}
+                          >
+                            {row.count}
+                          </Txt>
+                        </Row>
+                      </Row>
+                    </Pressable>
+                  </View>
+                );
+              })
+            )}
+          </Card>
+
           <ShareLineup
             teamName={data.team.name}
             match={match}
@@ -492,54 +556,8 @@ export default function LineupScreen() {
             bench={bench}
           />
 
-          {/* 이 화면의 결론. 위에서 옮겨 적은 게 여기 숫자로 모인다. */}
-          <SectionHeader title="이 경기 출전" />
-          <Segmented
-            value={sort}
-            onChange={setSort}
-            options={[
-              { value: 'least' as SummarySort, label: '덜 뛴 순' },
-              { value: 'position' as SummarySort, label: '포지션 순' },
-            ]}
-          />
-          <Card style={{ padding: space.sm, gap: 0 }}>
-            {summary.length === 0 ? (
-              <Empty text={'참석자가 정해지면 여기서 세요.\n쿼터마다 라인업을 넣으면 자동으로 쌓여요.'} />
-            ) : (
-              summary.map((row, index) => {
-                const time = recentTime.get(row.member.id);
-                return (
-                  <View key={row.member.id}>
-                    {index > 0 ? <Divider /> : null}
-                    <Row justify="space-between" style={{ padding: space.sm }}>
-                      <View style={{ flexShrink: 1 }}>
-                        <Txt variant="body">
-                          {row.member.name} {row.label}
-                        </Txt>
-                        <Txt variant="tiny" muted>
-                          {time?.perMatch != null
-                            ? `최근 평균 ${time.perMatch.toFixed(1)}쿼터`
-                            : '최근 출전 기록 없음'}
-                        </Txt>
-                      </View>
-                      <Txt
-                        variant="h3"
-                        tabular
-                        color={row.quarters.length === 0 ? p.danger : p.text}
-                        style={{ minWidth: 34, textAlign: 'right' }}
-                      >
-                        {row.quarters.length}
-                      </Txt>
-                    </Row>
-                  </View>
-                );
-              })
-            )}
-          </Card>
-
           <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
-            화이트보드를 찍어서 올리면 &ldquo;사진으로 넣기&rdquo;로 자리까지 읽어 줘요. 읽은
-            결과는 확인한 뒤에만 저장돼요.
+            오른쪽 숫자가 이 경기에서 뛴 쿼터 수예요. 라인업을 저장할 때마다 다시 세요.
           </Txt>
         </>
       )}
