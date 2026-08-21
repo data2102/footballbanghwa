@@ -193,27 +193,41 @@ export class SupabaseRepo implements Repo {
         .eq('id', team.id),
     );
 
-  saveMember = (member: Member) =>
-    this.run(
-      this.client.from('members').upsert({
-        id: member.id,
-        team_id: this.assertLoaded(),
-        name: member.name,
-        nickname: member.nickname,
-        aliases: member.aliases,
-        role: member.role,
-        back_number: member.backNumber,
-        // 단수 칸은 옛 앱을 위해 첫 자리를 그대로 채워 둔다.
-        preferred_position: member.positions[0] ?? null,
-        positions: member.positions,
-        age_band: member.ageBand,
-        strengths: member.strengths,
-        note: member.note,
-        photo_url: member.photoPath,
-        joined_on: member.joinedOn,
-        active: member.active,
-      }),
-    );
+  /**
+   * 회원 저장.
+   *
+   * `aliases` 는 나중에 더한 칸이라, 스키마를 아직 안 올린 DB 에는 없다. 그대로 보내면
+   * Postgres 가 요청을 통째로 거절해서 **이름·메모·등번호까지 하나도 안 저장된다.**
+   * 아직 없으면 그 칸만 빼고 다시 보낸다 — 별명만 못 담을 뿐 나머지는 저장된다.
+   *
+   * 대비책으로 넘어가는 건 "그런 칸 없다"일 때뿐이다. 권한 오류나 네트워크 오류까지
+   * 흘리면 진짜 문제가 조용히 묻힌다.
+   */
+  async saveMember(member: Member): Promise<void> {
+    const row = {
+      id: member.id,
+      team_id: this.assertLoaded(),
+      name: member.name,
+      nickname: member.nickname,
+      role: member.role,
+      back_number: member.backNumber,
+      // 단수 칸은 옛 앱을 위해 첫 자리를 그대로 채워 둔다.
+      preferred_position: member.positions[0] ?? null,
+      positions: member.positions,
+      age_band: member.ageBand,
+      strengths: member.strengths,
+      note: member.note,
+      photo_url: member.photoPath,
+      joined_on: member.joinedOn,
+      active: member.active,
+    };
+
+    const { error } = await this.client.from('members').upsert({ ...row, aliases: member.aliases });
+    if (!error) return;
+    if (!isMissingColumn(error, 'aliases')) throw error;
+
+    await this.run(this.client.from('members').upsert(row));
+  }
 
   removeMember = (id: string) =>
     // 기록이 딸린 회원은 지우지 않고 비활성으로만 돌린다.
@@ -423,6 +437,19 @@ const RECEIPT_BUCKET = 'receipt-photos';
 const SIGNED_URL_TTL = 60 * 60;
 
 /** RN 에는 Buffer 가 없고 atob 는 바이너리 문자열만 준다. 업로드용 바이트 배열로 직접 바꾼다. */
+/**
+ * "그런 칸이 없다"인지 가린다.
+ *
+ * PostgREST 는 스키마 캐시에 없는 칸을 PGRST204 로 돌려주고, Postgres 는 42703 을 준다.
+ * 둘 다 보고, 칸 이름까지 맞을 때만 대비책으로 넘어간다.
+ */
+function isMissingColumn(error: unknown, column: string): boolean {
+  const code = (error as { code?: string })?.code;
+  const message = (error as { message?: string })?.message ?? '';
+  if (code !== 'PGRST204' && code !== '42703') return false;
+  return message.includes(column);
+}
+
 function base64ToBytes(base64: string): Uint8Array {
   const binary = globalThis.atob(base64);
   const bytes = new Uint8Array(binary.length);
