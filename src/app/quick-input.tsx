@@ -3,6 +3,8 @@ import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { blankMemberFields, useStore } from '@/lib/store';
 import { parseText, type ParseProgress } from '@/lib/ai/client';
+import { BUILD_ID, detailOf } from '@/lib/ai/invokeError';
+import { shareText } from '@/lib/share';
 import { isLocalRepo } from '@/lib/repo';
 import { pickPhoto, type PickedPhoto } from '@/lib/photo';
 import { takeHandedPhotos } from '@/lib/photoHandoff';
@@ -88,6 +90,9 @@ export default function QuickInputScreen() {
   const [busy, setBusy] = useState(false);
   /** 사진을 나눠 보내는 동안 몇 장까지 읽었는지. 기다리는 화면이 멈춘 것처럼 보이지 않게 한다. */
   const [progress, setProgress] = useState<ParseProgress | null>(null);
+  /** 오류의 원문. 접어 두었다가 "자세히"로 펼친다. 고치는 사람이 볼 게 있어야 한다. */
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResponse | null>(null);
   /** 사용자가 체크한 항목. AI가 사람을 특정하지 못한 항목은 기본으로 꺼둔다. */
@@ -131,6 +136,7 @@ export default function QuickInputScreen() {
     if (!text.trim() && photos.length === 0) return;
     setBusy(true);
     setError(null);
+    setErrorDetail(null);
     try {
       const response = await parseText({
         text,
@@ -158,6 +164,8 @@ export default function QuickInputScreen() {
       setOverrides({});
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '분석하지 못했어요. 다시 시도해 주세요.');
+      setErrorDetail(detailOf(caught));
+      setShowDetail(false);
     } finally {
       setBusy(false);
       setProgress(null);
@@ -448,6 +456,33 @@ export default function QuickInputScreen() {
                 <Txt variant="small" color={p.danger}>
                   {error}
                 </Txt>
+                {/*
+                  원문을 접어 둔다. 화면은 읽기 좋게 두되, 고칠 때 볼 것이 남아 있어야 한다.
+                  같은 실패를 여러 번 보면서도 원인을 못 본 적이 있어서 복사까지 붙였다.
+                */}
+                {errorDetail ? (
+                  <View style={{ gap: space.xs, marginTop: space.sm }}>
+                    <Row style={{ gap: space.sm }}>
+                      <Button
+                        label={showDetail ? '자세히 접기' : '자세히 보기'}
+                        tone="neutral"
+                        small
+                        onPress={() => setShowDetail((was) => !was)}
+                      />
+                      <Button
+                        label="원인 복사하기"
+                        tone="neutral"
+                        small
+                        onPress={() => shareText(errorDetail, '분석 실패 원인')}
+                      />
+                    </Row>
+                    {showDetail ? (
+                      <Txt variant="tiny" color={p.danger} selectable>
+                        {errorDetail}
+                      </Txt>
+                    ) : null}
+                  </View>
+                ) : null}
               </Card>
             ) : null}
 
@@ -469,6 +504,11 @@ export default function QuickInputScreen() {
                 데모 모드에서는 간단한 규칙 파서가 대신 처리해요. Supabase를 연결하면 Claude가 사진까지 읽어요.
               </Txt>
             ) : null}
+
+            {/* 어느 판이 올라가 있는지. 배포가 반영됐는지부터 갈려야 다음을 물어볼 수 있다. */}
+            <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
+              {`앱 판 ${BUILD_ID}`}
+            </Txt>
           </>
         ) : (
           <>

@@ -82,6 +82,7 @@ export function Txt({
   tabular,
   style,
   numberOfLines,
+  selectable,
 }: {
   children: ReactNode;
   variant?: keyof typeof font;
@@ -91,6 +92,8 @@ export function Txt({
   tabular?: boolean;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
+  /** 손으로 긁어 복사해야 하는 곳(오류 원문)에 켠다. 본문에 켜면 스크롤이 걸려서 기본은 꺼짐. */
+  selectable?: boolean;
 }) {
   const p = usePalette();
   // tiny 는 캡션·메타 전용이라, muted 를 켜면 한 단계 더 옅은 회색으로 간다.
@@ -98,6 +101,7 @@ export function Txt({
   return (
     <Text
       numberOfLines={numberOfLines}
+      selectable={selectable}
       style={[
         font[variant],
         tabular && numeric,

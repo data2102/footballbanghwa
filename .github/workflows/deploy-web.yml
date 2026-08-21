@@ -37,6 +37,8 @@ jobs:
           EXPO_BASE_URL: /${{ github.event.repository.name }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          # 화면에 어느 판인지 적어 둔다. "배포가 안 된 건가?"를 먼저 갈라내야 한다.
+          EXPO_PUBLIC_BUILD: ${{ github.sha }}
         run: npx expo export --platform web
       - name: Jekyll 끄기
         # _expo/ 처럼 밑줄로 시작하는 폴더를 GitHub Pages 가 통째로 버린다.
