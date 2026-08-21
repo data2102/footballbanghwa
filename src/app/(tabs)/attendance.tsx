@@ -58,6 +58,15 @@ export default function AttendanceScreen() {
    */
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [selecting, setSelecting] = useState(false);
+  /**
+   * 이 경기 참석을 통째로 지우기 전에 한 번 더 묻는 상태.
+   *
+   * 날짜를 잘못 골라 지난주 투표를 이번 주에 넣는 일이 실제로 있었다. 되돌리려면
+   * 아흔 명을 하나씩 지워야 한다. 그래서 초기화 버튼을 두되, **한 번에 지워지지 않게** 한다.
+   * 지우는 건 두 번째 누를 때이고, 그때 몇 명이 지워지는지 숫자로 보여 준다.
+   */
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [picking, setPicking] = useState(false);
 
   const rows = useMemo(
@@ -71,6 +80,8 @@ export default function AttendanceScreen() {
 
   if (!data) return null;
   const match = data.matches.find((item) => item.id === activeMatchId);
+  /** 이 경기에 실제로 줄이 있는 사람 수. 초기화로 지워질 대상이다. */
+  const answered = rows.size;
 
   const tally = match ? tallyAttendance(data, match.id) : null;
   const members = data.members
@@ -201,6 +212,54 @@ export default function AttendanceScreen() {
                 사진이 잘 안 읽히면 여러 명 한 번에로 골라서 처리하세요. 참석·불참을 고른 뒤
                 나머지를 미투표로 한 번에 되돌릴 수 있어요.
               </Txt>
+
+              {/*
+                날짜를 잘못 골라 지난주 투표를 이번 주에 넣는 일이 있다. 되돌리려면
+                아흔 명을 하나씩 지워야 해서, 통째로 비우는 길을 둔다.
+                한 번에 지워지지 않게 두 번 눌러야 하고, 몇 명이 지워지는지 숫자로 보여 준다.
+              */}
+              {answered > 0 ? (
+                <>
+                  <Divider />
+                  {confirmReset ? (
+                    <View style={{ gap: space.sm }}>
+                      <Txt variant="small" color={p.danger}>
+                        {`${match ? formatDate(match.date) : '이 경기'}에 적힌 ${answered}명을 모두 지우고 미투표로 되돌려요. 되돌릴 수 없어요.`}
+                      </Txt>
+                      <Row gap={space.sm}>
+                        <Button
+                          label={`${answered}명 지우기`}
+                          tone="danger"
+                          style={{ flex: 1 }}
+                          loading={resetting}
+                          onPress={async () => {
+                            if (!activeMatchId) return;
+                            setResetting(true);
+                            await clearAttendance(activeMatchId, [...rows.keys()]);
+                            setResetting(false);
+                            setConfirmReset(false);
+                            setPicked(new Set());
+                            setSelecting(false);
+                          }}
+                        />
+                        <Button
+                          label="그만두기"
+                          tone="neutral"
+                          style={{ flex: 1 }}
+                          onPress={() => setConfirmReset(false)}
+                        />
+                      </Row>
+                    </View>
+                  ) : (
+                    <Button
+                      label="이 날짜 참석 전체 지우기"
+                      tone="neutral"
+                      small
+                      onPress={() => setConfirmReset(true)}
+                    />
+                  )}
+                </>
+              ) : null}
             </Card>
 
             <Segmented

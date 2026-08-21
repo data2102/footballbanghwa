@@ -46,11 +46,15 @@ export class SupabaseRepo implements Repo {
     this.teamId = teamRow.id;
 
     const [members, matches, ledger, inventory, templates] = await Promise.all([
-      this.client.from('members').select('*').eq('team_id', teamRow.id),
-      this.client.from('matches').select('*').eq('team_id', teamRow.id).order('date', { ascending: false }),
-      this.client.from('ledger').select('*').eq('team_id', teamRow.id).order('occurred_on', { ascending: false }),
-      this.client.from('inventory').select('*').eq('team_id', teamRow.id).order('name'),
-      this.client.from('message_templates').select('*').eq('team_id', teamRow.id),
+      fetchAll<Row>(() => this.client.from('members').select('*').eq('team_id', teamRow.id)),
+      fetchAll<Row>(() =>
+        this.client.from('matches').select('*').eq('team_id', teamRow.id).order('date', { ascending: false }),
+      ),
+      fetchAll<Row>(() =>
+        this.client.from('ledger').select('*').eq('team_id', teamRow.id).order('occurred_on', { ascending: false }),
+      ),
+      fetchAll<Row>(() => this.client.from('inventory').select('*').eq('team_id', teamRow.id).order('name')),
+      fetchAll<Row>(() => this.client.from('message_templates').select('*').eq('team_id', teamRow.id)),
     ]);
     for (const result of [members, matches, ledger, inventory]) {
       if (result.error) throw result.error;
@@ -76,15 +80,19 @@ export class SupabaseRepo implements Repo {
       }
     }
 
-    const matchIds = (matches.data ?? []).map((row: { id: string }) => row.id);
+    const matchIds = (matches.data ?? []).map((row) => String(row.id));
     // 경기가 하나도 없으면 in() 호출을 건너뛴다(빈 배열 in은 불필요한 왕복이다).
     const empty = { data: [] as Row[], error: null };
     const [attendance, events, lineups, potmVotes] = matchIds.length
       ? await Promise.all([
-          this.client.from('attendance').select('*').in('match_id', matchIds),
-          this.client.from('match_events').select('*').in('match_id', matchIds),
-          this.client.from('lineups').select('*').in('match_id', matchIds),
-          this.client.from('potm_votes').select('*').in('match_id', matchIds),
+          /*
+           * 참석이 제일 빨리 는다 — 회원 수 × 주 수다. 아흔 명이면 한 해에 사천 줄이 넘는다.
+           * 여기서 잘리면 방금 저장한 게 안 보인다.
+           */
+          fetchAll<Row>(() => this.client.from('attendance').select('*').in('match_id', matchIds)),
+          fetchAll<Row>(() => this.client.from('match_events').select('*').in('match_id', matchIds)),
+          fetchAll<Row>(() => this.client.from('lineups').select('*').in('match_id', matchIds)),
+          fetchAll<Row>(() => this.client.from('potm_votes').select('*').in('match_id', matchIds)),
         ])
       : [empty, empty, empty, empty];
     for (const result of [attendance, events, lineups, potmVotes]) {
@@ -443,6 +451,37 @@ const SIGNED_URL_TTL = 60 * 60;
  * PostgREST 는 스키마 캐시에 없는 칸을 PGRST204 로 돌려주고, Postgres 는 42703 을 준다.
  * 둘 다 보고, 칸 이름까지 맞을 때만 대비책으로 넘어간다.
  */
+/**
+ * 표를 끝까지 읽는다.
+ *
+ * PostgREST 는 한 번에 돌려주는 행 수에 상한이 있고, **넘치면 조용히 잘라서 준다.**
+ * 오류도 안 나고 경고도 없다. 24주치 참석이 1700줄을 넘으면서 실제로 이걸 밟았다 —
+ * 방금 저장한 줄이 물리적으로 맨 뒤라, 잘리는 쪽이 하필 새로 넣은 것이었다.
+ * 화면에는 "저장했어요"가 뜨고 다시 들어가면 없었다.
+ *
+ * 그래서 한 장(page)씩 받아서 다 받을 때까지 이어 붙인다. 마지막 장은 PAGE 보다
+ * 적게 오므로 거기서 멈춘다.
+ */
+const PAGE = 1000;
+
+async function fetchAll<T>(
+  build: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> },
+): Promise<{ data: T[]; error: unknown }> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) return { data: all, error };
+    const page = data ?? [];
+    all.push(...page);
+    if (page.length < PAGE) return { data: all, error: null };
+    /*
+     * 끝없이 도는 걸 막는다. 여기 닿을 만큼 쌓였으면 페이지 처리 말고 다른 걸 고쳐야 한다
+     * (경기별로 나눠 읽는다든가). 조용히 자르는 것보다 멈추고 알리는 쪽이 낫다.
+     */
+    if (all.length >= PAGE * 50) return { data: all, error: null };
+  }
+}
+
 function isMissingColumn(error: unknown, column: string): boolean {
   const code = (error as { code?: string })?.code;
   const message = (error as { message?: string })?.message ?? '';
