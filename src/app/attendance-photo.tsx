@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, View } from 'react-native';
+import { Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { blankMemberFields, useStore } from '@/lib/store';
 import { parseText, type ParseProgress } from '@/lib/ai/client';
@@ -67,6 +67,14 @@ export default function AttendancePhotoScreen() {
   const [asNew, setAsNew] = useState<Set<number>>(new Set());
   /** 지금 명단을 펼쳐 놓은 줄. */
   const [pickerAt, setPickerAt] = useState<number | null>(null);
+  /**
+   * 명단에서 찾을 때 쓰는 검색어.
+   *
+   * 아흔 명을 가로로 밀어서 찾는 건 처음 한 번이 특히 고생이다 — 별명이 아직 하나도
+   * 안 쌓였을 때는 이어 줄 사람이 여럿이라 그만큼 밀어야 한다. 두어 글자만 쳐도
+   * 후보가 몇 명으로 줄어든다.
+   */
+  const [pickerQuery, setPickerQuery] = useState('');
 
   useEffect(() => {
     /*
@@ -218,6 +226,22 @@ export default function AttendancePhotoScreen() {
         .filter(({ item }) => item.kind === 'attendance' && item.status === group.status),
     })).filter((group) => group.rows.length);
   }, [result]);
+
+  /**
+   * 검색어로 걸러 낸 후보. 아무것도 안 쳤으면 전원이다.
+   * 이름·별명·등번호 어느 쪽으로 쳐도 걸린다 — 총무가 기억하는 게 그중 하나뿐일 수 있다.
+   */
+  const pickerMatches = useMemo(() => {
+    const needle = pickerQuery.trim().toLowerCase();
+    if (!needle) return members;
+    return members.filter(
+      (one) =>
+        one.name.toLowerCase().includes(needle) ||
+        (one.nickname ?? '').toLowerCase().includes(needle) ||
+        one.aliases.some((alias) => alias.toLowerCase().includes(needle)) ||
+        String(one.backNumber ?? '') === needle,
+    );
+  }, [members, pickerQuery]);
 
   const pickedCount = checked.size;
 
@@ -465,7 +489,11 @@ export default function AttendancePhotoScreen() {
                             <Chip
                               label={links[at] ? '다시 고르기' : '명단에서 고르기'}
                               tone={links[at] ? undefined : { fg: p.warn, bg: p.warnSoft }}
-                              onPress={() => setPickerAt(pickerAt === at ? null : at)}
+                              onPress={() => {
+                                setPickerAt(pickerAt === at ? null : at);
+                                // 앞 사람 찾던 말이 남아 있으면 후보가 이상하게 걸러진다.
+                                setPickerQuery('');
+                              }}
                             />
                             <Chip
                               label={asNew.has(at) ? '새 회원 취소' : '새 회원으로 추가'}
@@ -487,33 +515,62 @@ export default function AttendancePhotoScreen() {
                             />
                           </Row>
                           {pickerAt === at ? (
-                            <ScrollView
-                              horizontal
-                              showsHorizontalScrollIndicator={false}
-                              contentContainerStyle={{ gap: space.sm, paddingVertical: space.xs }}
-                            >
-                              {members.map((member) => (
-                                <Chip
-                                  key={member.id}
-                                  label={member.name}
-                                  tone={
-                                    links[at] === member.id
-                                      ? { fg: p.primaryStrong, bg: p.primarySoft }
-                                      : undefined
-                                  }
-                                  onPress={() => {
-                                    setLinks((prev) => ({ ...prev, [at]: member.id }));
-                                    setAsNew((prev) => {
-                                      const next = new Set(prev);
-                                      next.delete(at);
-                                      return next;
-                                    });
-                                    setChecked((prev) => new Set(prev).add(at));
-                                    setPickerAt(null);
-                                  }}
-                                />
-                              ))}
-                            </ScrollView>
+                            <View style={{ gap: space.xs }}>
+                              <TextInput
+                                value={pickerQuery}
+                                onChangeText={setPickerQuery}
+                                autoFocus
+                                placeholder="이름·등번호로 찾기"
+                                placeholderTextColor={p.textFaint}
+                                style={{
+                                  width: '100%',
+                                  backgroundColor: p.surfaceAlt,
+                                  borderRadius: radius.sm,
+                                  paddingHorizontal: space.md,
+                                  paddingVertical: space.sm,
+                                  color: p.text,
+                                  fontSize: 15,
+                                }}
+                              />
+                              {pickerMatches.length === 0 ? (
+                                <Txt variant="tiny" muted>
+                                  그런 이름이 명단에 없어요. 새 회원으로 추가할 수도 있어요.
+                                </Txt>
+                              ) : (
+                                <ScrollView
+                                  horizontal
+                                  showsHorizontalScrollIndicator={false}
+                                  contentContainerStyle={{ gap: space.sm, paddingVertical: space.xs }}
+                                >
+                                  {pickerMatches.map((member) => (
+                                    <Chip
+                                      key={member.id}
+                                      label={
+                                        member.backNumber != null
+                                          ? `${member.name} ${member.backNumber}번`
+                                          : member.name
+                                      }
+                                      tone={
+                                        links[at] === member.id
+                                          ? { fg: p.primaryStrong, bg: p.primarySoft }
+                                          : undefined
+                                      }
+                                      onPress={() => {
+                                        setLinks((prev) => ({ ...prev, [at]: member.id }));
+                                        setAsNew((prev) => {
+                                          const next = new Set(prev);
+                                          next.delete(at);
+                                          return next;
+                                        });
+                                        setChecked((prev) => new Set(prev).add(at));
+                                        setPickerAt(null);
+                                        setPickerQuery('');
+                                      }}
+                                    />
+                                  ))}
+                                </ScrollView>
+                              )}
+                            </View>
                           ) : null}
                         </View>
                       ) : null}

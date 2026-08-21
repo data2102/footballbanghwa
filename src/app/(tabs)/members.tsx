@@ -22,9 +22,9 @@ import {
 } from '@/components/ui';
 import { Icon } from '@/components/icons';
 import { usePalette } from '@/theme';
-import type { PositionGroup } from '@/lib/types';
+import type { AgeBand, PositionGroup } from '@/lib/types';
 
-type Sort = 'name' | 'rate' | 'unpaid';
+type Sort = 'name' | 'rate' | 'age';
 
 const POSITIONS: (PositionGroup | 'ALL')[] = ['ALL', 'GK', 'DF', 'MF', 'FW'];
 
@@ -61,7 +61,18 @@ export default function MembersScreen() {
     })
     .sort((a, b) => {
       if (sort === 'name') return a.member.name.localeCompare(b.member.name, 'ko');
-      if (sort === 'unpaid') return b.outstanding - a.outstanding || a.member.name.localeCompare(b.member.name, 'ko');
+      if (sort === 'age') {
+        /*
+         * 나이 많은 쪽부터. 조기축구는 60대가 몇 명인지가 먼저 궁금하고,
+         * 쿼터를 나눌 때도 위에서부터 본다. 연령대를 안 적은 사람은 맨 뒤로 보낸다 —
+         * 가운데 섞이면 "이 사람은 몇 대지" 하고 매번 멈추게 된다.
+         */
+        const rank = (band: AgeBand | null) => (band ? Number(band) : -1);
+        return (
+          rank(b.member.ageBand) - rank(a.member.ageBand) ||
+          a.member.name.localeCompare(b.member.name, 'ko')
+        );
+      }
       return (b.rate ?? -1) - (a.rate ?? -1);
     });
 
@@ -124,7 +135,7 @@ export default function MembersScreen() {
         onChange={setSort}
         options={[
           { value: 'rate', label: '출석률 순' },
-          { value: 'unpaid', label: '미납 순' },
+          { value: 'age', label: '연령대 순' },
           { value: 'name', label: '이름 순' },
         ]}
       />
@@ -244,6 +255,15 @@ function MemberRow({
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Row gap={space.xs}>
             <Txt variant="h3">{member.name}</Txt>
+            {/*
+              연령대를 이름 옆에 붙인다. 연령대 순으로 정렬해 놓고 화면에 안 보이면
+              무슨 기준으로 줄 선 건지 알 수가 없다. 조기축구는 나이대가 실제 정보다.
+            */}
+            {member.ageBand ? (
+              <Txt variant="tiny" muted>
+                {`${member.ageBand}대`}
+              </Txt>
+            ) : null}
             {member.positions.length || member.backNumber != null ? (
               <Txt variant="tiny" muted>
                 {member.positions.join('·')}
