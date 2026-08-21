@@ -7,8 +7,8 @@
  */
 import Anthropic from 'npm:@anthropic-ai/sdk@0.117.1';
 import { corsHeaders, json } from '../_shared/cors.ts';
-import { NONE, PARSE_SCHEMA } from '../_shared/schema.ts';
-import { SYSTEM_PROMPT } from '../_shared/prompt.ts';
+import { NONE, PARSE_SCHEMA, ROSTER_SCHEMA } from '../_shared/schema.ts';
+import { ROSTER_PROMPT, SYSTEM_PROMPT } from '../_shared/prompt.ts';
 
 /*
  * 기본을 Sonnet 으로 둔다.
@@ -33,6 +33,11 @@ const MAX_ROSTER = 200;
  * 여기 값은 그 약속을 넘겨 받지 않도록 막는 울타리다. 두 값은 같이 움직인다.
  */
 const MAX_IMAGES = 4;
+/*
+ * Anthropic 호출을 우리가 먼저 끊는 시간. Supabase 워커가 죽는 한도보다 짧아야
+ * "왜 실패했는지"를 우리가 적어 보낼 수 있다. 넘기면 그냥 WORKER_RESOURCE_LIMIT 만 남는다.
+ */
+const CALL_TIMEOUT_MS = 110_000;
 /** base64 기준. 1568px·품질 0.7 로 줄여 보내면 보통 이 아래로 떨어진다. */
 const MAX_IMAGE_BYTES = 4_000_000;
 
@@ -74,6 +79,57 @@ const noneNum = (v: unknown): number | null =>
 
 const noneChoice = (v: unknown, fallback: string): string =>
   typeof v === 'string' && v && v !== NONE.choice ? v : fallback;
+
+/*
+ * 투표 사진은 사람마다 번호 하나로 받는다(ROSTER_SCHEMA). 그걸 앱이 아는 항목 모양으로
+ * 다시 펼친다. 앱 타입은 그대로다 — 짧게 받는 약속은 이 함수 안에서 끝난다.
+ */
+const STATUS_ORDER = ['attending', 'late', 'absent', 'pending'] as const;
+const STATUS_QUOTE: Record<string, string> = {
+  attending: '투표 화면: 참석',
+  late: '투표 화면: 지각',
+  absent: '투표 화면: 불참',
+  pending: '투표 화면: 미참여',
+};
+
+function expandRoster(parsed: Record<string, unknown>, roster: RosterEntry[]) {
+  const items: Record<string, unknown>[] = [];
+  const taken = new Set<number>();
+  let outOfRange = 0;
+
+  /*
+   * 확실한 쪽부터 담는다. 모델이 한 사람을 두 칸에 넣었을 때 참석이 미투표를 이겨야 한다 —
+   * 반대로 두면 투표한 사람의 참석 표시가 조용히 사라진다.
+   */
+  for (const status of STATUS_ORDER) {
+    const list = parsed[status];
+    if (!Array.isArray(list)) continue;
+    for (const raw of list) {
+      const at = typeof raw === 'number' ? Math.round(raw) : NaN;
+      if (!Number.isInteger(at) || at < 0 || at >= roster.length) {
+        outOfRange += 1;
+        continue;
+      }
+      if (taken.has(at)) continue;
+      taken.add(at);
+      items.push({
+        kind: 'attendance',
+        memberId: roster[at].id,
+        memberName: roster[at].name,
+        confidence: 'high',
+        quote: STATUS_QUOTE[status],
+        status,
+        note: null,
+      });
+    }
+  }
+
+  // 명단에 없는 번호를 골랐다면 조용히 넘기지 않는다. 그만큼 사람이 빠진 것이다.
+  if (outOfRange) {
+    console.warn(`명단에 없는 번호 ${outOfRange}개를 건너뛰었습니다. 명단 ${roster.length}명.`);
+  }
+  return items;
+}
 
 /** 스키마가 평평한 객체 하나로 오므로, kind 별로 필요한 필드만 남겨 좁힌다. */
 function normalizeItem(raw: Record<string, unknown>) {
@@ -186,6 +242,19 @@ Deno.serve(async (req) => {
 
   const roster = (body.roster ?? []).slice(0, MAX_ROSTER);
   const today = body.today ?? new Date().toISOString().slice(0, 10);
+  const hint = body.hint ?? '';
+
+  /*
+   * 투표 사진은 짧은 출력 경로로 보낸다.
+   *
+   * 긴 쪽은 항목 하나에 스무 칸을 채우게 해서 한 사람에 약 115토큰이 든다. 아흔 명이면
+   * 출력만 1만 토큰이고 그걸 쓰는 시간이 그대로 실행 한도를 넘겼다(WORKER_RESOURCE_LIMIT).
+   * 투표 화면은 "누가 어느 칸에 있나"만 알면 되는 일이라 번호로만 받는다.
+   *
+   * 글이 같이 왔으면 긴 쪽으로 보낸다 — 짧은 출력에는 사유("출장", "30분 늦음")를
+   * 담을 칸이 없어서, 사람이 적어 보낸 말을 조용히 버리게 된다.
+   */
+  const compact = hint === 'attendance' && images.length > 0 && !text;
 
   // 가변 정보는 전부 user 메시지로. system은 고정이라 프롬프트 캐시가 걸린다.
   const prompt = [
@@ -194,11 +263,24 @@ Deno.serve(async (req) => {
     body.quarter
       ? `앱이 지금 보고 있는 쿼터는 ${body.quarter}쿼터입니다. 화이트보드에 쿼터가 안 적혀 있으면 quarter 를 null 로 두십시오.`
       : null,
-    body.hint ? `사용자가 연 화면: ${body.hint} (힌트일 뿐, 내용이 다르면 내용을 따르십시오)` : null,
+    hint && !compact ? `사용자가 연 화면: ${hint} (힌트일 뿐, 내용이 다르면 내용을 따르십시오)` : null,
     images.length ? `첨부한 사진 ${images.length}장도 함께 읽으십시오.` : null,
     '',
-    '## 팀 명단 (JSON)',
-    JSON.stringify(roster),
+    compact ? '## 팀 명단 (번호 이름)' : '## 팀 명단 (JSON)',
+    /*
+     * 짧은 경로에서는 명단도 줄글로 준다. 같은 아흔 명이 JSON 으로는 3천 토큰인데
+     * 번호 줄로는 900 토큰이다. 답이 번호라서 그 이상은 필요 없다.
+     */
+    compact
+      ? roster
+          .map((one, at) => {
+            const extra = [one.nickname, one.backNumber ? `${one.backNumber}번` : null]
+              .filter(Boolean)
+              .join(' ');
+            return extra ? `${at} ${one.name} (${extra})` : `${at} ${one.name}`;
+          })
+          .join('\n')
+      : JSON.stringify(roster),
     '',
     text ? '## 분석할 원문' : '## 글 없이 사진만 왔습니다',
     ...(text ? ['<<<', text, '>>>'] : []),
@@ -215,22 +297,45 @@ Deno.serve(async (req) => {
     { type: 'text' as const, text: prompt },
   ];
 
-  const client = new Anthropic({ apiKey });
+  /*
+   * 실행 한도에 걸리면 Supabase 가 워커를 죽이고 WORKER_RESOURCE_LIMIT 만 남긴다 —
+   * 어디서 죽었는지가 로그에도 안 남아서, 사진이 문제인지 출력이 긴 게 문제인지 갈리지 않는다.
+   * 우리가 먼저 끊으면 "무엇이 오래 걸렸다"를 적어 둘 수 있다.
+   */
+  const client = new Anthropic({ apiKey, timeout: CALL_TIMEOUT_MS, maxRetries: 0 });
+  const startedAt = Date.now();
 
   try {
     const response = await client.beta.messages.create({
       model: MODEL,
-      max_tokens: 16000,
+      // 짧은 경로는 번호만 받으므로 길게 열어 둘 이유가 없다.
+      max_tokens: compact ? 4000 : 16000,
       // 안전 분류기가 요청을 거절하면 서버가 알아서 다른 모델로 넘긴다.
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
-      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      system: [
+        {
+          type: 'text',
+          text: compact ? ROSTER_PROMPT : SYSTEM_PROMPT,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
       output_config: {
-        effort: 'medium',
-        format: { type: 'json_schema', schema: PARSE_SCHEMA },
+        // 투표 화면 읽기는 판단이 아니라 옮겨 적기라 오래 생각할 이유가 없다.
+        effort: compact ? 'low' : 'medium',
+        format: { type: 'json_schema', schema: compact ? ROSTER_SCHEMA : PARSE_SCHEMA },
       },
       messages: [{ role: 'user', content: userContent }],
     });
+
+    /*
+     * 얼마나 걸렸고 얼마나 썼는지 남긴다. 한도에 다시 닿으면 여기 숫자로 바로 안다 —
+     * 출력 토큰이 그대로 시간이다.
+     */
+    console.log(
+      `응답: ${Date.now() - startedAt}ms, 출력 ${response.usage.output_tokens}토큰` +
+        `, 입력 ${response.usage.input_tokens}토큰 (${compact ? '짧은' : '긴'} 경로)`,
+    );
 
     if (response.stop_reason === 'refusal') {
       return json({ error: '이 내용은 분석할 수 없습니다. 문구를 바꿔 다시 시도해 주세요.' }, 422);
@@ -249,10 +354,12 @@ Deno.serve(async (req) => {
       summary?: string;
     };
 
-    const items = (parsed.items ?? []).map(normalizeItem).filter((item) => item !== null);
+    const items = compact
+      ? expandRoster(parsed as Record<string, unknown>, roster)
+      : (parsed.items ?? []).map(normalizeItem).filter((item) => item !== null);
 
     return json({
-      intent: parsed.intent ?? 'unknown',
+      intent: compact ? 'attendance' : (parsed.intent ?? 'unknown'),
       formation: parsed.formation ?? null,
       items,
       unmatched: parsed.unmatched ?? [],
@@ -266,8 +373,18 @@ Deno.serve(async (req) => {
   } catch (error) {
     const status = (error as { status?: number }).status;
     const message = error instanceof Error ? error.message : String(error);
-    console.error('parse-text failed', status, message);
+    console.error(`parse-text 실패 (${Date.now() - startedAt}ms)`, status, message);
 
+    if (/timeout|aborted/i.test(message)) {
+      return json(
+        {
+          error:
+            `사진 읽기가 ${Math.round(CALL_TIMEOUT_MS / 1000)}초 안에 안 끝났어요. ` +
+            '사진을 한 장씩 나눠 올리거나, 화면을 짧게 잘라서 다시 올려 주세요.',
+        },
+        504,
+      );
+    }
     if (status === 429) return json({ error: '요청이 몰렸습니다. 잠시 후 다시 시도해 주세요.' }, 429);
     if (status && status >= 500) return json({ error: 'AI 서비스가 응답하지 않습니다.' }, 502);
     return json({ error: `분석에 실패했습니다: ${message}` }, 500);

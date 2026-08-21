@@ -193,12 +193,19 @@ export async function parseText({
   }
 
   /*
-   * 글은 첫 요청에만 싣는다. 요청마다 같은 글을 붙이면 같은 항목이 요청 수만큼 나온다 —
-   * 회비 입금 문자 하나가 세 번 들어가는 식이라, 총무가 되돌리는 비용이 크다.
+   * 글은 사진과 같이 싣지 않고 요청 하나를 따로 쓴다.
+   *
+   * 두 가지 때문이다. 첫째, 요청마다 같은 글을 붙이면 같은 항목이 요청 수만큼 나온다 —
+   * 회비 입금 문자 하나가 세 건이 되고, 총무가 그걸 되돌리는 비용이 크다.
+   * 둘째, 투표 사진은 함수가 짧은 출력 경로로 읽는데(번호만 받는다) 그 경로에는
+   * 사유("출장", "30분 늦음")를 담을 칸이 없다. 글을 얹으면 그 요청만 긴 경로로 넘어가
+   * 다시 실행 한도에 걸린다. 떼어 두면 사진은 짧게, 글은 글대로 읽힌다.
    */
-  const calls: ParseRequest[] = batches.length
-    ? batches.map((images, index) => ({ ...base, text: index === 0 ? text : '', images }))
-    : [{ ...base, text }];
+  const calls: ParseRequest[] = [
+    ...(text.trim() ? [{ ...base, text }] : []),
+    ...batches.map((images) => ({ ...base, text: '', images })),
+  ];
+  if (!calls.length) calls.push({ ...base, text });
 
   let done = 0;
   onProgress?.({ done, total: calls.length });

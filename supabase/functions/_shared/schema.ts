@@ -160,3 +160,43 @@ export const PARSE_SCHEMA = {
     },
   },
 } as const;
+
+/**
+ * 투표 사진 전용 짧은 스키마. 사람마다 번호 하나만 받는다.
+ *
+ * PARSE_SCHEMA 는 항목 하나에 스무 칸을 전부 required 로 요구한다. 한 사람에 약 115토큰이라
+ * 아흔 명이면 출력만 1만 토큰이고, 그걸 쓰는 데 걸리는 시간이 Edge Function 한도(150초)를
+ * 그대로 넘겼다 — WORKER_RESOURCE_LIMIT. 모델을 빠른 것으로 바꿔도 벽이 그대로 있었다.
+ *
+ * 투표 화면은 "누가 어느 칸에 있나"만 알면 되는 일이라 번호로 받는다. 사람당 네댓 토큰이라
+ * 같은 아흔 명이 400토큰으로 끝난다. 앱에 돌려줄 때 함수가 다시 항목으로 펼치므로
+ * 앱 타입(contract.ts)은 그대로다 — 이 약속도 함수 안에서 끝난다.
+ *
+ * 여기에도 union 은 없다. 전부 required 이고 빈 칸은 빈 배열이다.
+ */
+const indexList = (what: string) => ({
+  type: 'array',
+  items: { type: 'integer' },
+  description: `${what} 사람들의 명단 번호. 없으면 빈 배열 [].`,
+});
+
+export const ROSTER_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['attending', 'absent', 'late', 'pending', 'unmatched', 'summary'],
+  properties: {
+    attending: indexList('참석한'),
+    absent: indexList('불참한'),
+    late: indexList('지각·늦참으로 적힌'),
+    pending: indexList('미참여(아직 투표 안 함)'),
+    unmatched: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '화면에는 있는데 명단에서 못 찾은 이름들. 글자 그대로 넣는다.',
+    },
+    summary: {
+      type: 'string',
+      description: "검토 화면 위에 띄울 한 줄 한국어 요약. 예: '참석 15명, 불참 4명으로 읽었어요.'",
+    },
+  },
+} as const;
