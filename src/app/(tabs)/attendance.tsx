@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { attendanceForMatch, tallyAttendance, unrespondedMembers } from '@/lib/selectors';
@@ -11,6 +11,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Chip,
   Divider,
   Empty,
   Hero,
@@ -25,7 +26,7 @@ import {
 import { AttendanceNudge } from '@/features/attendance/AttendanceNudge';
 import { MatchPicker } from '@/components/MatchPicker';
 import { usePalette } from '@/theme';
-import type { AttendanceStatus } from '@/lib/types';
+import type { AgeBand, AttendanceStatus } from '@/lib/types';
 
 /*
  * 참석·불참·미투표 셋뿐이다.
@@ -34,13 +35,23 @@ import type { AttendanceStatus } from '@/lib/types';
  * 앱에만 있는 칸은 아무도 누르지 않으면서 매주 손가락이 지나갈 자리만 차지한다.
  * 타입과 DB 값은 남겨 뒀다 — 예전에 지각으로 적어 둔 기록을 지우지 않으려고.
  */
-const STATUSES: { value: AttendanceStatus; label: string; short: string }[] = [
-  { value: 'attending', label: '참석', short: '참' },
-  { value: 'absent', label: '불참', short: '불' },
-  { value: 'unknown', label: '미투표', short: '?' },
+const STATUSES: { value: AttendanceStatus; label: string }[] = [
+  { value: 'attending', label: '참석' },
+  { value: 'absent', label: '불참' },
+  { value: 'unknown', label: '미투표' },
 ];
 
-type Filter = 'all' | AttendanceStatus;
+/**
+ * 미정 = 이 경기에 참석 줄이 아예 없는 사람.
+ *
+ * 캡처에 안 나온 사람이 여기 남는다. 전에는 미투표와 한 칸이라 "투표를 안 한 사람"과
+ * "캡처에 없어서 아직 못 넣은 사람"이 섞였다. 총무가 확인해야 할 건 뒤쪽이다.
+ */
+type Filter = 'all' | AttendanceStatus | 'undecided';
+
+/** 나이대별로 걸러 본다. 조기축구는 연령대가 쿼터 배분에 실제로 쓰인다. */
+const AGE_BANDS: AgeBand[] = ['60', '50', '40', '30', '20'];
+
 
 export default function AttendanceScreen() {
   const p = usePalette();
@@ -51,6 +62,7 @@ export default function AttendanceScreen() {
   const setAttendanceMany = useStore((state) => state.setAttendanceMany);
   const clearAttendance = useStore((state) => state.clearAttendance);
   const [filter, setFilter] = useState<Filter>('all');
+  const [band, setBand] = useState<AgeBand | 'all'>('all');
   /*
    * 카톡 투표 화면을 사진으로 읽는 건 아흔 명쯤 되면 자꾸 틀린다. 이름이 작고
    * 프로필 사진에 가리고 화면이 잘린다. 그래서 손으로 고르는 길을 확실하게 둔다 —
@@ -80,13 +92,24 @@ export default function AttendanceScreen() {
 
   if (!data) return null;
   const match = data.matches.find((item) => item.id === activeMatchId);
+  /**
+   * 아직 아무 표시도 없는 사람. 캡처에 안 나왔거나 손이 안 간 사람이다.
+   * 탭으로만 두면 찾아가야 보인다 — 이 앱은 총무가 찾아다니지 않는 게 전제라 위에서 알린다.
+   */
+  const undecided = data.members.filter((one) => one.active && !rows.get(one.id));
   /** 이 경기에 실제로 줄이 있는 사람 수. 초기화로 지워질 대상이다. */
   const answered = rows.size;
 
   const tally = match ? tallyAttendance(data, match.id) : null;
   const members = data.members
     .filter((member) => member.active)
-    .filter((member) => filter === 'all' || (rows.get(member.id)?.status ?? 'unknown') === filter);
+    .filter((member) => {
+      if (filter === 'all') return true;
+      // 미정은 "줄이 아예 없음". 캡처에 안 나온 사람이 여기 남는다.
+      if (filter === 'undecided') return !rows.get(member.id);
+      return rows.get(member.id)?.status === filter;
+    })
+    .filter((member) => band === 'all' || member.ageBand === band);
 
   const active = data.members.filter((member) => member.active);
   /** 참석·불참으로 정해지지 않은 채 줄만 남아 있는 사람 — 미투표로 되돌릴 대상. */
@@ -101,14 +124,20 @@ export default function AttendanceScreen() {
     .filter((member) => !rows.get(member.id))
     .map((member) => member.id);
 
+  /*
+   * 참석은 파랑, 불참은 빨강, 미투표는 진한 회색.
+   *
+   * 참석을 초록에서 파랑으로 옮겼다. 운동장 햇빛 아래 작은 칩에서는 초록과 회색이
+   * 잘 안 갈렸다. 미투표도 옅은 회색이라 안 보인다고 해서 글자를 본문 색까지 올렸다.
+   */
   const tone: Record<AttendanceStatus, { fg: string; bg: string; line: string }> = {
-    attending: { fg: p.ok, bg: p.okSoft, line: p.okLine },
-    late: { fg: p.warn, bg: p.warnSoft, line: p.warnLine },
+    attending: { fg: p.primaryStrong, bg: p.primarySoft, line: p.primary },
     absent: { fg: p.danger, bg: p.dangerSoft, line: p.dangerLine },
-    // 예전 엑셀에서 옮겨 온 "투표는 했는데 뭐라고 했는지 모름". 파랑으로 두어
-    // 참석(초록)·불참(빨강)과 섞이지 않게 한다.
-    voted: { fg: p.primaryStrong, bg: p.primarySoft, line: p.primary },
-    unknown: { fg: p.textMuted, bg: p.surfaceAlt, line: p.borderStrong },
+    unknown: { fg: p.text, bg: p.surfaceAlt, line: p.textMuted },
+    // 지각과 "투표는 했는데 뭐라고 했는지 모름"은 화면에서 고를 수 없다.
+    // 옛 기록에만 남아 있어서 아바타 색으로만 쓰인다.
+    late: { fg: p.warn, bg: p.warnSoft, line: p.warnLine },
+    voted: { fg: p.warn, bg: p.warnSoft, line: p.warnLine },
   };
 
   return (
@@ -171,10 +200,15 @@ export default function AttendanceScreen() {
                 읽은 결과는 체크로 확인한 뒤에만 저장돼요.
               </Txt>
               <Row gap={space.sm}>
+                {/*
+                  글자가 길어 320px 에서 두 줄로 접혔다. 짧게 줄이고 small 로 낮춘다.
+                  좁은 화면에서 버튼 두 개를 옆에 두려면 글자가 네 자를 넘으면 안 된다.
+                */}
                 <Button
-                  label={picking ? '사진첩 여는 중' : '투표 사진 올리기'}
+                  label={picking ? '여는 중' : '사진 올리기'}
                   icon="camera"
                   tone="neutral"
+                  small
                   style={{ flex: 1 }}
                   disabled={picking}
                   /*
@@ -195,8 +229,9 @@ export default function AttendanceScreen() {
                   }}
                 />
                 <Button
-                  label={selecting ? '고르기 그만두기' : '여러 명 한 번에'}
+                  label={selecting ? '그만두기' : '여러 명 고르기'}
                   icon="check"
+                  small
                   style={{ flex: 1 }}
                   onPress={() => {
                     setSelecting((on) => !on);
@@ -262,14 +297,51 @@ export default function AttendanceScreen() {
               ) : null}
             </Card>
 
+            {/*
+              아무 표시도 없는 사람은 위에서 알린다. 캡처에 안 나와서 빠진 사람이
+              여기 남는데, 탭으로만 두면 찾아가야 보인다.
+            */}
+            {undecided.length > 0 && filter !== 'undecided' ? (
+              <Card style={{ backgroundColor: p.warnSoft, borderColor: p.warnSoft }}>
+                <Row justify="space-between" gap={space.md}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Txt variant="h3" color={p.warn}>
+                      {`아직 표시 없는 ${undecided.length}명`}
+                    </Txt>
+                    <Txt variant="tiny" color={p.warn}>
+                      투표 캡처에 안 나온 사람일 수 있어요. 확인해 주세요.
+                    </Txt>
+                  </View>
+                  <Button label="보기" tone="neutral" small onPress={() => setFilter('undecided')} />
+                </Row>
+              </Card>
+            ) : null}
+
             <Segmented
               value={filter}
               onChange={setFilter}
               options={[
                 { value: 'all', label: '전체' },
                 ...STATUSES.map((status) => ({ value: status.value, label: status.label })),
+                { value: 'undecided' as const, label: '미정' },
               ]}
             />
+
+            {/* 연령대. 여섯 칸이라 Segmented 로는 좁아서 칩을 가로로 민다. */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <Row gap={space.sm}>
+                {(['all', ...AGE_BANDS] as const).map((one) => (
+                  <Chip
+                    key={one}
+                    label={one === 'all' ? '연령 전체' : `${one}대`}
+                    tone={
+                      band === one ? { fg: p.primaryStrong, bg: p.primarySoft } : undefined
+                    }
+                    onPress={() => setBand(one)}
+                  />
+                ))}
+              </Row>
+            </ScrollView>
 
             {selecting ? (
               <Row justify="space-between">
@@ -299,7 +371,12 @@ export default function AttendanceScreen() {
                 <Empty text="여기 해당하는 회원이 없어요." />
               ) : (
                 members.map((member, index) => {
-                  const current = (rows.get(member.id)?.status ?? 'unknown') as AttendanceStatus;
+                  /*
+                   * 줄이 없으면 null 이다. 예전에는 'unknown' 으로 떨어뜨렸는데, 그러면
+                   * 아무 표시도 없는 사람이 화면에서는 "미투표"를 고른 것처럼 보였다.
+                   * 미정과 미투표를 나눈 의미가 없어진다.
+                   */
+                  const current = (rows.get(member.id)?.status ?? null) as AttendanceStatus | null;
                   const note = rows.get(member.id)?.note;
                   const chosen = picked.has(member.id);
                   const toggle = () =>
@@ -338,7 +415,7 @@ export default function AttendanceScreen() {
                               <Checkbox checked={chosen} onToggle={toggle} />
                             </View>
                           ) : null}
-                          <Avatar name={member.name} size={32} tone={tone[current].bg} />
+                          <Avatar name={member.name} size={32} tone={current ? tone[current].bg : p.surfaceAlt} />
                           <View style={{ flexShrink: 1 }}>
                             <Txt variant="h3">{member.name}</Txt>
                             <Txt variant="tiny" muted numberOfLines={1}>
@@ -361,8 +438,9 @@ export default function AttendanceScreen() {
                                 accessibilityState={{ selected: active }}
                                 accessibilityLabel={`${member.name} ${status.label}`}
                                 style={{
-                                  width: 30,
+                                  paddingHorizontal: 8,
                                   height: 30,
+                                  minWidth: 34,
                                   borderRadius: radius.sm,
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -371,12 +449,16 @@ export default function AttendanceScreen() {
                                   borderColor: active ? tone[status.value].line : p.border,
                                 }}
                               >
+                                {/*
+                                  참·불·? 세 글자였는데 "?" 가 무슨 뜻인지 알 수 없다는 말을 들었다.
+                                  낱말로 적는다. 안 고른 것도 textFaint 는 너무 옅어서 textMuted 로 올렸다.
+                                */}
                                 <Txt
-                                  variant="small"
-                                  color={active ? tone[status.value].fg : p.textFaint}
-                                  style={{ fontWeight: '500' }}
+                                  variant="tiny"
+                                  color={active ? tone[status.value].fg : p.textMuted}
+                                  style={{ fontWeight: active ? '700' : '500' }}
                                 >
-                                  {status.short}
+                                  {status.label}
                                 </Txt>
                               </Pressable>
                             );
@@ -419,8 +501,12 @@ export default function AttendanceScreen() {
                     style={{ flex: 1 }}
                     disabled={picked.size === 0}
                     onPress={async () => {
-                      // 미투표는 줄이 없는 상태다. 새 상태를 쓰는 게 아니라 있던 줄을 지운다.
-                      await clearAttendance(match.id, [...picked]);
+                      /*
+                       * 미투표도 줄로 남긴다. 지우면 "표시가 아예 없는 사람"과 구분이 안 된다 —
+                       * 캡처에 안 나와서 빠진 사람을 찾을 수 없게 된다.
+                       * 계산 쪽은 예전부터 줄 없음과 unknown 을 같게 봐서(?? 'unknown') 영향이 없다.
+                       */
+                      await setAttendanceMany(match.id, [...picked], 'unknown');
                       setPicked(new Set());
                     }}
                   />
@@ -448,7 +534,8 @@ export default function AttendanceScreen() {
               }
               tone="neutral"
               disabled={toPending.length === 0}
-              onPress={() => void clearAttendance(match.id, toPending)}
+              // 미투표도 줄로 남긴다. 지우면 표시가 아예 없는 사람과 구분이 안 된다.
+              onPress={() => void setAttendanceMany(match.id, toPending, 'unknown')}
             />
 
             <Button

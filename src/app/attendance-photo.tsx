@@ -191,9 +191,12 @@ export default function AttendancePhotoScreen() {
       }
 
       for (const [status, ids] of buckets) {
-        // 미투표는 "줄이 없음"이다. 새 상태를 쓰는 게 아니라 있던 줄을 지운다.
-        if (status === 'pending') await clearAttendance(match.id, ids);
-        else await setAttendanceMany(match.id, ids, status as AttendanceStatus);
+        /*
+         * 미투표도 줄로 남긴다. 지우면 "캡처가 미참여라고 한 사람"과 "캡처에 아예 없던
+         * 사람"이 둘 다 줄 없음이 되어 구분이 안 된다. 뒤쪽이 총무가 확인해야 할 사람이다.
+         * 계산 쪽은 예전부터 줄 없음과 unknown 을 같게 봐서(?? 'unknown') 영향이 없다.
+         */
+        await setAttendanceMany(match.id, ids, (status === 'pending' ? 'unknown' : status) as AttendanceStatus);
       }
 
       /*

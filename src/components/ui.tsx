@@ -199,7 +199,16 @@ export function Button({
       ) : (
         <>
           {icon ? <Icon name={icon} size={small ? 15 : 17} color={fg} /> : null}
-          <Text style={[small ? font.small : font.h3, { color: fg, fontWeight: '500' }]}>{label}</Text>
+          {/*
+            버튼 글자는 한 줄로 둔다. 좁은 화면에서 접히면 버튼만 세로로 커져서
+            옆 버튼과 높이가 어긋나고, 줄바꿈 자리도 "여러 / 명 고르기"처럼 이상하게 잡힌다.
+          */}
+          <Text
+            numberOfLines={1}
+            style={[small ? font.small : font.h3, { color: fg, fontWeight: '500', flexShrink: 1 }]}
+          >
+            {label}
+          </Text>
         </>
       )}
     </Pressable>
