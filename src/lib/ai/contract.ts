@@ -110,11 +110,24 @@ export type ParseImage = {
   data: string;
 };
 
+/**
+ * "이 사진에 보이는 이름은 전부 이 칸이다" — 사람이 미리 알려 주는 값.
+ *
+ * 카톡 투표 화면을 통째로 올리면 말머리("불참 : 35명") 아래로 이름이 이어지는데,
+ * 긴 캡처는 조각으로 잘려서 말머리 없이 이름부터 시작하는 조각이 생긴다. 그러면 모델이
+ * 그 이름들을 어느 칸인지 몰라 조용히 버린다 — 불참이 아래쪽 긴 묶음이라 하필 불참만 빠진다.
+ *
+ * 칸별로 따로 찍어 올리고 이 값을 붙이면 **추론할 일 자체가 없어진다.** 모델은 이름만 읽는다.
+ */
+export type PhotoStatusHint = AttendanceStatus | 'pending';
+
 export type ParseRequest = {
   /** 사진만 보낼 수도 있어서 비어 있을 수 있다. */
   text: string;
   /** 손으로 쓴 명단, 화이트보드 포메이션, 은행 앱 캡처 등. */
   images?: ParseImage[];
+  /** 이 요청의 사진들이 전부 어느 칸인지. 없으면 모델이 화면에서 읽어 정한다. */
+  statusHint?: PhotoStatusHint;
   /** 특정 기능에서 호출했다면 힌트로 넘긴다. 없으면 AI가 판단. */
   hint?: Exclude<ParseIntent, 'mixed' | 'unknown'>;
   /** 지금 보고 있는 쿼터. 사진에 쿼터가 안 적혀 있을 때 여기로 넣는다. */

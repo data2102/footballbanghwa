@@ -154,9 +154,9 @@ export default function QuickInputScreen() {
          * 조각을 장별로 묶어서 넘긴다. client 가 장마다 요청을 따로 보내는데,
          * 평평하게 펴서 주면 어디까지가 한 장인지 알 수 없어 머리글이 없는 조각이 생긴다.
          */
-        photos: photos.map((photo) =>
-          photo.parts.map((part) => ({ mediaType: photo.mediaType, data: part.base64 })),
-        ),
+        photos: photos.map((photo) => ({
+          slices: photo.parts.map((part) => ({ mediaType: photo.mediaType, data: part.base64 })),
+        })),
         members: activeMembers,
         team: data!.team,
         hint: hint === 'auto' ? undefined : hint,

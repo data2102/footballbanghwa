@@ -6,6 +6,7 @@ import type { Member, Team } from '@/lib/types';
 import { demoParse } from './demoParser';
 import type {
   ParseImage,
+  PhotoStatusHint,
   ParseIntent,
   ParseRequest,
   ParseResponse,
@@ -53,13 +54,19 @@ const MAX_SLICES_PER_CALL = 6;
 /** 사진 몇 장 중 몇 장을 읽었는지. 기다리는 동안 화면에 보여 준다. */
 export type ParseProgress = { done: number; total: number };
 
+/**
+ * 보낼 사진 한 장. 긴 캡처는 조각 여러 개가 모여 한 장을 이룬다.
+ * 조각을 통째로 평평하게 넘기면 어디까지가 한 장인지 알 수 없어서 나눠 보낼 수 없다.
+ */
+export type ParsePhoto = {
+  slices: ParseImage[];
+  /** 이 장이 전부 어느 칸인지. 사람이 골라 준 값이라 모델의 판단보다 세다. */
+  status?: PhotoStatusHint;
+};
+
 export type ParseOptions = {
   text: string;
-  /**
-   * 사진 한 장이 배열 하나다. 긴 캡처는 조각 여러 개가 모여 한 장을 이룬다.
-   * 조각을 통째로 평평하게 넘기면 어디까지가 한 장인지 알 수 없어서 나눠 보낼 수 없다.
-   */
-  photos?: ParseImage[][];
+  photos?: ParsePhoto[];
   members: Member[];
   team: Team;
   hint?: Exclude<ParseIntent, 'mixed' | 'unknown'>;
@@ -69,12 +76,13 @@ export type ParseOptions = {
 };
 
 /** 사진들을 요청 단위로 묶는다. 한 장이 너무 잘게 잘렸으면 그 장만 다시 나눈다. */
-function toBatches(photos: ParseImage[][]): ParseImage[][] {
-  const batches: ParseImage[][] = [];
-  for (const slices of photos) {
-    if (!slices.length) continue;
-    for (let at = 0; at < slices.length; at += MAX_SLICES_PER_CALL) {
-      batches.push(slices.slice(at, at + MAX_SLICES_PER_CALL));
+function toBatches(photos: ParsePhoto[]): { images: ParseImage[]; status?: PhotoStatusHint }[] {
+  const batches: { images: ParseImage[]; status?: PhotoStatusHint }[] = [];
+  for (const photo of photos) {
+    if (!photo.slices.length) continue;
+    for (let at = 0; at < photo.slices.length; at += MAX_SLICES_PER_CALL) {
+      // 한 장이 여러 요청으로 갈려도 그 장의 칸은 그대로 따라간다.
+      batches.push({ images: photo.slices.slice(at, at + MAX_SLICES_PER_CALL), status: photo.status });
     }
   }
   return batches;
@@ -191,7 +199,7 @@ export async function parseText({
   if (!supabase) {
     // 데모 모드. 실제 호출과 체감을 맞추려고 약간의 지연을 준다.
     await new Promise((resolve) => setTimeout(resolve, 400));
-    const result = demoParse({ ...base, text, images: batches.flat() });
+    const result = demoParse({ ...base, text, images: batches.flatMap((one) => one.images) });
     if (batches.length) {
       return {
         ...result,
@@ -213,7 +221,7 @@ export async function parseText({
    */
   const calls: ParseRequest[] = [
     ...(text.trim() ? [{ ...base, text }] : []),
-    ...batches.map((images) => ({ ...base, text: '', images })),
+    ...batches.map(({ images, status }) => ({ ...base, text: '', images, statusHint: status })),
   ];
   if (!calls.length) calls.push({ ...base, text });
 

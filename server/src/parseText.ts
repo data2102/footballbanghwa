@@ -64,6 +64,8 @@ type ParseRequest = {
   images?: ParseImage[];
   hint?: string;
   roster?: RosterEntry[];
+  /** 이 요청의 사진들이 전부 어느 칸인지. 사람이 골라 준 값이다. */
+  statusHint?: 'attending' | 'late' | 'absent' | 'excused' | 'unknown' | 'pending';
   today?: string;
   monthlyDue?: number;
   /** 앱이 지금 보고 있는 쿼터. 화이트보드에 안 적혀 있을 때 기준으로 알려 준다. */
@@ -104,7 +106,17 @@ const STATUS_QUOTE: Record<string, string> = {
   pending: '투표 화면: 미참여',
 };
 
-function expandRoster(parsed: Record<string, unknown>, roster: RosterEntry[]) {
+function expandRoster(
+  parsed: Record<string, unknown>,
+  roster: RosterEntry[],
+  /**
+   * 사람이 "이 화면은 전부 불참" 이라고 알려 준 칸.
+   *
+   * 있으면 모델이 어느 배열에 담았든 전부 이 칸으로 본다. 화면을 보고 고른 사람이
+   * 모델의 짐작보다 세다 — 애초에 짐작할 일을 없애려고 나눠 찍어 올리는 것이다.
+   */
+  fixed?: string,
+) {
   const items: Record<string, unknown>[] = [];
   const taken = new Set<number>();
   let outOfRange = 0;
@@ -124,13 +136,14 @@ function expandRoster(parsed: Record<string, unknown>, roster: RosterEntry[]) {
       }
       if (taken.has(at)) continue;
       taken.add(at);
+      const box = fixed ?? status;
       items.push({
         kind: 'attendance',
         memberId: roster[at].id,
         memberName: roster[at].name,
         confidence: 'high',
-        quote: STATUS_QUOTE[status],
-        status,
+        quote: STATUS_QUOTE[box] ?? STATUS_QUOTE[status],
+        status: box,
         note: null,
       });
     }
@@ -146,9 +159,11 @@ function expandRoster(parsed: Record<string, unknown>, roster: RosterEntry[]) {
     const one = raw as { name?: unknown; status?: unknown };
     const name = typeof one?.name === 'string' ? one.name.trim() : '';
     if (!name) continue;
-    const status = STATUS_ORDER.includes(one?.status as (typeof STATUS_ORDER)[number])
-      ? (one.status as string)
-      : 'pending';
+    const status =
+      fixed ??
+      (STATUS_ORDER.includes(one?.status as (typeof STATUS_ORDER)[number])
+        ? (one.status as string)
+        : 'pending');
     items.push({
       kind: 'attendance',
       memberId: null,
@@ -288,6 +303,23 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
    */
   const compact = hint === 'attendance' && images.length > 0 && !text;
 
+  /*
+   * 사람이 "이 화면은 전부 불참" 이라고 골라 준 칸.
+   *
+   * 통째로 올린 캡처는 말머리("불참 : 35명") 아래로 이름이 이어지는데, 긴 화면은 조각으로
+   * 잘려서 말머리 없이 이름부터 시작하는 조각이 생긴다. 그러면 모델이 그 이름들을 어느
+   * 칸인지 몰라 버린다. 칸별로 따로 찍어 올리면 **읽을 것이 이름뿐이라** 그 실수가 없다.
+   */
+  const statusHint = compact ? body.statusHint : undefined;
+  const STATUS_LABEL: Record<string, string> = {
+    attending: '참석',
+    late: '지각',
+    absent: '불참',
+    pending: '미투표(미참여)',
+    excused: '사유 불참',
+    unknown: '미투표',
+  };
+
   // 가변 정보는 전부 user 메시지로. system은 고정이라 프롬프트 캐시가 걸린다.
   const prompt = [
     `오늘 날짜: ${today}`,
@@ -296,6 +328,16 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
       ? `앱이 지금 보고 있는 쿼터는 ${body.quarter}쿼터입니다. 화이트보드에 쿼터가 안 적혀 있으면 quarter 를 null 로 두십시오.`
       : null,
     hint && !compact ? `사용자가 연 화면: ${hint} (힌트일 뿐, 내용이 다르면 내용을 따르십시오)` : null,
+    /*
+     * 칸을 못 박아 준다. 이러면 말머리를 찾을 필요도, 조각 사이로 이어 붙일 필요도 없다.
+     * 화면에 보이는 이름을 전부 담기만 하면 된다.
+     */
+    statusHint
+      ? `## 이 화면은 전부 "${STATUS_LABEL[statusHint] ?? statusHint}" 입니다\n` +
+        `사용자가 그 칸만 따로 찍어 올렸습니다. **말머리를 찾을 필요가 없습니다.**\n` +
+        `화면에 보이는 이름을 하나도 빼지 말고 전부 ${statusHint === 'pending' ? 'pending' : statusHint} 배열에 담으십시오.\n` +
+        `다른 배열은 비워 두십시오. 명단에서 못 찾은 이름만 unmatched 에 넣습니다.`
+      : null,
     images.length ? `첨부한 사진 ${images.length}장도 함께 읽으십시오.` : null,
     '',
     compact ? '## 팀 명단 (번호 이름)' : '## 팀 명단 (JSON)',
@@ -403,7 +445,7 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
     };
 
     const items = compact
-      ? expandRoster(parsed as Record<string, unknown>, roster)
+      ? expandRoster(parsed as Record<string, unknown>, roster, statusHint)
       : (parsed.items ?? []).map(normalizeItem).filter((item) => item !== null);
 
     return json({

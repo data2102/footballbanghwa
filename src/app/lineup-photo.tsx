@@ -127,9 +127,9 @@ export default function LineupPhotoScreen() {
       const response = await parseText({
         // 글은 보내지 않는다. 이 화면은 판을 옮겨 적는 일만 한다.
         text: '',
-        photos: photos.map((photo) =>
-          photo.parts.map((part) => ({ mediaType: photo.mediaType, data: part.base64 })),
-        ),
+        photos: photos.map((photo) => ({
+          slices: photo.parts.map((part) => ({ mediaType: photo.mediaType, data: part.base64 })),
+        })),
         members,
         team: data!.team,
         hint: 'lineup',

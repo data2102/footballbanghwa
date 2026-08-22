@@ -13,7 +13,7 @@ import { formatDate } from '@/lib/format';
 import { Button, Card, Checkbox, Chip, Divider, Row, Screen, Txt, radius, space } from '@/components/ui';
 import { Icon } from '@/components/icons';
 import { usePalette } from '@/theme';
-import type { ParseResponse, ParsedItem } from '@/lib/ai/contract';
+import type { ParseResponse, ParsedItem, PhotoStatusHint } from '@/lib/ai/contract';
 import type { AttendanceStatus } from '@/lib/types';
 
 /**
@@ -27,8 +27,31 @@ import type { AttendanceStatus } from '@/lib/types';
  * 아흔 명이면 그 길이가 그대로 실행 한도가 된다(CLAUDE.md 참고).
  */
 
-/** 올릴 수 있는 사진 수. 긴 캡처는 한 장이 여러 조각으로 잘려 나간다. */
-const MAX_PHOTOS = 3;
+/**
+ * 올릴 수 있는 사진 수. 긴 캡처는 한 장이 여러 조각으로 잘려 나간다.
+ *
+ * 칸별로 나눠 올리면 최소 세 장이고, 불참처럼 긴 묶음은 두 장이 되기도 한다.
+ */
+const MAX_PHOTOS = 6;
+
+/**
+ * 사진 한 장과 그 장이 어느 칸인지.
+ *
+ * 통째로 올린 캡처는 말머리("불참 : 35명") 아래로 이름이 이어지는데, 긴 화면은 조각으로
+ * 잘려서 말머리 없이 이름부터 시작하는 조각이 생긴다. 모델은 그 이름들을 어느 칸인지 몰라
+ * 조용히 버리고, 불참이 아래쪽 긴 묶음이라 하필 불참만 골라 빠진다.
+ *
+ * 칸을 골라 두면 **읽을 것이 이름뿐**이라 그 실수가 아예 없어진다.
+ */
+type Shot = { photo: PickedPhoto; status: PhotoStatusHint | null };
+
+/** 사진마다 고르는 칸. null 은 "한 화면에 섞여 있음" — 예전처럼 모델이 읽어 정한다. */
+const SHOT_BOXES: { value: PhotoStatusHint | null; label: string }[] = [
+  { value: 'attending', label: '참석' },
+  { value: 'absent', label: '불참' },
+  { value: 'pending', label: '미투표' },
+  { value: null, label: '섞여 있어요' },
+];
 
 const GROUPS: { status: AttendanceStatus | 'pending'; label: string }[] = [
   { status: 'attending', label: '참석' },
@@ -48,7 +71,7 @@ export default function AttendancePhotoScreen() {
   const addMember = useStore((s) => s.addMember);
   const clearStoreError = useStore((s) => s.clearError);
 
-  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
+  const [shots, setShots] = useState<Shot[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<ParseProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +105,7 @@ export default function AttendancePhotoScreen() {
      * 아니면 사진첩을 안 열어 줘서, 여는 건 버튼 쪽에서 하고 고른 것만 넘겨받는다.
      */
     const handed = takeHandedPhotos();
-    if (handed) setPhotos(handed);
+    if (handed) setShots(handed.map((photo) => ({ photo, status: null })));
     /*
      * AI 서버는 무료 플랜이라 15분 놀면 잠든다. 깨는 데 30~60초라, 분석을 누른 다음에
      * 깨우기 시작하면 그 시간을 사람이 다 기다린다. 화면을 여는 순간 미리 찔러 둔다.
@@ -102,20 +125,20 @@ export default function AttendancePhotoScreen() {
   const match = data.matches.find((one) => one.id === activeMatchId) ?? null;
 
   /** AI 에 실제로 가는 장수. 긴 캡처는 한 장이 여러 조각이 된다. */
-  const sliceCount = photos.reduce((sum, photo) => sum + photo.parts.length, 0);
+  const sliceCount = shots.reduce((sum, shot) => sum + shot.photo.parts.length, 0);
 
   async function attach(source: 'camera' | 'library') {
     setError(null);
     try {
       const photo = await pickPhoto(source);
-      if (photo) setPhotos((prev) => [...prev, photo].slice(0, MAX_PHOTOS));
+      if (photo) setShots((prev) => [...prev, { photo, status: null }].slice(0, MAX_PHOTOS));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '사진을 불러오지 못했어요.');
     }
   }
 
   async function runParse() {
-    if (!photos.length) return;
+    if (!shots.length) return;
     setBusy(true);
     setError(null);
     setErrorDetail(null);
@@ -123,9 +146,14 @@ export default function AttendancePhotoScreen() {
       const response = await parseText({
         // 글은 보내지 않는다. 이 화면은 투표 화면을 옮겨 적는 일만 한다.
         text: '',
-        photos: photos.map((photo) =>
-          photo.parts.map((part) => ({ mediaType: photo.mediaType, data: part.base64 })),
-        ),
+        photos: shots.map((shot) => ({
+          slices: shot.photo.parts.map((part) => ({
+            mediaType: shot.photo.mediaType,
+            data: part.base64,
+          })),
+          // 사람이 고른 칸은 그대로 보낸다. 안 골랐으면 예전처럼 모델이 화면을 보고 정한다.
+          status: shot.status ?? undefined,
+        })),
         members,
         team: data!.team,
         hint: 'attendance',
@@ -284,58 +312,85 @@ export default function AttendancePhotoScreen() {
 
           <Row gap={space.sm}>
             <Button
-              label={photos.length ? '사진 더 찍기' : '사진 찍기'}
+              label={shots.length ? '더 찍기' : '사진 찍기'}
               icon="camera"
               tone="neutral"
               style={{ flex: 1 }}
-              disabled={photos.length >= MAX_PHOTOS}
+              disabled={shots.length >= MAX_PHOTOS}
               onPress={() => attach('camera')}
             />
             <Button
-              label={photos.length ? '사진 더 고르기' : '사진첩에서'}
+              label={shots.length ? '더 고르기' : '사진첩에서'}
               icon="image"
               tone="neutral"
               style={{ flex: 1 }}
-              disabled={photos.length >= MAX_PHOTOS}
+              disabled={shots.length >= MAX_PHOTOS}
               onPress={() => attach('library')}
             />
           </Row>
 
-          {photos.length ? (
-            <Card>
+          {shots.length ? (
+            <Card style={{ gap: space.md }}>
               <Txt variant="small" muted>
-                아래 선택한 사진
+                사진마다 어느 칸인지 골라 주세요. 고르면 이름만 읽어서 훨씬 정확해요.
               </Txt>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <Row gap={space.sm}>
-                  {photos.map((photo, at) => (
-                    <Pressable
-                      key={at}
-                      onPress={() => setPhotos((prev) => prev.filter((_, i) => i !== at))}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${at + 1}번째 사진 빼기`}
-                    >
-                      <Image
-                        source={{ uri: photo.uri }}
-                        style={{
-                          width: 92,
-                          height: 92,
-                          borderRadius: radius.sm,
-                          borderWidth: 1,
-                          borderColor: p.border,
-                        }}
-                      />
-                      <Row gap={4} style={{ marginTop: 4, justifyContent: 'center' }}>
-                        <Icon name="close" size={12} color={p.textMuted} />
+              {/*
+                가로로 늘어놓지 않는다. 사진마다 칸을 골라야 하는데 92px 썸네일 아래에
+                칩 넉 장을 밀어 넣으면 좁은 폰에서 글자가 겹친다. 세로로 쌓으면 폭에 상관없이 선다.
+              */}
+              {shots.map((shot, at) => (
+                <View key={at} style={{ gap: space.sm }}>
+                  {at > 0 ? <Divider /> : null}
+                  <Row gap={space.md} align="flex-start">
+                    <Image
+                      source={{ uri: shot.photo.uri }}
+                      accessibilityLabel={`${at + 1}번째 사진`}
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: radius.sm,
+                        borderWidth: 1,
+                        borderColor: p.border,
+                      }}
+                    />
+                    <View style={{ flex: 1, gap: space.xs }}>
+                      <Row justify="space-between">
                         <Txt variant="tiny" muted>
-                          빼기
+                          {`${at + 1}번째 사진`}
                         </Txt>
+                        <Pressable
+                          onPress={() => setShots((prev) => prev.filter((_, i) => i !== at))}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${at + 1}번째 사진 빼기`}
+                          hitSlop={8}
+                        >
+                          <Row gap={4}>
+                            <Icon name="close" size={12} color={p.textMuted} />
+                            <Txt variant="tiny" muted>
+                              빼기
+                            </Txt>
+                          </Row>
+                        </Pressable>
                       </Row>
-                    </Pressable>
-                  ))}
-                </Row>
-              </ScrollView>
-              {sliceCount > photos.length ? (
+                      <Row wrap gap={space.xs}>
+                        {SHOT_BOXES.map((box) => (
+                          <Chip
+                            key={box.label}
+                            label={box.label}
+                            selected={shot.status === box.value}
+                            onPress={() =>
+                              setShots((prev) =>
+                                prev.map((one, i) => (i === at ? { ...one, status: box.value } : one)),
+                              )
+                            }
+                          />
+                        ))}
+                      </Row>
+                    </View>
+                  </Row>
+                </View>
+              ))}
+              {sliceCount > shots.length ? (
                 <Txt variant="tiny" muted>
                   긴 캡처라 {sliceCount}조각으로 나눠 읽어요
                 </Txt>
@@ -344,8 +399,12 @@ export default function AttendancePhotoScreen() {
           ) : (
             <Card>
               <Txt variant="small" muted>
-                카톡 투표 현황 화면을 찍어 올리면 참석·불참·미투표를 읽어요. 항목별 탭과 미참여 탭을
-                각각 올리면 둘 다 채워져요.
+                카톡 투표 현황 화면을 찍어 올리면 참석·불참·미투표를 읽어요.
+              </Txt>
+              <Txt variant="tiny" muted>
+                참석 · 불참 · 미투표를 각각 따로 찍어 올리고 사진마다 어느 칸인지 골라 주면 제일
+                정확해요. 이름만 읽으면 되니까 긴 명단에서도 빠지는 사람이 없어요. 한 화면에 다
+                들어 있으면 그대로 올려도 돼요.
               </Txt>
             </Card>
           )}
@@ -382,9 +441,9 @@ export default function AttendancePhotoScreen() {
           ) : null}
 
           <Button
-            label={photos.length ? `사진 ${photos.length}장과 함께 분석하기` : '사진을 먼저 올려주세요'}
+            label={shots.length ? `사진 ${shots.length}장과 함께 분석하기` : '사진을 먼저 올려주세요'}
             loading={busy}
-            disabled={!photos.length || !match}
+            disabled={!shots.length || !match}
             onPress={runParse}
           />
 
@@ -653,7 +712,7 @@ export default function AttendancePhotoScreen() {
             tone="neutral"
             onPress={() => {
               setResult(null);
-              setPhotos([]);
+              setShots([]);
               setChecked(new Set());
             }}
           />
