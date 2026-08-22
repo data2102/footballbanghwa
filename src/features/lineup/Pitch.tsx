@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Txt, radius } from '@/components/ui';
+import { Row, Txt, radius } from '@/components/ui';
 import { usePalette } from '@/theme';
 import type { LineupSide, LineupSlot, Member } from '@/lib/types';
 
@@ -74,6 +74,13 @@ export function Pitch({
         const isTop = team.side === top.side;
         return team.slots.map((slot) => {
           const member = slot.memberId ? members.get(slot.memberId) : undefined;
+          /*
+           * 회원이 아닌 사람(용병)은 memberId 대신 이름만 들고 있다. 회원으로 만들지
+           * 않는 대신 이름 왼쪽에 N 을 달아, 명단에 없는 사람임을 판에서 바로 보이게 한다.
+           */
+          const guest = !member && slot.guestName ? slot.guestName : null;
+          const name = member?.name ?? guest ?? '';
+          const filled = Boolean(member || guest);
           const isSelected = selected?.side === team.side && selected.key === slot.key;
           /*
            * 좌표는 팀 기준이다 — y=0 이 자기 골문, y=1 이 상대 골문.
@@ -88,7 +95,7 @@ export function Pitch({
               onPress={() => onSelectSlot(team.side, slot.key)}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
-              accessibilityLabel={`${team.side}팀 ${slot.key} ${member?.name ?? '빈 자리'}`}
+              accessibilityLabel={`${team.side}팀 ${slot.key} ${guest ? `용병 ${guest}` : (member?.name ?? '빈 자리')}`}
               style={{
                 position: 'absolute',
                 left: `${left * 100}%`,
@@ -103,10 +110,10 @@ export function Pitch({
                   width: 32,
                   height: 32,
                   borderRadius: 16,
-                  backgroundColor: isSelected ? p.primarySoft : member ? p.surface : 'transparent',
+                  backgroundColor: isSelected ? p.primarySoft : filled ? p.surface : 'transparent',
                   borderWidth: isSelected ? 2 : 1.5,
-                  borderColor: isSelected ? p.primary : p.borderStrong,
-                  borderStyle: member ? 'solid' : 'dashed',
+                  borderColor: isSelected ? p.primary : guest ? p.warnLine : p.borderStrong,
+                  borderStyle: filled ? 'solid' : 'dashed',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -114,14 +121,20 @@ export function Pitch({
                 <Txt
                   variant="tiny"
                   tabular={Boolean(member?.backNumber)}
-                  color={isSelected ? p.primaryStrong : member ? p.textMuted : p.textDisabled}
+                  color={
+                    isSelected ? p.primaryStrong : guest ? p.warn : member ? p.textMuted : p.textDisabled
+                  }
                 >
-                  {member ? (member.backNumber ?? slot.key) : slot.key}
+                  {guest ? 'N' : member ? (member.backNumber ?? slot.key) : slot.key}
                 </Txt>
               </View>
-              <Txt variant="tiny" muted numberOfLines={1} style={{ marginTop: 2, fontSize: 10 }}>
-                {member?.name ?? ''}
-              </Txt>
+              {/* 용병은 이름 왼쪽에도 N 을 붙인다. 동그라미만으로는 스쳐 보면 놓친다. */}
+              <Row gap={2} style={{ marginTop: 2, maxWidth: 52 }}>
+                {guest ? <GuestTag /> : null}
+                <Txt variant="tiny" muted numberOfLines={1} style={{ fontSize: 10, flexShrink: 1 }}>
+                  {name}
+                </Txt>
+              </Row>
             </Pressable>
           );
         });
@@ -161,3 +174,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 });
+
+
+/** 회원이 아니라는 표시. 이름 앞에 붙는 한 글자짜리 배지. */
+export function GuestTag() {
+  const p = usePalette();
+  return (
+    <View
+      style={{
+        paddingHorizontal: 3,
+        borderRadius: 3,
+        backgroundColor: p.warnSoft,
+        borderWidth: 1,
+        borderColor: p.warnLine,
+      }}
+    >
+      <Txt variant="tiny" color={p.warn} style={{ fontSize: 9, lineHeight: 12 }}>
+        N
+      </Txt>
+    </View>
+  );
+}

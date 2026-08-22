@@ -34,8 +34,12 @@ function byGroup(slots: LineupSlot[], members: Map<string, Member>) {
     .map((group) => ({
       group,
       names: slots
-        .filter((slot) => slot.group === group && slot.memberId)
-        .map((slot) => members.get(slot.memberId as string)?.name)
+        .filter((slot) => slot.group === group && (slot.memberId || slot.guestName))
+        // 용병은 명단에 없어서 이름만 있다. 단톡방에도 N 을 붙여 보낸다 —
+        // 빼고 보내면 판에 선 사람이 공지에서 사라진다.
+        .map((slot) =>
+          slot.memberId ? members.get(slot.memberId)?.name : `N ${slot.guestName}`,
+        )
         .filter((name): name is string => Boolean(name)),
     }))
     .filter((line) => line.names.length > 0);
@@ -46,7 +50,7 @@ export function lineupText(input: LineupShareInput): string {
   const { teamName, match, formationId, slots, members, bench } = input;
   const formation = findFormation(formationId);
   const lines = byGroup(slots, members);
-  const filled = slots.filter((slot) => slot.memberId).length;
+  const filled = slots.filter((slot) => slot.memberId || slot.guestName).length;
 
   const head = [
     `[${teamName}] ${formatDate(match.date)} ${match.kickoff}`,
@@ -159,27 +163,29 @@ export async function lineupImage(
   // ---------------------------------------------------------------- 선수
   for (const slot of slots) {
     const member = slot.memberId ? members.get(slot.memberId) : undefined;
+    const guest = !member && slot.guestName ? slot.guestName : null;
+    const filledSlot = Boolean(member || guest);
     const cx = pad + slot.x * fieldW;
     // y=1 이 상대 골문이라 화면 좌표와 반대다.
     const cy = top + (1 - slot.y) * fieldH;
 
     ctx.beginPath();
     ctx.arc(cx, cy, 26, 0, Math.PI * 2);
-    ctx.fillStyle = member ? palette.surface : 'transparent';
-    if (member) ctx.fill();
-    ctx.strokeStyle = member ? palette.borderStrong : palette.borderStrong;
-    ctx.lineWidth = member ? 2 : 1.5;
+    ctx.fillStyle = filledSlot ? palette.surface : 'transparent';
+    if (filledSlot) ctx.fill();
+    ctx.strokeStyle = guest ? palette.warnLine : palette.borderStrong;
+    ctx.lineWidth = filledSlot ? 2 : 1.5;
     ctx.stroke();
 
     ctx.textAlign = 'center';
-    ctx.fillStyle = member ? palette.textMuted : palette.textDisabled;
+    ctx.fillStyle = guest ? palette.warn : member ? palette.textMuted : palette.textDisabled;
     ctx.font = `500 18px ${face}`;
-    ctx.fillText(String(member ? (member.backNumber ?? slot.key) : slot.key), cx, cy + 6);
+    ctx.fillText(guest ? 'N' : String(member ? (member.backNumber ?? slot.key) : slot.key), cx, cy + 6);
 
-    if (member) {
+    if (member || guest) {
       ctx.fillStyle = palette.text;
       ctx.font = `500 19px ${face}`;
-      ctx.fillText(member.name, cx, cy + 50);
+      ctx.fillText(guest ? `N ${guest}` : (member as Member).name, cx, cy + 50);
     }
     ctx.textAlign = 'left';
   }

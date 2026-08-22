@@ -49,7 +49,7 @@ const ANNUAL_DUE = 200000;
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 10;
+export const SEED_VERSION = 11;
 
 /**
  * 포지션과 장점은 엑셀에 없다. 총무가 센 건 미투표뿐이다.
@@ -218,6 +218,10 @@ export function buildSeed(): AppData {
   const boardFormation = formationsForSize(SQUAD)[0];
   const lineups: Lineup[] = [];
 
+  /** 데모에 세워 둘 용병 한 명의 자리. 마지막 경기 1쿼터 A팀 공격수. */
+  const guestHere = (matchIndex: number, quarter: number, side: LineupSide, key: string) =>
+    matchIndex === demoMatches.length - 1 && quarter === 1 && side === 'A' && key === 'FW1';
+
   for (const [matchIndex, match] of demoMatches.entries()) {
     const attendees = members.filter((member) => {
       const row = attendance.find((item) => item.matchId === match.id && item.memberId === member.id);
@@ -241,7 +245,15 @@ export function buildSeed(): AppData {
           formationId: boardFormation.id,
           slots: boardFormation.slots.map((slot, index) => ({
             ...slot,
-            memberId: picked[index]?.id ?? null,
+            /*
+             * 마지막 경기 1쿼터 A팀 공격수 자리 하나는 용병이다. 실제로 가끔 온다 —
+             * 회원이 아니라 명단에 없고, 화면에서는 이름 왼쪽에 N 이 붙는다.
+             * 데모에도 한 명 세워 둬야 그 자리가 어떻게 보이는지 확인할 수 있다.
+             */
+            memberId: guestHere(matchIndex, quarter, side, slot.key)
+              ? null
+              : (picked[index]?.id ?? null),
+            guestName: guestHere(matchIndex, quarter, side, slot.key) ? '이*범' : null,
           })),
           photoUri: null,
           photoPath: null,

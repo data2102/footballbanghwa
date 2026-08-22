@@ -9,7 +9,7 @@ import { shareText } from '@/lib/share';
 import { isLocalRepo } from '@/lib/repo';
 import { pickPhoto, type PickedPhoto } from '@/lib/photo';
 import { takeHandedPhotos } from '@/lib/photoHandoff';
-import { findFormation, normalizeFormationId } from '@/features/lineup/formations';
+import { emptySlot, findFormation, normalizeFormationId } from '@/features/lineup/formations';
 import { formatDate, todayISO, won } from '@/lib/format';
 import { availableMembers } from '@/lib/selectors';
 import { Button, Card, Checkbox, Chip, Divider, Row, Screen, Txt, radius, space } from '@/components/ui';
@@ -267,7 +267,7 @@ export default function QuickInputScreen() {
           const formationId =
             normalizeFormationId(result.formation) ?? existing?.formationId ?? '4-3-3';
           const formation = findFormation(formationId);
-          const slots: LineupSlot[] = formation.slots.map((slot) => ({ ...slot, memberId: null }));
+          const slots: LineupSlot[] = formation.slots.map(emptySlot);
 
           // slotKey가 있으면 그 자리에, 없으면 같은 그룹의 빈 자리에 순서대로 넣는다.
           for (const { item, memberId } of entries) {

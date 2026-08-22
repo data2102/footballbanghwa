@@ -20,7 +20,7 @@ export function ShareLineup(props: LineupShareInput) {
   const [busy, setBusy] = useState<'image' | 'text' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const filled = props.slots.filter((slot) => slot.memberId).length;
+  const filled = props.slots.filter((slot) => slot.memberId || slot.guestName).length;
   const text = lineupText(props);
   const canImage = Platform.OS === 'web';
 

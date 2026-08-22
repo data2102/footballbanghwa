@@ -3,7 +3,7 @@ import { repo } from '@/lib/repo';
 import { supabase } from '@/lib/supabase';
 import { todayISO, uid } from '@/lib/format';
 import { ballotId } from '@/lib/ballot';
-import { DEFAULT_FORMATION } from '@/features/lineup/formations';
+import { DEFAULT_FORMATION, emptySlot } from '@/features/lineup/formations';
 import { focusMatch } from '@/lib/selectors';
 import type { PickedPhoto } from '@/lib/photo';
 import type {
@@ -37,11 +37,19 @@ type Store = {
   data: AppData | null;
   /** 지금 화면들이 바라보는 경기. 참석·라인업·기록이 모두 이 값을 따른다. */
   activeMatchId: string | null;
+  /**
+   * 출전 탭이 지금 보고 있는 쿼터.
+   *
+   * 화이트보드 사진 화면이 "몇 쿼터에 넣을지"를 알아야 해서 화면 안에만 둘 수 없다.
+   * 주소로는 못 넘긴다 — 사진을 건네주는 길과 같이 가야 하는데 그쪽이 메모리다.
+   */
+  activeQuarter: number;
 
   load: () => Promise<void>;
   /** 로그인 상태 변화를 지켜본다. 정리 함수를 돌려주므로 화면에서 그대로 해제한다. */
   watchAuth: () => () => void;
   setActiveMatch: (matchId: string) => void;
+  setActiveQuarter: (quarter: number) => void;
 
   setAttendanceMany: (
     matchId: string,
@@ -116,6 +124,7 @@ export const useStore = create<Store>((set, get) => ({
   error: null,
   data: null,
   activeMatchId: null,
+  activeQuarter: 1,
 
   clearError: () => set({ error: null }),
 
@@ -169,6 +178,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setActiveMatch: (matchId) => set({ activeMatchId: matchId }),
+  setActiveQuarter: (quarter) => set({ activeQuarter: quarter }),
 
   setAttendance: async (matchId, memberId, status, options) => {
     const data = get().data;
@@ -386,7 +396,7 @@ export const useStore = create<Store>((set, get) => ({
       quarter,
       side,
       formationId: DEFAULT_FORMATION.id,
-      slots: DEFAULT_FORMATION.slots.map((slot) => ({ ...slot, memberId: null })),
+      slots: DEFAULT_FORMATION.slots.map(emptySlot),
       photoUri: null,
       photoPath: null,
     };

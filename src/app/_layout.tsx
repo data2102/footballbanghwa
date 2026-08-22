@@ -81,6 +81,10 @@ export default function RootLayout() {
               name="attendance-photo"
               options={{ presentation: 'modal', title: '투표 사진 올리기' }}
             />
+            <Stack.Screen
+              name="lineup-photo"
+              options={{ presentation: 'modal', title: '화이트보드 올리기' }}
+            />
             <Stack.Screen name="settings" options={{ title: '팀 설정' }} />
             <Stack.Screen name="member/[id]" options={{ title: '회원' }} />
             <Stack.Screen name="analysis" options={{ title: '출결 분석' }} />

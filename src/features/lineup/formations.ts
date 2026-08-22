@@ -1,4 +1,4 @@
-import type { PositionGroup } from '@/lib/types';
+import type { LineupSlot, PositionGroup } from '@/lib/types';
 
 export type FormationSlot = {
   key: string;
@@ -88,4 +88,45 @@ export function normalizeFormationId(input: string | null | undefined): string |
   if (!digits || digits.length < 2) return null;
   const id = digits.join('-');
   return FORMATIONS.some((formation) => formation.id === id) ? id : null;
+}
+
+
+/** 아무도 안 선 자리. 자리를 만드는 곳이 여러 군데라 한 벌로 둔다. */
+export function emptySlot(slot: FormationSlot): LineupSlot {
+  return { ...slot, memberId: null, guestName: null };
+}
+
+/**
+ * 화이트보드에서 읽은 자리 수 그대로 판을 만든다.
+ *
+ * 사람이 포메이션을 고르는 게 아니라 **사진을 그대로 옮겨 그리는 게 목적**이라,
+ * 카탈로그에 없는 모양이 나와도 카탈로그로 끌어다 붙이면 안 된다 — 수비가 셋인 날에
+ * 넷짜리를 씌우면 없는 자리가 하나 생기고, 넷인 날에 셋짜리를 씌우면 한 명이 사라진다.
+ *
+ * 그룹별 인원이 카탈로그와 똑같으면 그쪽을 쓴다(4-2-3-1 처럼 줄이 둘로 갈리는 모양과
+ * 익숙한 이름을 살린다). 아니면 그 자리 수대로 한 줄씩 새로 그린다.
+ */
+export function formationFromGroups(groups: PositionGroup[]): Formation {
+  const count = (group: PositionGroup) => groups.filter((one) => one === group).length;
+  const df = count('DF');
+  const mf = count('MF');
+  const fw = count('FW');
+  const gk = Math.min(1, count('GK'));
+
+  const same = FORMATIONS.find(
+    (formation) =>
+      formation.slots.filter((slot) => slot.group === 'DF').length === df &&
+      formation.slots.filter((slot) => slot.group === 'MF').length === mf &&
+      formation.slots.filter((slot) => slot.group === 'FW').length === fw,
+  );
+  if (same && gk === 1) return same;
+
+  const lines: [PositionGroup, number, number][] = [];
+  if (df) lines.push(['DF', df, 0.27]);
+  if (mf) lines.push(['MF', mf, 0.55]);
+  if (fw) lines.push(['FW', fw, 0.82]);
+  const id = [df, mf, fw].filter(Boolean).join('-') || '0';
+  const built = build(id, id, lines);
+  // 골키퍼가 안 그려진 판도 있다. 그때는 GK 자리를 빼고 그린다.
+  return gk === 1 ? built : { ...built, size: built.size - 1, slots: built.slots.slice(1) };
 }

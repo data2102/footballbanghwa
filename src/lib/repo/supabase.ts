@@ -7,6 +7,7 @@ import type {
   Ledger,
   MessageTemplate,
   Lineup,
+  LineupSlot,
   Match,
   MatchEvent,
   Member,
@@ -594,7 +595,8 @@ const fromLineupRow = (row: Row): Lineup => ({
   quarter: row.quarter ?? 1,
   side: row.side ?? 'A',
   formationId: row.formation_id,
-  slots: row.slots ?? [],
+  // 이 칸이 생기기 전에 저장된 줄에는 guestName 이 없다. 없으면 null 로 맞춘다.
+  slots: ((row.slots ?? []) as LineupSlot[]).map((slot) => ({ ...slot, guestName: slot.guestName ?? null })),
   photoUri: null,
   photoPath: row.photo_path ?? null,
 });
