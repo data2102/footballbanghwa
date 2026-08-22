@@ -348,8 +348,11 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
   try {
     const response = await client.beta.messages.create({
       model: MODEL,
-      // 짧은 경로는 번호만 받으므로 길게 열어 둘 이유가 없다.
-      max_tokens: compact ? 4000 : 16000,
+      /*
+       * 짧은 경로도 넉넉히 열어 둔다. 답 자체는 400토큰이지만 **생각한 양도 여기에 든다.**
+       * 좁게 잡으면 생각하다 한도에 닿아 JSON 이 잘리고, 그러면 읽은 게 통째로 날아간다.
+       */
+      max_tokens: 16000,
       // 안전 분류기가 거절하면 서버가 다른 모델로 넘긴다. 받는 모델에만 붙는다.
       ...fallbackOptions(MODEL),
       system: [
@@ -360,8 +363,14 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
         },
       ],
       output_config: {
-        // 투표 화면 읽기는 판단이 아니라 옮겨 적기라 오래 생각할 이유가 없다.
-        effort: compact ? 'low' : 'medium',
+        /*
+         * 짧은 경로를 low 로 뒀던 건 Edge Function 의 150초 벽 때문이었다. Render 로 옮겨서
+         * 그 벽이 없어졌는데 low 만 남아 있었다 — 사진 여섯 장에서 아흔 명을 빠짐없이
+         * 골라내는 일에 제일 낮은 단을 쓸 이유가 없다. 빠뜨린 사람은 앱에서 "미정"이 되어
+         * 아무 표시 없이 남고, 총무는 그게 화면에 없었는지 못 읽은 건지 알 수가 없다.
+         * 출력은 여전히 400토큰이라 느려지는 건 생각하는 시간뿐이다.
+         */
+        effort: 'high',
         format: { type: 'json_schema', schema: compact ? ROSTER_SCHEMA : PARSE_SCHEMA },
       },
       messages: [{ role: 'user', content: userContent }],

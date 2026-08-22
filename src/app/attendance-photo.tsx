@@ -248,6 +248,20 @@ export default function AttendancePhotoScreen() {
 
   const pickedCount = checked.size;
 
+  /*
+   * 읽어 낸 수를 명단 수와 나란히 보여 준다.
+   *
+   * 빠뜨린 사람은 앱에서 "미정"이 되어 아무 표시 없이 남는다. 저장할 때는 "74명 저장하기"만
+   * 보이니 열여섯 명이 빠진 걸 알 길이 없고, 총무는 한참 뒤 미정 탭에서야 발견한다.
+   * 그때는 그 사람이 화면에 없었는지 우리가 못 읽었는지도 이미 알 수 없다.
+   * 카톡 화면의 "N명" 머리글과 여기 숫자를 맞춰 보면 저장 전에 잡힌다.
+   */
+  const readCount = result?.items.length ?? 0;
+  const matchedCount =
+    result?.items.filter((item, at) => item.memberId || links[at] || asNew.has(at)).length ?? 0;
+  const missingCount = Math.max(0, members.length - matchedCount);
+  const unresolvedCount = readCount - matchedCount;
+
   return (
     <Screen scroll>
       {!result ? (
@@ -397,6 +411,19 @@ export default function AttendancePhotoScreen() {
             {match ? (
               <Txt variant="tiny" muted>
                 {formatDate(match.date)} 경기에 들어가요
+              </Txt>
+            ) : null}
+            <Txt variant="tiny" muted>
+              {`화면에서 ${readCount}명을 읽었어요. 명단 ${members.length}명 중 ${matchedCount}명이에요.`}
+            </Txt>
+            {missingCount ? (
+              <Txt variant="tiny" color={p.warn}>
+                {`나머지 ${missingCount}명은 이 화면에 없어서 미정으로 남아요. 카톡 화면의 "N명"과 위 숫자가 다르면 잘린 데를 다시 올려 주세요.`}
+              </Txt>
+            ) : null}
+            {unresolvedCount ? (
+              <Txt variant="tiny" color={p.warn}>
+                {`못 찾은 이름 ${unresolvedCount}명은 이어 주기 전까지 저장되지 않아요.`}
               </Txt>
             ) : null}
             {result.unmatched.length ? (
