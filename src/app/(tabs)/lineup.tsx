@@ -29,7 +29,9 @@ import {
   radius,
   space,
 } from '@/components/ui';
+import { Icon } from '@/components/icons';
 import { MatchPicker } from '@/components/MatchPicker';
+import { PhotoViewer } from '@/components/PhotoViewer';
 import { usePalette } from '@/theme';
 import type { LineupSide, LineupSlot, PositionGroup } from '@/lib/types';
 
@@ -101,6 +103,8 @@ export default function LineupScreen() {
   const [busy, setBusy] = useState(false);
   /** 눌렀는데 아무 일도 안 일어날 때 왜 그런지 말해 준다. */
   const [notice, setNotice] = useState<string | null>(null);
+  /** 화이트보드 원본을 화면 가득 띄웠는지. 자석 글씨는 미리보기로는 안 읽힌다. */
+  const [viewing, setViewing] = useState(false);
 
   const savedBySide = useMemo(() => {
     const find = (which: LineupSide) =>
@@ -436,21 +440,38 @@ export default function LineupScreen() {
             </Row>
 
             {boardPhoto ? (
-              <Image
-                source={{ uri: boardPhoto }}
-                accessibilityLabel={`${quarter}쿼터 화이트보드 사진`}
-                resizeMode="contain"
-                style={{
-                  width: '100%',
-                  aspectRatio: 4 / 3,
-                  borderRadius: radius.md,
-                  backgroundColor: p.surfaceAlt,
-                }}
-              />
+              <>
+                {/*
+                  사진이 그 쿼터에 누가 뛰었는지의 원본이다. 앱이 읽어 낸 이름과 대조하려면
+                  자석 글씨가 읽혀야 하는데 카드 안 미리보기로는 어림도 없다 — 눌러서 키운다.
+                */}
+                <Pressable
+                  onPress={() => setViewing(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${quarter}쿼터 화이트보드 사진 크게 보기`}
+                >
+                  <Image
+                    source={{ uri: boardPhoto }}
+                    resizeMode="contain"
+                    style={{
+                      width: '100%',
+                      aspectRatio: 3 / 4,
+                      borderRadius: radius.md,
+                      backgroundColor: p.surfaceAlt,
+                    }}
+                  />
+                  <Row gap={space.xs} style={{ marginTop: space.xs, justifyContent: 'center' }}>
+                    <Icon name="image" size={12} color={p.textMuted} />
+                    <Txt variant="tiny" muted>
+                      눌러서 크게 보기
+                    </Txt>
+                  </Row>
+                </Pressable>
+              </>
             ) : (
               <Txt variant="tiny" muted>
-                위 A팀 · 아래 B팀이 같이 그려진 화이트보드를 한 장으로 찍어 주세요. 이름 자석을 읽어
-                두 팀을 채워요 — 줄에 붙은 자석 수 그대로 판을 그려요.
+                화이트보드를 한 장으로 찍어 올리면 자석 이름을 읽어서 이 쿼터 출전을 한 번씩
+                체크해요. 사진은 그대로 남아 언제든 다시 볼 수 있어요.
               </Txt>
             )}
 
@@ -653,8 +674,16 @@ export default function LineupScreen() {
           />
 
           <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
-            오른쪽 숫자가 이 경기에서 뛴 쿼터 수예요. 라인업을 저장할 때마다 다시 세요.
+            오른쪽 숫자가 이 경기에서 뛴 쿼터 수예요. 화이트보드를 올릴 때마다 다시 세요.
           </Txt>
+
+          {viewing ? (
+            <PhotoViewer
+              uri={boardPhoto}
+              title={`${quarter}쿼터 화이트보드`}
+              onClose={() => setViewing(false)}
+            />
+          ) : null}
         </>
       )}
     </Screen>

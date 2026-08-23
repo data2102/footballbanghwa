@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/format';
 import { buildBoard, type BoardRow } from '@/features/lineup/board';
 import { GuestTag } from '@/features/lineup/Pitch';
 import { Button, Card, Chip, Divider, Row, Screen, Txt, radius, space } from '@/components/ui';
+import { PhotoViewer } from '@/components/PhotoViewer';
 import { Icon } from '@/components/icons';
 import { usePalette } from '@/theme';
 import type { LineupItem } from '@/lib/ai/contract';
@@ -61,6 +62,8 @@ export default function LineupPhotoScreen() {
   const [links, setLinks] = useState<Record<number, string>>({});
   const [pickerAt, setPickerAt] = useState<number | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
+  /** 읽어 낸 이름이 판과 맞는지 대조하려면 원본을 크게 봐야 한다. */
+  const [viewing, setViewing] = useState(false);
 
   useEffect(() => {
     const handed = takeHandedPhotos();
@@ -331,11 +334,12 @@ export default function LineupPhotoScreen() {
           ) : (
             <Card>
               <Txt variant="small" muted>
-                위 A팀 · 아래 B팀이 같이 그려진 화이트보드를 한 장으로 찍어 올리면 이름 자석을 읽어
-                두 팀을 채워요. 줄에 붙은 자석 수 그대로 판을 그려요.
+                화이트보드를 한 장으로 찍어 올리면 자석에 적힌 이름을 읽어서, 그 사람들의 이
+                쿼터 출전을 한 번씩 체크해요. 운동장에서 한 명씩 눌러 둘 일이 없어요.
               </Txt>
               <Txt variant="tiny" muted>
-                명단에 없는 이름은 용병으로 보고 이름 왼쪽에 N 을 달아요.
+                사진은 그대로 남아서 언제든 다시 크게 볼 수 있어요. 명단에 없는 이름은 용병으로
+                보고 이름 왼쪽에 N 을 달아요.
               </Txt>
             </Card>
           )}
@@ -365,15 +369,28 @@ export default function LineupPhotoScreen() {
       ) : (
         <>
           <Card>
-            <Txt variant="h3">{summary || '이렇게 읽었어요'}</Txt>
+            <Txt variant="h3">{`${activeQuarter}쿼터를 뛴 ${keptCount}명을 읽었어요`}</Txt>
             {match ? (
               <Txt variant="tiny" muted>
-                {formatDate(match.date)} 경기 {activeQuarter}쿼터에 들어가요
+                {`${formatDate(match.date)} 경기 · 저장하면 이 사람들의 뛴 횟수가 한 번씩 올라가요`}
+              </Txt>
+            ) : null}
+            {summary ? (
+              <Txt variant="tiny" muted>
+                {summary}
               </Txt>
             ) : null}
             <Txt variant="tiny" muted>
               N 이 붙은 사람은 명단에 없어요. 회원이면 눌러서 이어 주세요.
             </Txt>
+            {/* 판과 대조할 수 있어야 한다. 이름이 하나 틀리면 그 사람의 출전이 통째로 어긋난다. */}
+            <Button
+              label="올린 사진과 맞춰 보기"
+              icon="image"
+              tone="neutral"
+              small
+              onPress={() => setViewing(true)}
+            />
           </Card>
 
           {sides.length === 0 ? (
@@ -387,7 +404,7 @@ export default function LineupPhotoScreen() {
               <Card key={side} style={{ padding: space.sm, gap: 0 }}>
                 <Row style={{ padding: space.sm }} gap={space.md}>
                   <Txt variant="h3" style={{ flex: 1 }}>
-                    {side}팀 {rows.filter(({ at }) => !dropped.has(at)).length}명
+                    {side}팀 {rows.filter(({ at }) => !dropped.has(at)).length}명 출전
                   </Txt>
                   <Txt variant="tiny" muted>
                     {side === 'A' ? '판 위쪽' : '판 아래쪽'}
@@ -505,7 +522,7 @@ export default function LineupPhotoScreen() {
           {errorCard}
 
           <Button
-            label={keptCount ? `${keptCount}명으로 ${activeQuarter}쿼터 저장하기` : '넣을 사람이 없어요'}
+            label={keptCount ? `${keptCount}명을 ${activeQuarter}쿼터 출전으로 저장하기` : '넣을 사람이 없어요'}
             loading={busy}
             disabled={!keptCount}
             onPress={commit}
@@ -520,6 +537,14 @@ export default function LineupPhotoScreen() {
               setLinks({});
             }}
           />
+
+          {viewing ? (
+            <PhotoViewer
+              uri={photos[0]?.uri ?? null}
+              title={`${activeQuarter}쿼터 화이트보드`}
+              onClose={() => setViewing(false)}
+            />
+          ) : null}
         </>
       )}
     </Screen>

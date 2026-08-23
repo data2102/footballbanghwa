@@ -1,3 +1,4 @@
+import { DEMO_BOARD_PHOTO } from '@/lib/demoBoard';
 import { formationsForSize } from '@/features/lineup/formations';
 import { shiftPeriod, thisPeriod, todayISO } from '@/lib/format';
 import { KICKOFF, sundaysOf } from '@/lib/schedule';
@@ -49,7 +50,7 @@ const ANNUAL_DUE = 200000;
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 11;
+export const SEED_VERSION = 12;
 
 /**
  * 포지션과 장점은 엑셀에 없다. 총무가 센 건 미투표뿐이다.
@@ -255,7 +256,14 @@ export function buildSeed(): AppData {
               : (picked[index]?.id ?? null),
             guestName: guestHere(matchIndex, quarter, side, slot.key) ? '이*범' : null,
           })),
-          photoUri: null,
+          /*
+           * 마지막 경기 1쿼터에만 화이트보드 사진을 붙여 둔다. 그 사진이 그 쿼터에 누가
+           * 뛰었는지의 원본이라, 데모에서도 한 장은 있어야 "크게 보기"가 확인된다.
+           */
+          photoUri:
+            matchIndex === demoMatches.length - 1 && quarter === 1 && side === 'A'
+              ? DEMO_BOARD_PHOTO
+              : null,
           photoPath: null,
         });
       }

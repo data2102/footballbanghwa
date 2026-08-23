@@ -118,11 +118,34 @@ export class SupabaseRepo implements Repo {
       attendance: (attendance.data ?? []).map(fromAttendanceRow),
       ledger: await this.attachReceiptUrls((ledger.data ?? []).map(fromLedgerRow)),
       events: (events.data ?? []).map(fromEventRow),
-      lineups: (lineups.data ?? []).map(fromLineupRow),
+      lineups: await this.attachLineupUrls((lineups.data ?? []).map(fromLineupRow)),
       potmVotes: (potmVotes.data ?? []).map(fromPotmRow),
       inventory: (inventory.data ?? []).map(fromInventoryRow),
       templates: templateRows,
     };
+  }
+
+  /**
+   * 화이트보드 사진도 비공개 버킷이라 경로만으로는 못 그린다.
+   *
+   * 이게 없어서 **올린 직후에만 보이고 다시 들어가면 사라졌다** — 올릴 때 만든 서명 URL 은
+   * 그 자리의 메모리에만 있고, 다시 읽으면 photoPath 만 남기 때문이다. 그 사진이 그 쿼터에
+   * 누가 뛰었는지의 원본이라, 안 보이면 나중에 대조할 것이 없어진다.
+   */
+  private async attachLineupUrls(rows: Lineup[]): Promise<Lineup[]> {
+    const paths = rows.map((row) => row.photoPath).filter(Boolean) as string[];
+    if (!paths.length) return rows;
+
+    const { data, error } = await this.client.storage
+      .from(LINEUP_BUCKET)
+      .createSignedUrls(paths, SIGNED_URL_TTL);
+    if (error || !data) return rows;
+
+    const byPath = new Map(data.map((row) => [row.path, row.signedUrl]));
+    for (const row of rows) {
+      if (row.photoPath) row.photoUri = byPath.get(row.photoPath) ?? null;
+    }
+    return rows;
   }
 
   /** 영수증도 비공개 버킷이라 경로만으로는 못 그린다. 회원 사진과 같은 방식이다. */
