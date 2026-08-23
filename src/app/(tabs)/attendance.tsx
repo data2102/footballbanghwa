@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { attendanceForMatch, tallyAttendance, unrespondedMembers } from '@/lib/selectors';
 import { formatDate } from '@/lib/format';
+import { wakeAiServer } from '@/lib/ai/aiFetch';
 import { pickPhoto } from '@/lib/photo';
 import { handOffPhotos } from '@/lib/photoHandoff';
 import {
@@ -54,6 +55,14 @@ const AGE_BANDS: AgeBand[] = ['60', '50', '40', '30', '20'];
 
 
 export default function AttendanceScreen() {
+  useEffect(() => {
+    /*
+     * AI 서버는 무료 플랜이라 15분 놀면 잠든다. 깨는 데 30~60초인데, 사진 올리는 화면에
+     * 들어가서야 깨우면 그 시간을 사람이 그대로 기다린다. **탭을 여는 순간** 찔러 둔다.
+     */
+    wakeAiServer();
+  }, []);
+
   const p = usePalette();
   const router = useRouter();
   const data = useStore((state) => state.data);

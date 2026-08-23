@@ -72,6 +72,14 @@ export type LineupItem = ItemBase & {
   quarter: number | null;
   /** 자체경기라 한 판에 두 팀이 선다. 왼쪽/위가 A, 오른쪽/아래가 B. */
   side: 'A' | 'B' | null;
+  /**
+   * 판에서 몇 번째 가로줄인지. 0 이 자기 골문에 제일 가까운 줄.
+   *
+   * 그룹(DF/MF/FW)만으로는 4-1-2-3 처럼 줄이 넷인 판을 되살릴 수 없다 — 가운데 두 줄이
+   * 한 줄로 합쳐진다. 짧은 출력 경로가 줄을 그대로 알려 주므로 그대로 들고 온다.
+   * 글에서 읽은 라인업이나 예전 응답에는 없어서 null 이 될 수 있다.
+   */
+  line?: number | null;
 };
 
 export type EventItem = ItemBase & {

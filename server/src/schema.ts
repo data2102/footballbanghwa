@@ -217,3 +217,73 @@ export const ROSTER_SCHEMA = {
     },
   },
 } as const;
+
+/**
+ * 화이트보드를 읽을 때 쓰는 **짧은 출력** 스키마.
+ *
+ * 긴 쪽(PARSE_SCHEMA)은 항목 하나에 스무 칸을 전부 채우게 해서 한 사람에 약 115토큰이 든다.
+ * 두 팀 스무 명이면 출력만 2,300토큰이고, 그걸 쓰는 시간이 그대로 사람이 기다리는 시간이다.
+ * 판에서 알아야 할 건 "몇 번 사람이 어느 팀 몇 번째 줄에 섰나" 뿐이라 번호로만 받는다 —
+ * 같은 스무 명이 150토큰이면 끝난다.
+ *
+ * 줄(line)을 그대로 받는 것이 그룹만 받는 것보다 낫다. 4-1-2-3 처럼 줄이 넷인 판을
+ * DF/MF/FW 셋으로 접으면 가운데 두 줄이 한 줄로 합쳐져 판 모양이 달라진다.
+ */
+export const BOARD_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['teams', 'unmatched', 'summary'],
+  properties: {
+    teams: {
+      type: 'array',
+      description: '판에 있는 두 팀. 위쪽 덩어리가 A, 아래쪽이 B.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['side', 'lines'],
+        properties: {
+          side: { type: 'string', enum: ['A', 'B'] },
+          lines: {
+            type: 'array',
+            description: '자기 골문에서 먼 순서로 나열한 가로줄. 첫 줄이 골문에 제일 가깝다.',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['group', 'members'],
+              properties: {
+                group: {
+                  type: 'string',
+                  enum: ['GK', 'DF', 'MF', 'FW'],
+                  description: '그 줄의 포지션. 골문 쪽부터 GK -> DF -> MF -> FW.',
+                },
+                members: {
+                  type: 'array',
+                  description: '그 줄에 선 사람들의 명단 번호. **왼쪽부터** 적습니다.',
+                  items: { type: 'integer' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    unmatched: {
+      type: 'array',
+      description: '판에는 있는데 명단에서 못 찾은 이름들. 용병일 수 있으니 빼지 말고 담습니다.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'side', 'group'],
+        properties: {
+          name: { type: 'string', description: '자석에 적힌 그대로.' },
+          side: { type: 'string', enum: ['A', 'B'] },
+          group: { type: 'string', enum: ['GK', 'DF', 'MF', 'FW'] },
+        },
+      },
+    },
+    summary: {
+      type: 'string',
+      description: "한국어 한 줄 요약. 예: 'A팀 10명, B팀 10명을 읽었어요.'",
+    },
+  },
+} as const;

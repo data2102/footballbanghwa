@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MAX_QUARTERS, DEFAULT_QUARTERS, useStore } from '@/lib/store';
 import { availableMembers, memberMap, playsPosition, quarterPlay } from '@/lib/selectors';
+import { wakeAiServer } from '@/lib/ai/aiFetch';
 import { pickPhoto } from '@/lib/photo';
 import { handOffPhotos } from '@/lib/photoHandoff';
 import {
@@ -139,6 +140,15 @@ export default function LineupScreen() {
 
   // 경기나 쿼터가 바뀌면 그 쿼터에 저장된 두 팀을 한꺼번에 다시 불러온다.
   // 저장된 게 없으면 참석 인원에 맞는 규격으로 시작한다 — 자체경기라 한 팀은 그 절반이다.
+  useEffect(() => {
+    /*
+     * AI 서버는 무료 플랜이라 15분 놀면 잠든다. 깨는 데 30~60초인데, 사진 고르는 화면에
+     * 들어가서야 깨우면 그 시간을 사람이 그대로 기다린다. **탭을 여는 순간** 찔러 두면
+     * 날짜 고르고 사진 찾는 동안 일어나 있다.
+     */
+    wakeAiServer();
+  }, []);
+
   useEffect(() => {
     const half = Math.floor(available.length / 2);
     const fit =

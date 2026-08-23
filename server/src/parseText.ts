@@ -8,8 +8,8 @@
  * 으로 죽었다. 읽는 규칙과 스키마는 그대로 옮겼고, HTTP 껍데기만 바뀌었다.
  */
 import Anthropic from '@anthropic-ai/sdk';
-import { NONE, PARSE_SCHEMA, ROSTER_SCHEMA } from './schema.ts';
-import { ROSTER_PROMPT, SYSTEM_PROMPT } from './prompt.ts';
+import { BOARD_SCHEMA, NONE, PARSE_SCHEMA, ROSTER_SCHEMA } from './schema.ts';
+import { BOARD_PROMPT, ROSTER_PROMPT, SYSTEM_PROMPT } from './prompt.ts';
 import { json, type Reply } from './reply.ts';
 import { fallbackOptions } from './fallback.ts';
 
@@ -98,6 +98,86 @@ const noneChoice = (v: unknown, fallback: string): string =>
  * 투표 사진은 사람마다 번호 하나로 받는다(ROSTER_SCHEMA). 그걸 앱이 아는 항목 모양으로
  * 다시 펼친다. 앱 타입은 그대로다 — 짧게 받는 약속은 이 함수 안에서 끝난다.
  */
+const GROUPS = ['GK', 'DF', 'MF', 'FW'] as const;
+
+/**
+ * 짧은 출력으로 받은 판을 앱이 아는 라인업 항목으로 펼친다.
+ *
+ * 줄(line) 번호를 그대로 들려 보낸다. 앱이 DF/MF/FW 셋으로만 접으면 4-1-2-3 처럼 줄이
+ * 넷인 판에서 가운데 두 줄이 한 줄로 합쳐져 판 모양이 달라진다.
+ */
+function expandBoard(parsed: Record<string, unknown>, roster: RosterEntry[], quarter: number) {
+  const items: Record<string, unknown>[] = [];
+  const taken = new Set<number>();
+  let outOfRange = 0;
+
+  const teams = Array.isArray(parsed.teams) ? parsed.teams : [];
+  for (const rawTeam of teams) {
+    const team = rawTeam as { side?: unknown; lines?: unknown };
+    const side = team?.side === 'B' ? 'B' : 'A';
+    const lines = Array.isArray(team?.lines) ? team.lines : [];
+    for (const [at, rawLine] of lines.entries()) {
+      const one = rawLine as { group?: unknown; members?: unknown };
+      const group = GROUPS.includes(one?.group as (typeof GROUPS)[number])
+        ? (one.group as string)
+        : 'MF';
+      const members = Array.isArray(one?.members) ? one.members : [];
+      for (const raw of members) {
+        const index = typeof raw === 'number' ? Math.round(raw) : NaN;
+        if (!Number.isInteger(index) || index < 0 || index >= roster.length) {
+          outOfRange += 1;
+          continue;
+        }
+        // 한 사람이 두 팀에 서 있을 수는 없다. 먼저 나온 쪽만 남긴다.
+        if (taken.has(index)) continue;
+        taken.add(index);
+        items.push({
+          kind: 'lineup',
+          memberId: roster[index].id,
+          memberName: roster[index].name,
+          confidence: 'high',
+          quote: `화이트보드: ${side}팀 ${group}`,
+          slotKey: null,
+          group,
+          quarter,
+          side,
+          line: at,
+        });
+      }
+    }
+  }
+
+  /*
+   * 못 찾은 이름도 항목으로 만든다. 대개 용병이다 — 빼면 그 사람이 그 쿼터를 안 뛴 것이 된다.
+   * 줄 번호를 모르니 같은 그룹의 끝에 세운다. 앱이 그 줄에 자리를 하나 더 만든다.
+   */
+  const unmatched = Array.isArray(parsed.unmatched) ? parsed.unmatched : [];
+  for (const raw of unmatched) {
+    const one = raw as { name?: unknown; side?: unknown; group?: unknown };
+    const name = typeof one?.name === 'string' ? one.name.trim() : '';
+    if (!name) continue;
+    const side = one?.side === 'B' ? 'B' : 'A';
+    const group = GROUPS.includes(one?.group as (typeof GROUPS)[number]) ? (one.group as string) : 'MF';
+    items.push({
+      kind: 'lineup',
+      memberId: null,
+      memberName: name,
+      confidence: 'low',
+      quote: `화이트보드: ${side}팀 ${group}`,
+      slotKey: null,
+      group,
+      quarter,
+      side,
+      line: null,
+    });
+  }
+
+  if (outOfRange) {
+    console.warn(`명단에 없는 번호 ${outOfRange}개를 건너뛰었습니다. 명단 ${roster.length}명.`);
+  }
+  return items;
+}
+
 const STATUS_ORDER = ['attending', 'late', 'absent', 'pending'] as const;
 const STATUS_QUOTE: Record<string, string> = {
   attending: '투표 화면: 참석',
@@ -304,6 +384,19 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
   const compact = hint === 'attendance' && images.length > 0 && !text;
 
   /*
+   * 화이트보드도 짧은 출력으로 간다.
+   *
+   * 긴 쪽은 항목 하나에 스무 칸을 채우게 해서 한 사람에 약 115토큰이 든다. 두 팀 스무 명이면
+   * 출력만 2,300토큰이고 그게 그대로 운동장에서 기다리는 시간이 된다. 판에서 알아야 할 건
+   * "몇 번 사람이 어느 팀 몇 번째 줄에 섰나" 뿐이라 번호로만 받으면 150토큰이면 끝난다.
+   *
+   * 글이 같이 왔으면 긴 쪽으로 보낸다 — 짧은 출력에는 글에서 나오는 회비·기록을 담을 칸이 없다.
+   */
+  const board = hint === 'lineup' && images.length > 0 && !text;
+  /** 명단을 번호 줄로 보내는 경로들. JSON 으로 보내면 아흔 명이 3천 토큰이다. */
+  const numbered = compact || board;
+
+  /*
    * 사람이 "이 화면은 전부 불참" 이라고 골라 준 칸.
    *
    * 통째로 올린 캡처는 말머리("불참 : 35명") 아래로 이름이 이어지는데, 긴 화면은 조각으로
@@ -327,7 +420,7 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
     body.quarter
       ? `앱이 지금 보고 있는 쿼터는 ${body.quarter}쿼터입니다. 화이트보드에 쿼터가 안 적혀 있으면 quarter 를 null 로 두십시오.`
       : null,
-    hint && !compact ? `사용자가 연 화면: ${hint} (힌트일 뿐, 내용이 다르면 내용을 따르십시오)` : null,
+    hint && !numbered ? `사용자가 연 화면: ${hint} (힌트일 뿐, 내용이 다르면 내용을 따르십시오)` : null,
     /*
      * 칸을 못 박아 준다. 이러면 말머리를 찾을 필요도, 조각 사이로 이어 붙일 필요도 없다.
      * 화면에 보이는 이름을 전부 담기만 하면 된다.
@@ -340,12 +433,12 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
       : null,
     images.length ? `첨부한 사진 ${images.length}장도 함께 읽으십시오.` : null,
     '',
-    compact ? '## 팀 명단 (번호 이름)' : '## 팀 명단 (JSON)',
+    numbered ? '## 팀 명단 (번호 이름)' : '## 팀 명단 (JSON)',
     /*
      * 짧은 경로에서는 명단도 줄글로 준다. 같은 아흔 명이 JSON 으로는 3천 토큰인데
      * 번호 줄로는 900 토큰이다. 답이 번호라서 그 이상은 필요 없다.
      */
-    compact
+    numbered
       ? roster
           .map((one, at) => {
             /*
@@ -400,7 +493,7 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
       system: [
         {
           type: 'text',
-          text: compact ? ROSTER_PROMPT : SYSTEM_PROMPT,
+          text: board ? BOARD_PROMPT : compact ? ROSTER_PROMPT : SYSTEM_PROMPT,
           cache_control: { type: 'ephemeral' },
         },
       ],
@@ -412,8 +505,16 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
          * 아무 표시 없이 남고, 총무는 그게 화면에 없었는지 못 읽은 건지 알 수가 없다.
          * 출력은 여전히 400토큰이라 느려지는 건 생각하는 시간뿐이다.
          */
-        effort: 'high',
-        format: { type: 'json_schema', schema: compact ? ROSTER_SCHEMA : PARSE_SCHEMA },
+        /*
+         * 짧은 경로는 출력이 100~400토큰이라 생각할 시간만 늘어난다. 사진에서 이름을
+         * 빠짐없이 골라내는 일이라 높게 둔다. 긴 경로는 출력 자체가 길어서 medium 이다 —
+         * 여기까지 high 로 올렸더니 판 한 장에 한참을 기다렸다.
+         */
+        effort: numbered ? 'high' : 'medium',
+        format: {
+          type: 'json_schema',
+          schema: board ? BOARD_SCHEMA : compact ? ROSTER_SCHEMA : PARSE_SCHEMA,
+        },
       },
       messages: [{ role: 'user', content: userContent }],
     });
@@ -424,7 +525,7 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
      */
     console.log(
       `응답: ${Date.now() - startedAt}ms, 출력 ${response.usage.output_tokens}토큰` +
-        `, 입력 ${response.usage.input_tokens}토큰 (${compact ? '짧은' : '긴'} 경로)`,
+        `, 입력 ${response.usage.input_tokens}토큰 (${board ? '판' : compact ? '짧은' : '긴'} 경로)`,
     );
 
     if (response.stop_reason === 'refusal') {
@@ -444,12 +545,14 @@ export async function handleParseText(body: ParseRequest): Promise<Reply> {
       summary?: string;
     };
 
-    const items = compact
-      ? expandRoster(parsed as Record<string, unknown>, roster, statusHint)
-      : (parsed.items ?? []).map(normalizeItem).filter((item) => item !== null);
+    const items = board
+      ? expandBoard(parsed as Record<string, unknown>, roster, body.quarter ?? 1)
+      : compact
+        ? expandRoster(parsed as Record<string, unknown>, roster, statusHint)
+        : (parsed.items ?? []).map(normalizeItem).filter((item) => item !== null);
 
     return json({
-      intent: compact ? 'attendance' : (parsed.intent ?? 'unknown'),
+      intent: board ? 'lineup' : compact ? 'attendance' : (parsed.intent ?? 'unknown'),
       formation: parsed.formation ?? null,
       items,
       /*

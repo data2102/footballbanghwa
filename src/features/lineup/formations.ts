@@ -130,3 +130,37 @@ export function formationFromGroups(groups: PositionGroup[]): Formation {
   // 골키퍼가 안 그려진 판도 있다. 그때는 GK 자리를 빼고 그린다.
   return gk === 1 ? built : { ...built, size: built.size - 1, slots: built.slots.slice(1) };
 }
+
+
+/**
+ * 판에서 읽은 **가로줄 그대로** 판을 만든다.
+ *
+ * `formationFromGroups` 는 DF/MF/FW 셋으로만 접어서, 4-1-2-3 처럼 줄이 넷인 판이
+ * 4-3-3 이 된다 — 사람은 다 앉지만 판 모양이 실제와 달라진다. 줄을 아는 경우에는 이쪽을 쓴다.
+ *
+ * `lines` 는 자기 골문에서 가까운 순서다. 첫 줄이 GK 한 명이면 골문에 세우고,
+ * 나머지 줄을 하프라인 쪽으로 고르게 편다.
+ */
+export function formationFromLines(lines: { group: PositionGroup; count: number }[]): Formation {
+  const clean = lines.filter((one) => one.count > 0);
+  if (!clean.length) return DEFAULT_FORMATION;
+
+  const hasGk = clean[0].group === 'GK' && clean[0].count === 1;
+  const field = hasGk ? clean.slice(1) : clean;
+  const slots: FormationSlot[] = hasGk ? [GK] : [];
+  const counters: Record<string, number> = {};
+
+  // 골키퍼(0.07)와 하프라인(1.0) 사이에 줄을 고르게 편다.
+  const near = 0.24;
+  const far = 0.86;
+  field.forEach((one, at) => {
+    const y = field.length === 1 ? (near + far) / 2 : near + ((far - near) * at) / (field.length - 1);
+    for (const slot of line(one.group, one.count, y)) {
+      counters[one.group] = (counters[one.group] ?? 0) + 1;
+      slots.push({ ...slot, key: `${one.group}${counters[one.group]}` });
+    }
+  });
+
+  const id = field.map((one) => one.count).join('-') || '0';
+  return { id, label: id, size: slots.length, slots };
+}

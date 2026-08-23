@@ -33,8 +33,15 @@ async function accessToken(): Promise<string | null> {
  * 일요일 아침에 처음 누른 사람이 그걸 다 기다리지 않도록 미리 한 번 찔러 둔다.
  * 실패해도 조용히 넘어간다 — 깨우기는 곁다리라 화면에 오류를 띄울 일이 아니다.
  */
+/** 마지막으로 찌른 시각. 탭을 오갈 때마다 부르므로 짧은 사이에 두 번 가지 않게 막는다. */
+let wokeAt = 0;
+const WAKE_EVERY_MS = 60_000;
+
 export function wakeAiServer(): void {
   if (!AI_URL) return;
+  const now = Date.now();
+  if (now - wokeAt < WAKE_EVERY_MS) return;
+  wokeAt = now;
   void fetch(`${AI_URL}/health`, { method: 'GET' }).catch(() => {});
 }
 

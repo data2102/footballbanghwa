@@ -1,6 +1,34 @@
-import { emptySlot, formationFromGroups } from './formations';
+import { emptySlot, formationFromGroups, formationFromLines } from './formations';
+import type { PositionGroup } from '@/lib/types';
 import type { LineupItem } from '@/lib/ai/contract';
 import type { LineupSlot } from '@/lib/types';
+
+/**
+ * 읽어 낸 줄 그대로 판을 만든다. 줄을 모르면(글에서 읽었거나 예전 응답) 그룹으로 접는다.
+ *
+ * 줄을 아는 쪽이 훨씬 낫다 — 그룹만으로는 4-1-2-3 이 4-3-3 이 되어 가운데 두 줄이 합쳐진다.
+ */
+function formationOf(rows: BoardRow[]) {
+  const known = rows.filter((row) => typeof row.item.line === 'number');
+  if (!known.length) return formationFromGroups(rows.map(({ item }) => item.group));
+
+  /** 줄 번호 -> 그 줄의 포지션과 인원. 줄을 모르는 사람(용병)은 같은 그룹 끝에 한 자리 더 만든다. */
+  const byLine = new Map<number, { group: PositionGroup; count: number }>();
+  for (const { item } of known) {
+    const at = item.line as number;
+    const found = byLine.get(at);
+    if (found) found.count += 1;
+    else byLine.set(at, { group: item.group, count: 1 });
+  }
+  for (const { item } of rows) {
+    if (typeof item.line === 'number') continue;
+    const same = [...byLine.values()].find((one) => one.group === item.group);
+    if (same) same.count += 1;
+    else byLine.set(byLine.size, { group: item.group, count: 1 });
+  }
+
+  return formationFromLines([...byLine.entries()].sort((a, b) => a[0] - b[0]).map(([, one]) => one));
+}
 
 /** 사진에서 읽어 낸 한 줄. at 은 검토 화면의 줄 번호로, 사람이 이어 준 결과를 찾는 열쇠다. */
 export type BoardRow = { item: LineupItem; at: number };
@@ -18,7 +46,7 @@ export type BoardRow = { item: LineupItem; at: number };
  * 갈 데가 없어 사라지면 판은 멀쩡해 보이고 사람만 없다.
  */
 export function buildBoard(rows: BoardRow[], links: Record<number, string>) {
-  const formation = formationFromGroups(rows.map(({ item }) => item.group));
+  const formation = formationOf(rows);
   const slots: LineupSlot[] = formation.slots.map(emptySlot);
   const free = (slot: LineupSlot) => !slot.memberId && !slot.guestName;
 
