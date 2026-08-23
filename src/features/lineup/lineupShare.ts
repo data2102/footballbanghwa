@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { formatDate } from '@/lib/format';
 import { findFormation } from '@/features/lineup/formations';
-import type { LineupSlot, Match, Member, PositionGroup } from '@/lib/types';
+import type { LineupSide, LineupSlot, Match, Member, PositionGroup } from '@/lib/types';
 import type { Palette } from '@/theme';
 
 /**
@@ -13,6 +13,8 @@ import type { Palette } from '@/theme';
 
 export type LineupShareInput = {
   teamName: string;
+  /** 자체경기라 한 판에 두 팀이 선다. 어느 팀 라인업인지 글머리에 적는다. */
+  side?: LineupSide;
   match: Match;
   formationId: string;
   slots: LineupSlot[];
@@ -53,7 +55,7 @@ export function lineupText(input: LineupShareInput): string {
   const filled = slots.filter((slot) => slot.memberId || slot.guestName).length;
 
   const head = [
-    `[${teamName}] ${formatDate(match.date)} ${match.kickoff}`,
+    `[${teamName}${input.side ? ` ${input.side}팀` : ''}] ${formatDate(match.date)} ${match.kickoff}`,
     `${match.venue}${match.opponent ? ` · vs ${match.opponent}` : ''}`,
     `${formation.label} (${filled}/${formation.size})`,
   ];
@@ -67,7 +69,7 @@ export function lineupText(input: LineupShareInput): string {
 /**
  * 전술판을 PNG 로 그린다. 웹에서만 된다(네이티브에는 canvas 가 없다).
  *
- * 화면의 Pitch 컴포넌트를 캡처하지 않고 다시 그리는 이유는, 캡처를 쓰려면
+ * 화면을 캡처하지 않고 다시 그리는 이유는, 캡처를 쓰려면
  * 라이브러리를 하나 더 붙여야 하고 그마저 웹에서 한글 폰트가 자주 깨지기 때문이다.
  * 좌표는 같은 값을 쓰므로 화면과 그림이 어긋나지 않는다.
  */

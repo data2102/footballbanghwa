@@ -61,7 +61,7 @@ export function ShareLineup(props: LineupShareInput) {
   if (!open) {
     return (
       <Button
-        label="단톡방에 보내기"
+        label={props.side ? `${props.side}팀 단톡방에 보내기` : '단톡방에 보내기'}
         icon="message"
         tone="neutral"
         onPress={() => setOpen(true)}
@@ -71,7 +71,7 @@ export function ShareLineup(props: LineupShareInput) {
 
   return (
     <Card>
-      <Txt variant="h3">단톡방에 보낼 라인업</Txt>
+      <Txt variant="h3">{props.side ? `단톡방에 보낼 ${props.side}팀` : '단톡방에 보낼 라인업'}</Txt>
 
       <Row gap={space.sm}>
         {canImage ? (

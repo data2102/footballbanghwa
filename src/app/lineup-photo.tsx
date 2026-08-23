@@ -11,7 +11,7 @@ import { takeHandedPhotos } from '@/lib/photoHandoff';
 import { shareText } from '@/lib/share';
 import { formatDate } from '@/lib/format';
 import { buildBoard, type BoardRow } from '@/features/lineup/board';
-import { GuestTag } from '@/features/lineup/Pitch';
+import { GuestTag } from '@/features/lineup/GuestTag';
 import { Button, Card, Chip, Divider, Row, Screen, Txt, radius, space } from '@/components/ui';
 import { PhotoViewer } from '@/components/PhotoViewer';
 import { Icon } from '@/components/icons';
