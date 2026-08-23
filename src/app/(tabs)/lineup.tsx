@@ -391,7 +391,8 @@ export default function LineupScreen() {
     if (!match) return;
     setBusy(true);
     try {
-      const photo = await pickPhoto(source);
+      // 판은 자르면 안 된다. 위가 A팀 아래가 B팀인데, 가로로 자르면 그 구분이 사라진다.
+      const photo = await pickPhoto(source, { whole: true });
       if (!photo) return;
       handOffPhotos([photo]);
       router.push('/lineup-photo');

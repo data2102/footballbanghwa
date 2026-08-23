@@ -77,7 +77,20 @@ async function ensurePermission(source: PhotoSource): Promise<boolean> {
  */
 export async function pickPhoto(
   source: PhotoSource,
-  options?: { avatar?: boolean },
+  options?: {
+    avatar?: boolean;
+    /**
+     * 자르지 않고 통째로 한 장으로 보낸다.
+     *
+     * 화이트보드 사진은 **배치가 곧 내용**이다 — 위쪽 덩어리가 A팀, 아래쪽이 B팀이고,
+     * 자기 골문에서 먼 줄일수록 공격이다. 이걸 가로로 자르면 아랫조각은 하프라인도
+     * 골문도 없는 띠 한 장이 되어, 어느 팀 어느 줄인지 알 방법이 사라진다.
+     *
+     * 자르기는 원래 긴 카톡 캡처의 **작은 글씨**를 살리려고 있는 것이다. 판의 자석 글씨는
+     * 크고, 줄여도 긴 변이 1568 안에 들어와서 잘라 봐야 얻을 게 없다.
+     */
+    whole?: boolean;
+  },
 ): Promise<PickedPhoto | null> {
   if (!(await ensurePermission(source))) return null;
 
@@ -96,10 +109,14 @@ export async function pickPhoto(
       : await ImagePicker.launchImageLibraryAsync(common);
 
   if (result.canceled || !result.assets.length) return null;
-  return compress(result.assets[0].uri, options?.avatar ? AVATAR_EDGE : MAX_EDGE);
+  return compress(
+    result.assets[0].uri,
+    options?.avatar ? AVATAR_EDGE : MAX_EDGE,
+    options?.whole ?? false,
+  );
 }
 
-async function compress(uri: string, maxEdge: number): Promise<PickedPhoto> {
+async function compress(uri: string, maxEdge: number, whole = false): Promise<PickedPhoto> {
   const context = ImageManipulator.manipulate(uri);
   // 가로가 긴 사진이든 세로가 긴 사진이든 긴 변만 제한하면 비율은 알아서 유지된다.
   const rendered = await context.renderAsync();
@@ -127,7 +144,7 @@ async function compress(uri: string, maxEdge: number): Promise<PickedPhoto> {
     ...photo,
     // 길쭉한 원본은 줄인 것 대신 잘라 낸 조각들을 보낸다. 미리보기는 줄인 것 그대로.
     parts:
-      rendered.height / rendered.width > SLICE_RATIO
+      !whole && rendered.height / rendered.width > SLICE_RATIO
         ? await slice(uri, rendered.width, rendered.height)
         : [{ base64: photo.base64, width: photo.width, height: photo.height }],
   };

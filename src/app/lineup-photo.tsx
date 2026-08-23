@@ -114,7 +114,8 @@ export default function LineupPhotoScreen() {
   async function attach(source: 'camera' | 'library') {
     setError(null);
     try {
-      const photo = await pickPhoto(source);
+      // 판은 자르지 않고 통째로 보낸다. 배치가 곧 팀 구분이라 자르면 읽을 수 없다.
+      const photo = await pickPhoto(source, { whole: true });
       if (photo) setPhotos([photo]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '사진을 불러오지 못했어요.');
