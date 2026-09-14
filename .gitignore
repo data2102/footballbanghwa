@@ -54,3 +54,6 @@ dist-demo/
 # 총무 엑셀에서 만든 적재 SQL. 실명이 들어 있어서 커밋하지 않는다.
 import.sql
 import-*.sql
+
+# 홈페이지 실제 명단. 실명·전화번호·생년월일이 들어 있어서 커밋하지 않는다.
+site/roster.local.js

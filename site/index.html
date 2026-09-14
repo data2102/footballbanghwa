@@ -208,7 +208,6 @@ input::placeholder{ color:var(--text-disabled); }
   font-size:var(--fs-footnote); color:var(--text-secondary); line-height:var(--lh-body);
 }
 .gate-demo b{ color:var(--text-primary); font-weight:var(--fw-medium); }
-.gate-demo code{ font-family:var(--font-mono); color:var(--accent-strong); }
 
 /* ---------- 버튼 ---------- */
 .btn{
@@ -537,7 +536,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
     <div class="field">
       <label for="inName">이름</label>
       <input type="text" id="inName" name="name" maxlength="20"
-             autocomplete="name" placeholder="예: 김*만" required>
+             autocomplete="name" placeholder="명단에 적힌 이름 그대로" required>
     </div>
 
     <div class="field">
@@ -550,17 +549,14 @@ tbody tr:hover td{ background:var(--surface-sunken); }
     <div class="field">
       <label for="inPw">비밀번호</label>
       <input type="password" id="inPw" name="password" maxlength="4" inputmode="numeric"
-             autocomplete="current-password" placeholder="전화번호 뒤 4자리" required>
-      <div class="field-hint">비밀번호는 전화번호 뒤 4자리입니다.</div>
+             autocomplete="current-password" required>
     </div>
 
     <div class="form-error" id="loginErr" role="alert" aria-live="polite"></div>
     <button class="btn" type="submit">로그인하기</button>
 
     <div class="gate-demo">
-      <b>둘러보기용 계정</b><br>
-      이름 <code id="demoName"></code> · 전화번호 <code id="demoPhone"></code> ·
-      비밀번호 <code id="demoPw"></code><br>
+      명단에 있는 이름과 전화번호로 들어옵니다.
       명단에 없는 분은 총무에게 말씀해 주세요.
     </div>
   </form>
@@ -651,8 +647,8 @@ tbody tr:hover td{ background:var(--surface-sunken); }
           <div class="table-wrap">
             <table>
               <thead><tr>
-                <th class="rank-cell">번호</th><th>이름</th><th>연령대</th>
-                <th>포지션</th><th>가입</th><th>연락처</th><th>직책</th>
+                <th class="rank-cell">번호</th><th>이름</th><th>직책</th>
+                <th>생년월일</th><th>연령대</th><th>포지션</th><th>연락처</th>
               </tr></thead>
               <tbody id="memberRows"></tbody>
             </table>
@@ -672,7 +668,8 @@ tbody tr:hover td{ background:var(--surface-sunken); }
           </div>
           <div class="stat-grid" id="duesStats"></div>
           <div class="foot-note">월 회비는 <b>3만원</b>이고, 연납은 <b>30만원</b>입니다(두 달치 할인).
-            연납하신 분은 그 해 열두 달이 모두 완납으로 보입니다.</div>
+            연납하신 분은 그 해 열두 달이 모두 완납으로 보입니다.
+            <b>기록 없음</b>은 아직 회비 내역을 옮겨 넣지 않은 분입니다 — 완납·미납 수에서 뺍니다.</div>
         </div>
         <div class="panel">
           <div class="filter-row" id="duesFilter">
@@ -775,6 +772,9 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 실제 명단. .gitignore 에 있어서 저장소에는 없다 — 없으면 아래 데모 명단으로 뜬다. -->
+<script src="roster.local.js" onerror="this.remove()"></script>
 <script>
 /* ============================================================
    방화 FC 홈페이지
@@ -786,28 +786,32 @@ tbody tr:hover td{ background:var(--surface-sunken); }
    전화번호도 실제 번호가 아니라 화면을 보기 위한 값이다.
    ============================================================ */
 
-/* ---------- 명단 ---------- */
-const MEMBERS = [
+/* ---------- 명단 ----------
+   실제 명단은 site/roster.local.js 가 window.BHFC_ROSTER 로 넣어 준다.
+   그 파일은 .gitignore 에 있다 — 실명·전화번호·생년월일은 저장소에 넣지 않는다.
+   없으면 아래 데모 명단으로 뜬다(이름 가운데를 가렸고 번호도 실제가 아니다).
+   ------------------------------------------------------------------ */
+const DEMO_MEMBERS = [
   { no: 1,  name: '이*오', band: '60', pos: 'GK', joined: '1998-03', phone: '010-3101-4821', role: '회장' },
   { no: 2,  name: '노*희', band: '60', pos: 'DF', joined: '1998-03', phone: '010-3102-7345', role: '고문' },
   { no: 3,  name: '김*만', band: '60', pos: 'DF', joined: '1999-05', phone: '010-3103-9182', role: '' },
   { no: 4,  name: '윤*중', band: '60', pos: 'MF', joined: '2001-04', phone: '010-3104-2673', role: '' },
   { no: 5,  name: '박*수', band: '60', pos: 'FW', joined: '2002-09', phone: '010-3105-5390', role: '' },
   { no: 6,  name: '황*용', band: '60', pos: 'DF', joined: '2004-03', phone: '010-3106-8147', role: '' },
-  { no: 7,  name: '최*모', band: '50', pos: 'MF', joined: '2006-06', phone: '010-3107-3925', role: '부회장' },
+  { no: 7,  name: '최*모', band: '50', pos: 'MF', joined: '2006-06', phone: '010-3107-3925', role: '' },
   { no: 8,  name: '임*규', band: '50', pos: 'FW', joined: '2007-03', phone: '010-3108-6014', role: '' },
   { no: 9,  name: '윤*훈', band: '50', pos: 'DF', joined: '2008-10', phone: '010-3109-4762', role: '' },
   { no: 10, name: '김*창', band: '50', pos: 'GK', joined: '2009-04', phone: '010-3110-8539', role: '' },
-  { no: 11, name: '이*근', band: '50', pos: 'MF', joined: '2010-03', phone: '010-3111-2408', role: '감독' },
+  { no: 11, name: '이*근', band: '50', pos: 'MF', joined: '2010-03', phone: '010-3111-2408', role: '' },
   { no: 12, name: '신*일', band: '50', pos: 'DF', joined: '2011-08', phone: '010-3112-7156', role: '' },
   { no: 13, name: '서*기', band: '50', pos: 'FW', joined: '2012-05', phone: '010-3113-9370', role: '' },
   { no: 14, name: '오*현', band: '50', pos: 'MF', joined: '2013-03', phone: '010-3114-5281', role: '' },
-  { no: 15, name: '성*혁', band: '40', pos: 'FW', joined: '2014-04', phone: '010-3115-6934', role: '총무' },
+  { no: 15, name: '성*혁', band: '40', pos: 'FW', joined: '2014-04', phone: '010-3115-6934', role: '' },
   { no: 16, name: '서*석', band: '40', pos: 'MF', joined: '2015-03', phone: '010-3116-1748', role: '' },
   { no: 17, name: '강*구', band: '40', pos: 'DF', joined: '2015-09', phone: '010-3117-8025', role: '' },
   { no: 18, name: '김*영', band: '40', pos: 'DF', joined: '2016-03', phone: '010-3118-3697', role: '' },
   { no: 19, name: '강*수', band: '40', pos: 'MF', joined: '2016-11', phone: '010-3119-4520', role: '' },
-  { no: 20, name: '김*균', band: '40', pos: 'FW', joined: '2017-04', phone: '010-3120-9163', role: '코치' },
+  { no: 20, name: '김*균', band: '40', pos: 'FW', joined: '2017-04', phone: '010-3120-9163', role: '' },
   { no: 21, name: '김*호', band: '40', pos: 'GK', joined: '2018-03', phone: '010-3121-2874', role: '' },
   { no: 22, name: '박*근', band: '40', pos: 'DF', joined: '2018-08', phone: '010-3122-6351', role: '' },
   { no: 23, name: '최*용', band: '40', pos: 'MF', joined: '2019-03', phone: '010-3123-7042', role: '' },
@@ -825,6 +829,12 @@ const MEMBERS = [
   { no: 35, name: '서*태', band: '20', pos: 'MF', joined: '2025-09', phone: '010-3135-1532', role: '' },
   { no: 36, name: '윤*준', band: '20', pos: 'DF', joined: '2026-03', phone: '010-3136-9047', role: '' },
 ];
+
+/* 실제 명단이 앞에 서고 데모가 뒤를 잇는다. 번호는 받은 순서 그대로 다시 매긴다. */
+const MEMBERS = (Array.isArray(window.BHFC_ROSTER) ? window.BHFC_ROSTER : [])
+  .map((m) => ({ pos: '', joined: '', role: '', ...m, real: true }))
+  .concat(DEMO_MEMBERS.map((m) => ({ birth: '', ...m, real: false })))
+  .map((m, i) => ({ ...m, no: i + 1 }));
 
 /* 연납한 사람. 그 해 열두 달이 모두 완납이다 — 금액을 12로 나누지 않는다. */
 const ANNUAL = new Set([1, 2, 7, 11, 15, 20]);
@@ -929,8 +939,20 @@ const digits = (s) => String(s).replace(/\D/g, '');
 /** 전화번호 가운데를 가린다. 명단은 회원 모두가 보는 화면이다. */
 function maskPhone(p) {
   const d = digits(p);
-  if (d.length < 8) return p;
+  if (d.length < 4) return p;
+  // 010 으로 시작하지 않는 짧은 번호도 있다. 앞을 지어내지 않고 뒤 네 자리만 남긴다.
+  if (d.length < 10) return '****-' + d.slice(-4);
   return d.slice(0, 3) + '-****-' + d.slice(-4);
+}
+
+/** 1988-08-01 → 1988. 08. 01. 생년월일이 없으면 줄표. */
+const birthText = (b) => (b ? b.replace(/-/g, '. ') : '—');
+
+/** 연령대. 생년월일이 있으면 거기서 뽑는다 — 해가 바뀌면 저절로 따라간다. */
+function bandOf(m) {
+  const y = Number(String(m.birth || '').slice(0, 4));
+  if (y) return String(Math.min(60, Math.max(20, Math.floor((YEAR - y) / 10) * 10)));
+  return m.band || '';
 }
 
 /** 숫자만 눌러도 줄이 들어가게. 010-1234-5678 */
@@ -941,8 +963,8 @@ function formatPhone(v) {
   return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
 }
 
-const STAFF = new Set(['회장', '부회장', '총무', '감독', '코치', '고문']);
-const isStaff = (m) => !!m && STAFF.has(m.role);
+/* 직책이 적혀 있으면 운영진이다. 부회장이 셋이라 이름을 하나씩 세지 않는다. */
+const isStaff = (m) => !!m && !!m.role && m.role !== '회원';
 
 const TODAY = new Date();
 const TODAY_ISO = [
@@ -1004,13 +1026,13 @@ function doLogin(e) {
     return;
   }
   if (pw !== digits(m.phone).slice(-4)) {
-    err.textContent = '비밀번호가 달라요. 전화번호 뒤 4자리입니다.';
+    err.textContent = '비밀번호가 맞지 않아요. 모르면 총무에게 물어보세요.';
     return;
   }
 
   err.textContent = '';
   setMe(m);
-  try { localStorage.setItem('bhfc-who', String(m.no)); } catch (_) { /* 저장이 막혀 있다 */ }
+  try { localStorage.setItem('bhfc-who', digits(m.phone)); } catch (_) { /* 저장이 막혀 있다 */ }
   showToast(m.name + '님, 어서 오세요.');
 }
 
@@ -1021,7 +1043,7 @@ function setMe(m) {
   $('authBar').innerHTML =
     '<b>' + esc(m.name) + '</b>' +
     (m.role ? ' <span class="role-tag">' + esc(m.role) + '</span>' : '') +
-    ' · ' + esc(m.pos) + ' · ' + esc(String(m.no)) + '번';
+    [m.pos, m.no + '번'].filter(Boolean).map((t) => ' · ' + esc(t)).join('');
   renderAll();
   window.scrollTo(0, 0);
 }
@@ -1082,18 +1104,17 @@ function renderHistory() {
    ============================================================ */
 function renderMemberStats() {
   const bands = {};
-  MEMBERS.forEach((m) => { bands[m.band] = (bands[m.band] || 0) + 1; });
+  MEMBERS.forEach((m) => { const b = bandOf(m); if (b) bands[b] = (bands[b] || 0) + 1; });
+  const top = Object.keys(bands).sort((a, b) => bands[b] - bands[a])[0];
   const staff = MEMBERS.filter(isStaff).length;
-  const thisYear = MEMBERS.filter((m) => m.joined.startsWith(String(YEAR))).length;
+  const thisYear = MEMBERS.filter((m) => (m.joined || '').startsWith(String(YEAR))).length;
 
   $('memberCount').textContent = '모두 ' + MEMBERS.length + '명';
   $('memberStats').innerHTML = statCards([
     ['전체', MEMBERS.length, '명'],
     ['운영진', staff, '명'],
     ['올해 들어온 분', thisYear, '명'],
-    ['가장 많은 연령대',
-      Object.keys(bands).sort((a, b) => bands[b] - bands[a])[0] + '대',
-      bands[Object.keys(bands).sort((a, b) => bands[b] - bands[a])[0]] + '명'],
+    ['가장 많은 연령대', top ? top + '대' : '—', top ? bands[top] + '명' : ''],
   ]);
 }
 
@@ -1101,9 +1122,9 @@ function renderMembers() {
   const q    = $('memberSearch').value.trim().toLowerCase();
   const band = $('memberBand').value;
   const rows = MEMBERS.filter((m) => {
-    if (band && m.band !== band) return false;
+    if (band && bandOf(m) !== band) return false;
     if (!q) return true;
-    return (m.name + ' ' + m.pos + ' ' + m.role).toLowerCase().includes(q);
+    return (m.name + ' ' + m.pos + ' ' + m.role + ' ' + m.birth).toLowerCase().includes(q);
   });
 
   if (!rows.length) {
@@ -1117,14 +1138,16 @@ function renderMembers() {
   $('memberRows').innerHTML = rows.map((m) => {
     const mine = me && m.no === me.no;
     const phone = (canSeeAll || mine) ? m.phone : maskPhone(m.phone);
+    const band = bandOf(m);
     return '<tr>' +
       '<td class="rank-cell">' + m.no + '</td>' +
       '<td>' + esc(m.name) + (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
-      '<td>' + esc(m.band) + '대</td>' +
-      '<td>' + esc(m.pos) + '</td>' +
-      '<td>' + esc(m.joined.replace('-', '. ')) + '</td>' +
+      '<td>' + (m.role ? '<span class="badge badge-accent">' + esc(m.role) + '</span>'
+                       : '<span class="badge badge-mute">회원</span>') + '</td>' +
+      '<td>' + esc(birthText(m.birth)) + '</td>' +
+      '<td>' + (band ? esc(band) + '대' : '—') + '</td>' +
+      '<td>' + (m.pos ? esc(m.pos) : '—') + '</td>' +
       '<td>' + esc(phone) + '</td>' +
-      '<td>' + (m.role ? '<span class="badge badge-accent">' + esc(m.role) + '</span>' : '<span class="badge badge-mute">회원</span>') + '</td>' +
     '</tr>';
   }).join('');
 }
@@ -1157,9 +1180,11 @@ function renderDuesMonths() {
 
 function renderDues() {
   const month = Number($('duesMonth').value) || CUR_MONTH;
-  const paid   = MEMBERS.filter((m) => isPaid(m, month));
-  const unpaid = MEMBERS.filter((m) => !isPaid(m, month));
-  const annual = MEMBERS.filter((m) => ANNUAL.has(m.no));
+  // 실제 명단으로 들어온 분들은 아직 낸 기록이 없다. 없는 것을 세지 않는다.
+  const counted = MEMBERS.filter((m) => !m.real);
+  const paid   = counted.filter((m) => isPaid(m, month));
+  const unpaid = counted.filter((m) => !isPaid(m, month));
+  const annual = counted.filter((m) => ANNUAL.has(m.no));
   const cash   = (paid.length - annual.length) * DUES_MONTHLY;
 
   $('duesStats').innerHTML = statCards([
@@ -1180,11 +1205,20 @@ function renderDues() {
   }
 
   $('duesRows').innerHTML = rows.map((m) => {
+    const mine = me && m.no === me.no;
+    if (m.real) {
+      return '<tr>' +
+        '<td>' + esc(m.name) + (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
+        '<td>' + (bandOf(m) ? esc(bandOf(m)) + '대' : '—') + '</td>' +
+        '<td class="num-cell">—</td><td>—</td><td>—</td>' +
+        '<td><span class="badge badge-mute">기록 없음</span></td>' +
+      '</tr>';
+    }
     const ok  = isPaid(m, month);
     const ann = ANNUAL.has(m.no);
     return '<tr>' +
-      '<td>' + esc(m.name) + (me && m.no === me.no ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
-      '<td>' + esc(m.band) + '대</td>' +
+      '<td>' + esc(m.name) + (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
+      '<td>' + (bandOf(m) ? esc(bandOf(m)) + '대' : '—') + '</td>' +
       '<td class="num-cell">' + (ann ? won(DUES_ANNUAL) : ok ? won(DUES_MONTHLY) : '—') + '</td>' +
       '<td>' + (ok ? esc(paidDay(m, month)) : '—') + '</td>' +
       '<td>' + (ann ? '<span class="badge badge-info">연납</span>'
@@ -1325,12 +1359,6 @@ function renderAll() {
 }
 
 function init() {
-  // 둘러보기용 계정 한 줄. 비밀번호는 전화번호 뒤 4자리다.
-  const demo = MEMBERS[2];
-  $('demoName').textContent  = demo.name;
-  $('demoPhone').textContent = demo.phone;
-  $('demoPw').textContent    = digits(demo.phone).slice(-4);
-
   $('loginForm').addEventListener('submit', doLogin);
   $('logoutBtn').addEventListener('click', doLogout);
   $('themeToggle').addEventListener('click', toggleTheme);
@@ -1379,7 +1407,7 @@ function init() {
   // 로그인해 두었으면 문을 다시 묻지 않는다
   let who = null;
   try { who = localStorage.getItem('bhfc-who'); } catch (_) { /* noop */ }
-  const m = who && MEMBERS.find((x) => String(x.no) === who);
+  const m = who && MEMBERS.find((x) => digits(x.phone) === who);
   if (m) setMe(m); else $('inName').focus();
 }
 
