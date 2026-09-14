@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>방화 FC · 조기축구회</title>
+<meta name="description" content="방화 FC 조기축구회 · 연혁, 회원, 회비, 찬조, 정관, 대회일정을 한 곳에서 봅니다.">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 글꼴은 화면을 막지 않는다. print 로 받아두었다가 다 받은 뒤에 켠다. -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
+<script>
+  /* 저장해둔 선택을 첫 페인트 전에 적용한다. 저장값이 없으면 화이트가 기본. */
+  (function(){
+    var t = "light";
+    try { if (localStorage.getItem("bhfc-theme") === "dark") t = "dark"; } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<style>
+/* ============================================================
+   여백(Yeobaek) 디자인 시스템 토큰 · data2102/design-system
+   레인보우식스 관리자(r6rank)와 같은 골격을 쓰되,
+   액션색만 파랑 → 빨강으로 바꿨다. 색은 여기서만 만든다.
+   ============================================================ */
+:root {
+  /* ===== 색: 브랜드 / 행동 (빨강은 "누를 수 있는 것"에만) ===== */
+  --accent:            #e5443b;   /* 테두리·아이콘 같은 비텍스트 UI */
+  --accent-hover:      #cf3a32;
+  --accent-pressed:    #b8322b;
+  --accent-bg:         #fff0ef;   /* 연한 배경 틴트 (선택 상태) */
+  --on-accent:         #ffffff;   /* 빨간 버튼 위 글자 */
+  /* 채운 버튼·활성 메뉴처럼 글자를 얹는 자리. 흰 글자로 AA 를 넘긴다. */
+  --accent-strong:     #c0261e;
+
+  /* ===== 색: 텍스트 ===== */
+  --text-primary:      #191f28;
+  --text-secondary:    #4e5968;
+  --text-tertiary:     #8b95a1;
+  --text-disabled:     #b0b8c1;
+
+  /* ===== 색: 표면 / 배경 ===== */
+  --bg:                #f4f2f2;   /* 페이지 바탕 (빨강 쪽으로 아주 살짝) */
+  --surface:           #ffffff;
+  --surface-sunken:    #faf9f9;
+
+  /* ===== 색: 경계선 ===== */
+  --border:            #f0edee;
+  --border-strong:     #d8d2d3;
+
+  /* ===== 색: 상태 (의미가 있을 때만) ===== */
+  --success:           #12b886;  --success-bg: #e6fcf5;  --success-strong: #0a7350;
+  --warning:           #f59f00;  --warning-bg: #fff9db;  --warning-strong: #7a5300;
+  --danger:            #f03e3e;  --danger-bg:  #fff0f0;  --danger-strong:  #c0261e;
+  --info:              #3182f6;  --info-bg:    #e8f3ff;  --info-strong:    #1d63c9;
+
+  /* ===== 타이포 ===== */
+  --font-sans: "Noto Sans KR", "Pretendard", -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
+  --font-mono: "JetBrains Mono", "D2Coding", Consolas, monospace;
+
+  --fs-display:  34px;
+  --fs-title:    24px;
+  --fs-heading:  20px;
+  --fs-subhead:  17px;
+  --fs-body:     16px;
+  --fs-caption:  14px;
+  --fs-footnote: 13px;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-bold:     700;
+
+  --lh-tight:   1.3;
+  --lh-body:    1.6;
+  --ls-tight:  -0.4px;
+
+  /* ===== 간격 (4px 배수) ===== */
+  --sp-1: 4px;   --sp-2: 8px;   --sp-3: 12px;  --sp-4: 16px;
+  --sp-5: 20px;  --sp-6: 24px;  --sp-8: 32px;  --sp-10: 40px;  --sp-12: 48px;
+
+  /* ===== 둥글기 ===== */
+  --radius-sm:   8px;    --radius-md:   12px;  --radius-lg:   16px;
+  --radius-xl:   20px;   --radius-pill: 999px;
+
+  /* ===== 그림자 ===== */
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.06);
+  --shadow-popover: 0 8px 24px rgba(0,0,0,0.12);
+  --shadow-focus:   0 0 0 3px rgba(229,68,59,0.32);
+
+  /* ===== 모션 ===== */
+  --dur-fast: 120ms;   --dur-base: 200ms;
+  --ease-standard: cubic-bezier(.2,0,0,1);
+  --ease-out:      cubic-bezier(0,0,0,1);
+
+  --z-sticky: 1100; --z-modal: 1300; --z-toast: 1400;
+}
+
+/* ---- 다크: 토큰만 다시 정의한다. 아래 규칙은 하나도 안 고친다. ---- */
+:root[data-theme="dark"] {
+  --accent:            #ff6b5e;
+  --accent-hover:      #ff8377;
+  --accent-pressed:    #e85246;
+  --accent-bg:         #3a1c19;
+  --on-accent:         #2a0d0a;
+  --accent-strong:     #ff6b5e;
+
+  --text-primary:      #edeff4;
+  --text-secondary:    #ced2dc;
+  --text-tertiary:     #9aa1b3;
+  --text-disabled:     #6b7180;
+
+  --bg:                #1c1819;
+  --surface:           #272122;
+  --surface-sunken:    #201b1c;
+
+  --border:            #352d2e;
+  --border-strong:     #463c3d;
+
+  --success:           #34d399;  --success-bg: #0f2e26;  --success-strong: #34d399;
+  --warning:           #fbbf24;  --warning-bg: #2e2408;  --warning-strong: #fbbf24;
+  --danger:            #f87171;  --danger-bg:  #2e1414;  --danger-strong:  #f87171;
+  --info:              #7ab4ff;  --info-bg:    #142238;  --info-strong:    #7ab4ff;
+
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.4);
+  --shadow-popover: 0 8px 24px rgba(0,0,0,0.5);
+  --shadow-focus:   0 0 0 3px rgba(255,107,94,0.35);
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0; padding:0;
+  background:var(--bg);
+  color:var(--text-primary);
+  font-family:var(--font-sans);
+  font-size:var(--fs-body);
+  line-height:var(--lh-body);
+  -webkit-font-smoothing:antialiased;
+}
+body{
+  padding:var(--sp-6) var(--sp-4) var(--sp-12);
+  /* 한글은 기본값이면 "1명" 이 "1" 과 "명" 으로 갈라져 다음 줄로 넘어간다. */
+  word-break:keep-all;
+  overflow-wrap:break-word;
+}
+table, .num{ font-variant-numeric:tabular-nums; }
+
+/* ============================================================
+   로그인 문 — 여기를 지나야 아래가 보인다
+   ============================================================ */
+#gate{
+  min-height:calc(100vh - var(--sp-6) - var(--sp-12));
+  display:flex; align-items:center; justify-content:center;
+}
+#gate[hidden]{ display:none; }
+.gate-card{
+  width:100%; max-width:400px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-xl); box-shadow:var(--shadow-card);
+  padding:var(--sp-8) var(--sp-6) var(--sp-6);
+}
+.gate-crest{
+  width:56px; height:56px; border-radius:var(--radius-lg);
+  background:var(--accent-strong); color:var(--on-accent);
+  display:flex; align-items:center; justify-content:center;
+  font-size:var(--fs-heading); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); margin-bottom:var(--sp-5);
+}
+.gate-card h1{
+  font-size:var(--fs-title); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); line-height:var(--lh-tight); margin:0;
+}
+.gate-sub{
+  font-size:var(--fs-caption); color:var(--text-secondary);
+  margin-top:var(--sp-2); margin-bottom:var(--sp-6);
+}
+.field{ margin-bottom:var(--sp-4); }
+.field label{
+  display:block; font-size:var(--fs-footnote); color:var(--text-tertiary);
+  margin-bottom:var(--sp-1); font-weight:var(--fw-medium);
+}
+.field-hint{ font-size:var(--fs-footnote); color:var(--text-tertiary); margin-top:var(--sp-1); }
+
+input[type=text],input[type=tel],input[type=password],input[type=search],select,textarea{
+  background:var(--surface); border:1px solid var(--border-strong);
+  border-radius:var(--radius-md); color:var(--text-primary);
+  font-family:inherit; font-size:var(--fs-body);
+  padding:var(--sp-3) var(--sp-4); width:100%;
+  transition:border-color var(--dur-fast) var(--ease-standard),
+             box-shadow var(--dur-fast) var(--ease-standard);
+}
+input:focus,select:focus,textarea:focus{
+  outline:none; border-color:var(--accent); box-shadow:var(--shadow-focus);
+}
+input::placeholder{ color:var(--text-disabled); }
+.form-error{
+  color:var(--danger-strong); font-size:var(--fs-footnote);
+  margin-top:var(--sp-3); min-height:18px;
+}
+.gate-demo{
+  margin-top:var(--sp-5); padding:var(--sp-4);
+  background:var(--surface-sunken); border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  font-size:var(--fs-footnote); color:var(--text-secondary); line-height:var(--lh-body);
+}
+.gate-demo b{ color:var(--text-primary); font-weight:var(--fw-medium); }
+.gate-demo code{ font-family:var(--font-mono); color:var(--accent-strong); }
+
+/* ---------- 버튼 ---------- */
+.btn{
+  background:var(--accent-strong); color:var(--on-accent);
+  border:none; border-radius:var(--radius-md);
+  padding:var(--sp-4) var(--sp-5); font-family:inherit;
+  font-size:var(--fs-subhead); font-weight:var(--fw-bold);
+  cursor:pointer; width:100%; margin-top:var(--sp-4);
+  transition:background var(--dur-fast) var(--ease-standard);
+}
+.btn:hover:not(:disabled){ background:var(--accent-hover); }
+.btn:active:not(:disabled){ background:var(--accent-pressed); }
+.btn:disabled{ background:var(--border); color:var(--text-disabled); cursor:not-allowed; }
+.btn:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
+
+.btn-ghost{
+  background:var(--surface); color:var(--text-secondary);
+  border:1px solid var(--border-strong); border-radius:var(--radius-md);
+  padding:var(--sp-2) var(--sp-3); font-family:inherit;
+  font-size:var(--fs-footnote); font-weight:var(--fw-medium); cursor:pointer;
+  transition:border-color var(--dur-fast) var(--ease-standard),
+             color var(--dur-fast) var(--ease-standard);
+}
+.btn-ghost:hover{ border-color:var(--accent); color:var(--accent); }
+.btn-ghost:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
+
+/* ============================================================
+   로그인 뒤 화면
+   ============================================================ */
+#app{
+  max-width:1280px; margin:0 auto;
+  display:flex; flex-direction:column;
+  min-height:calc(100vh - var(--sp-6) - var(--sp-12));
+}
+#app[hidden]{ display:none; }
+
+/* ---------- 헤더 ---------- */
+header{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-card);
+  padding:var(--sp-6);
+  margin-bottom:var(--sp-4);
+  display:flex; justify-content:space-between; align-items:flex-end;
+  flex-wrap:wrap; gap:var(--sp-4);
+  /* 왼쪽에 붉은 띠 하나. 색을 넓게 칠하지 않고 여기서만 쓴다. */
+  border-left:4px solid var(--accent);
+}
+.eyebrow{
+  font-size:var(--fs-footnote); color:var(--text-tertiary);
+  letter-spacing:.06em; text-transform:uppercase; font-weight:var(--fw-medium);
+  margin-bottom:var(--sp-2);
+}
+header h1{
+  font-size:clamp(26px, 5.5vw, var(--fs-display)); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); line-height:var(--lh-tight);
+  margin:0; color:var(--text-primary);
+}
+.subline{
+  margin-top:var(--sp-2); font-size:var(--fs-caption); color:var(--text-secondary);
+  display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap;
+}
+.live-dot{
+  width:7px; height:7px; border-radius:50%; background:var(--accent);
+  flex:none; display:inline-block;
+}
+.head-right{ display:flex; flex-direction:column; align-items:flex-end; gap:var(--sp-3); }
+.head-top{ display:flex; gap:var(--sp-2); flex-wrap:wrap; justify-content:flex-end; }
+.auth-bar{
+  font-size:var(--fs-caption); color:var(--text-secondary);
+  display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap;
+}
+.auth-bar b{ color:var(--text-primary); font-weight:var(--fw-medium); }
+.role-tag{
+  font-size:var(--fs-footnote); font-weight:var(--fw-medium);
+  padding:2px var(--sp-2); border-radius:var(--radius-pill);
+  background:var(--accent-bg); color:var(--accent-strong);
+}
+.theme-btn svg{ width:14px; height:14px; vertical-align:-2px; margin-right:4px; }
+:root[data-theme="dark"] .to-dark{ display:none; }
+:root:not([data-theme="dark"]) .to-light{ display:none; }
+
+/* ---------- 왼쪽 세로 메뉴 ---------- */
+.shell{
+  display:grid; grid-template-columns:180px minmax(0,1fr);
+  gap:var(--sp-4);
+  flex:1;
+}
+.panels{ min-width:0; }
+.tabs{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:var(--sp-2);
+  box-shadow:var(--shadow-card);
+}
+/* 판은 끝까지 내려가되 단추는 화면을 따라온다. 명단이 긴 탭에서 메뉴만
+   저 위에 남아 있으면 다시 올라가야 한다. */
+.tabs-in{
+  display:flex; flex-direction:column; gap:2px;
+  position:sticky; top:var(--sp-2);
+}
+.tab-btn{
+  display:flex; align-items:center; gap:var(--sp-2); width:100%;
+  text-align:left; cursor:pointer;
+  background:transparent; border:none; border-radius:var(--radius-md);
+  padding:var(--sp-3) var(--sp-4);
+  font-family:inherit; font-size:var(--fs-caption); font-weight:var(--fw-medium);
+  color:var(--text-secondary);
+  transition:background var(--dur-fast) var(--ease-standard),
+             color var(--dur-fast) var(--ease-standard);
+}
+.tab-btn svg{ width:16px; height:16px; flex:none; }
+.tab-btn:hover{ color:var(--text-primary); background:var(--surface-sunken); }
+.tab-btn.active{ background:var(--accent-strong); color:var(--on-accent); font-weight:var(--fw-bold); }
+.tab-btn:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+
+@media (max-width:860px){
+  /* 좁아지면 메뉴가 세로로 서 있을 자리가 없다. 위로 올려 칸으로 편다. */
+  .shell{ grid-template-columns:minmax(0,1fr); align-content:start; }
+  .tabs{ align-self:start; }
+  .tabs-in{
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:var(--sp-1); position:static;
+  }
+  .tab-btn{ justify-content:center; text-align:center; padding:var(--sp-3) var(--sp-2); }
+  .tab-btn svg{ display:none; }
+}
+
+/* ---------- 카드 ---------- */
+.panel{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-lg); box-shadow:var(--shadow-card);
+  padding:var(--sp-6); margin-bottom:var(--sp-4);
+}
+.panel h2{
+  font-size:var(--fs-heading); font-weight:var(--fw-bold);
+  color:var(--text-primary); margin:0 0 var(--sp-5);
+  letter-spacing:var(--ls-tight);
+}
+.panel-head{
+  display:flex; align-items:center; gap:var(--sp-3);
+  flex-wrap:wrap; margin-bottom:var(--sp-5);
+}
+.panel-head h2{ margin:0; }
+.panel-head .spacer{ margin-left:auto; }
+.foot-note{
+  font-size:var(--fs-footnote); color:var(--text-tertiary);
+  margin-top:var(--sp-3); line-height:var(--lh-body);
+}
+.foot-note b{ color:var(--text-secondary); font-weight:var(--fw-medium); }
+
+/* 화면당 큰 숫자는 하나 */
+.hero{
+  font-size:var(--fs-display); font-weight:var(--fw-bold);
+  line-height:var(--lh-tight); letter-spacing:var(--ls-tight);
+  color:var(--text-primary);
+}
+.hero-k{ font-size:var(--fs-caption); color:var(--text-tertiary); margin-bottom:var(--sp-1); }
+
+.stat-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:var(--sp-3);
+}
+.stat{
+  background:var(--surface-sunken); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:var(--sp-4);
+}
+.stat-k{ font-size:var(--fs-footnote); color:var(--text-tertiary); font-weight:var(--fw-medium); }
+.stat-v{
+  font-size:var(--fs-title); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); margin-top:var(--sp-1);
+  font-variant-numeric:tabular-nums;
+}
+.stat-v small{ font-size:var(--fs-caption); font-weight:var(--fw-medium); color:var(--text-tertiary); }
+/* 숫자가 아니라 말이 들어가는 칸. 큰 글씨로 두면 좁은 화면에서 두 줄로 접힌다. */
+.stat-v.t{ font-size:var(--fs-subhead); line-height:var(--lh-body); }
+
+/* ---------- 표 ---------- */
+.table-wrap{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; font-size:var(--fs-caption); }
+th{
+  text-align:left; padding:var(--sp-3);
+  font-size:var(--fs-footnote); font-weight:var(--fw-medium);
+  color:var(--text-tertiary); white-space:nowrap;
+  border-bottom:1px solid var(--border-strong);
+}
+td{
+  padding:var(--sp-3); border-bottom:1px solid var(--border);
+  color:var(--text-primary); white-space:nowrap;
+}
+td.wrap{ white-space:normal; min-width:200px; }
+tbody tr:last-child td{ border-bottom:none; }
+tbody tr:hover td{ background:var(--surface-sunken); }
+.num-cell{ text-align:right; font-variant-numeric:tabular-nums; }
+.rank-cell{ width:44px; color:var(--text-tertiary); font-weight:var(--fw-bold); }
+
+.badge{
+  display:inline-block; font-size:var(--fs-footnote); font-weight:var(--fw-medium);
+  padding:2px var(--sp-2); border-radius:var(--radius-pill); white-space:nowrap;
+}
+.badge-ok{ background:var(--success-bg); color:var(--success-strong); }
+.badge-warn{ background:var(--warning-bg); color:var(--warning-strong); }
+.badge-danger{ background:var(--danger-bg); color:var(--danger-strong); }
+.badge-info{ background:var(--info-bg); color:var(--info-strong); }
+.badge-accent{ background:var(--accent-bg); color:var(--accent-strong); }
+.badge-mute{ background:var(--surface-sunken); color:var(--text-tertiary); }
+
+.empty{
+  padding:var(--sp-10) var(--sp-4); text-align:center;
+  color:var(--text-tertiary); font-size:var(--fs-caption);
+}
+
+/* ---------- 거르는 줄 ---------- */
+.filter-row{ display:flex; gap:var(--sp-2); flex-wrap:wrap; align-items:center; margin-bottom:var(--sp-4); }
+.filter-row input[type=search]{ flex:1 1 200px; width:auto; min-width:0; }
+.filter-row select{ flex:none; width:auto; min-width:120px; cursor:pointer; }
+.chip{
+  background:var(--surface); color:var(--text-secondary);
+  border:1px solid var(--border-strong); border-radius:var(--radius-pill);
+  padding:var(--sp-2) var(--sp-4); font-family:inherit;
+  font-size:var(--fs-footnote); font-weight:var(--fw-medium); cursor:pointer;
+  transition:all var(--dur-fast) var(--ease-standard);
+}
+.chip:hover{ border-color:var(--accent); color:var(--accent); }
+.chip.on{ background:var(--accent-strong); color:var(--on-accent); border-color:var(--accent-strong); }
+.chip:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
+@media (max-width:520px){
+  /* 좁은 화면에서 입력칸과 선택칸을 옆으로 늘어놓지 않는다 — 세로로 쌓는다. */
+  .filter-row input[type=search], .filter-row select{ flex:1 1 100%; width:100%; }
+}
+
+/* ---------- 연혁 ---------- */
+.tl{ position:relative; padding-left:var(--sp-6); }
+.tl::before{
+  content:''; position:absolute; left:5px; top:6px; bottom:6px;
+  width:2px; background:var(--border-strong);
+}
+.tl-item{ position:relative; padding-bottom:var(--sp-6); }
+.tl-item:last-child{ padding-bottom:0; }
+.tl-item::before{
+  content:''; position:absolute; left:calc(-1 * var(--sp-6) + 1px); top:7px;
+  width:10px; height:10px; border-radius:50%;
+  background:var(--surface); border:2px solid var(--border-strong);
+}
+.tl-item.key::before{ background:var(--accent); border-color:var(--accent); }
+.tl-y{
+  font-family:var(--font-mono); font-size:var(--fs-caption);
+  font-weight:var(--fw-bold); color:var(--accent-strong);
+}
+.tl-t{ font-size:var(--fs-subhead); font-weight:var(--fw-medium); margin-top:2px; }
+.tl-d{ font-size:var(--fs-caption); color:var(--text-secondary); margin-top:var(--sp-1); }
+
+/* ---------- 정관 ---------- */
+.rule-nav{ display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-5); }
+.rule-ch{ margin-bottom:var(--sp-8); }
+.rule-ch:last-child{ margin-bottom:0; }
+.rule-ch h3{
+  font-size:var(--fs-subhead); font-weight:var(--fw-bold);
+  margin:0 0 var(--sp-4); padding-bottom:var(--sp-3);
+  border-bottom:1px solid var(--border-strong);
+  letter-spacing:var(--ls-tight);
+}
+.rule-art{ margin-bottom:var(--sp-5); }
+.rule-art:last-child{ margin-bottom:0; }
+.rule-art h4{
+  font-size:var(--fs-caption); font-weight:var(--fw-bold);
+  margin:0 0 var(--sp-2); color:var(--accent-strong);
+}
+.rule-art p{ margin:0 0 var(--sp-2); font-size:var(--fs-caption); color:var(--text-secondary); }
+.rule-art p:last-child{ margin-bottom:0; }
+.rule-art ol{ margin:0; padding-left:var(--sp-5); font-size:var(--fs-caption); color:var(--text-secondary); }
+.rule-art li{ margin-bottom:var(--sp-1); }
+
+/* ---------- 대회일정 ---------- */
+.next-card{
+  background:var(--accent-bg); border:1px solid var(--accent);
+  border-radius:var(--radius-lg); padding:var(--sp-5);
+  margin-bottom:var(--sp-5);
+}
+.next-k{ font-size:var(--fs-footnote); font-weight:var(--fw-medium); color:var(--accent-strong); }
+.next-t{
+  font-size:var(--fs-title); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); margin-top:var(--sp-1); color:var(--text-primary);
+}
+.next-m{ font-size:var(--fs-caption); color:var(--text-secondary); margin-top:var(--sp-2); }
+.next-dday{
+  font-family:var(--font-mono); font-size:var(--fs-heading);
+  font-weight:var(--fw-bold); color:var(--accent-strong);
+}
+
+/* ---------- 토스트 ---------- */
+.toast{
+  position:fixed; bottom:var(--sp-6); right:var(--sp-6);
+  background:var(--text-primary); color:var(--surface);
+  border-radius:var(--radius-md); padding:var(--sp-4) var(--sp-5);
+  font-size:var(--fs-caption); font-weight:var(--fw-medium);
+  box-shadow:var(--shadow-popover); opacity:0; transform:translateY(8px);
+  transition:opacity var(--dur-base) var(--ease-standard),
+             transform var(--dur-base) var(--ease-standard);
+  pointer-events:none; z-index:var(--z-toast);
+}
+.toast.show{ opacity:1; transform:translateY(0); }
+
+/* ---------- 바닥글 ---------- */
+.site-foot{
+  margin-top:var(--sp-6); padding-top:var(--sp-5);
+  border-top:1px solid var(--border);
+  font-size:var(--fs-footnote); color:var(--text-tertiary);
+  display:flex; justify-content:space-between; gap:var(--sp-3); flex-wrap:wrap;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     로그인 문. 이름 · 전화번호 · 비밀번호 셋이 맞아야 아래가 열린다.
+     ============================================================ -->
+<div id="gate">
+  <form class="gate-card" id="loginForm" autocomplete="on">
+    <div class="gate-crest">BH</div>
+    <h1>방화 FC</h1>
+    <div class="gate-sub">조기축구회 회원 전용 · 이름과 전화번호로 들어옵니다.</div>
+
+    <div class="field">
+      <label for="inName">이름</label>
+      <input type="text" id="inName" name="name" maxlength="20"
+             autocomplete="name" placeholder="예: 김*만" required>
+    </div>
+
+    <div class="field">
+      <label for="inPhone">전화번호</label>
+      <input type="tel" id="inPhone" name="phone" maxlength="13" inputmode="numeric"
+             autocomplete="tel" placeholder="010-0000-0000" required>
+      <div class="field-hint">숫자만 눌러도 가운데 줄이 자동으로 들어갑니다.</div>
+    </div>
+
+    <div class="field">
+      <label for="inPw">비밀번호</label>
+      <input type="password" id="inPw" name="password" maxlength="4" inputmode="numeric"
+             autocomplete="current-password" placeholder="전화번호 뒤 4자리" required>
+      <div class="field-hint">비밀번호는 전화번호 뒤 4자리입니다.</div>
+    </div>
+
+    <div class="form-error" id="loginErr" role="alert" aria-live="polite"></div>
+    <button class="btn" type="submit">로그인하기</button>
+
+    <div class="gate-demo">
+      <b>둘러보기용 계정</b><br>
+      이름 <code id="demoName"></code> · 전화번호 <code id="demoPhone"></code> ·
+      비밀번호 <code id="demoPw"></code><br>
+      명단에 없는 분은 총무에게 말씀해 주세요.
+    </div>
+  </form>
+</div>
+
+<!-- ============================================================
+     로그인 뒤 화면
+     ============================================================ -->
+<div id="app" hidden>
+  <header>
+    <div>
+      <div class="eyebrow">Banghwa FC · 조기축구회</div>
+      <h1>방화 FC</h1>
+      <div class="subline"><span class="live-dot"></span>매주 일요일 아침 · 방화체육공원</div>
+    </div>
+    <div class="head-right">
+      <div class="head-top">
+        <button type="button" class="btn-ghost" id="logoutBtn">로그아웃</button>
+        <button type="button" class="btn-ghost theme-btn" id="themeToggle"
+                aria-label="밝은 화면과 어두운 화면 전환">
+          <span class="to-dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5z"></path></svg>다크 모드</span>
+          <span class="to-light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>화이트 모드</span>
+        </button>
+      </div>
+      <div class="auth-bar" id="authBar"></div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="tabs"><div class="tabs-in" id="tabBar">
+      <button class="tab-btn active" data-tab="history" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4l3 2"></path><circle cx="12" cy="12" r="9"></circle></svg>연혁</button>
+      <button class="tab-btn" data-tab="members" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 19v-2a4 4 0 0 0-3-3.9"></path></svg>회원</button>
+      <button class="tab-btn" data-tab="dues" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"></rect><circle cx="12" cy="12.5" r="2.5"></circle></svg>회비</button>
+      <button class="tab-btn" data-tab="support" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7L12 21l8.8-8.4a5 5 0 0 0 0-7z"></path></svg>찬조</button>
+      <button class="tab-btn" data-tab="rules" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M8 13h8M8 17h5"></path></svg>정관</button>
+      <button class="tab-btn" data-tab="schedule" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>대회일정</button>
+    </div></nav>
+
+    <div class="panels">
+
+      <!-- ===== 1. 연혁 ===== -->
+      <div class="tab-panel active" id="tab-history">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>우리가 지나온 길</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-accent" id="ageBadge"></span>
+          </div>
+          <div class="stat-grid" id="historyStats"></div>
+          <div class="foot-note">창단부터 지금까지 팀에 있었던 일을 적어 둡니다.
+            빠진 일이 있으면 총무에게 말씀해 주세요.</div>
+        </div>
+        <div class="panel">
+          <h2>연혁</h2>
+          <div class="tl" id="historyList"></div>
+        </div>
+      </div>
+
+      <!-- ===== 2. 회원 ===== -->
+      <div class="tab-panel" id="tab-members">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>회원</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-mute" id="memberCount"></span>
+          </div>
+          <div class="stat-grid" id="memberStats"></div>
+        </div>
+        <div class="panel">
+          <div class="filter-row">
+            <input type="search" id="memberSearch" placeholder="이름·포지션으로 찾기"
+                   aria-label="회원 찾기">
+            <select id="memberBand" aria-label="연령대 고르기">
+              <option value="">연령대 전체</option>
+              <option value="60">60대</option>
+              <option value="50">50대</option>
+              <option value="40">40대</option>
+              <option value="30">30대</option>
+              <option value="20">20대</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th class="rank-cell">번호</th><th>이름</th><th>연령대</th>
+                <th>포지션</th><th>가입</th><th>연락처</th><th>직책</th>
+              </tr></thead>
+              <tbody id="memberRows"></tbody>
+            </table>
+          </div>
+          <div class="foot-note">연락처는 본인과 운영진에게만 전부 보입니다.
+            나머지는 가운데를 가려 둡니다.</div>
+        </div>
+      </div>
+
+      <!-- ===== 3. 회비 ===== -->
+      <div class="tab-panel" id="tab-dues">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>회비</h2>
+            <span class="spacer"></span>
+            <select id="duesMonth" aria-label="달 고르기" style="width:auto;min-width:140px;"></select>
+          </div>
+          <div class="stat-grid" id="duesStats"></div>
+          <div class="foot-note">월 회비는 <b>3만원</b>이고, 연납은 <b>30만원</b>입니다(두 달치 할인).
+            연납하신 분은 그 해 열두 달이 모두 완납으로 보입니다.</div>
+        </div>
+        <div class="panel">
+          <div class="filter-row" id="duesFilter">
+            <button class="chip on" data-dues="all" type="button">전체</button>
+            <button class="chip" data-dues="paid" type="button">완납</button>
+            <button class="chip" data-dues="unpaid" type="button">미납</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>이름</th><th>연령대</th><th class="num-cell">금액</th>
+                <th>낸 날</th><th>방식</th><th>상태</th>
+              </tr></thead>
+              <tbody id="duesRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 4. 찬조 ===== -->
+      <div class="tab-panel" id="tab-support">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>올해 찬조</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-accent" id="supportYear"></span>
+          </div>
+          <div class="hero-k">2026년 찬조 합계</div>
+          <div class="hero" id="supportTotal"></div>
+          <div class="stat-grid" id="supportStats" style="margin-top:var(--sp-5);"></div>
+          <div class="foot-note">회비와 따로 받은 돈입니다. 생일·승진·개업처럼
+            좋은 일이 있을 때 내 주신 것을 그대로 적습니다.</div>
+        </div>
+        <div class="panel">
+          <h2>찬조 내역</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>날짜</th><th>찬조자</th><th class="num-cell">금액</th>
+                <th>사유</th><th>쓴 곳</th>
+              </tr></thead>
+              <tbody id="supportRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 5. 정관 ===== -->
+      <div class="tab-panel" id="tab-rules">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>방화 FC 정관</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-mute">2026. 1. 11. 정기총회 개정</span>
+          </div>
+          <div class="rule-nav" id="ruleNav"></div>
+          <div id="ruleBody"></div>
+          <div class="foot-note">정관은 정기총회에서 재적 회원 과반수의 찬성으로만 고칠 수 있습니다.</div>
+        </div>
+      </div>
+
+      <!-- ===== 6. 대회일정 ===== -->
+      <div class="tab-panel" id="tab-schedule">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>대회일정</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-mute" id="scheduleCount"></span>
+          </div>
+          <div id="nextMatch"></div>
+          <div class="stat-grid" id="scheduleStats"></div>
+        </div>
+        <div class="panel">
+          <div class="filter-row" id="scheduleFilter">
+            <button class="chip on" data-sch="upcoming" type="button">예정</button>
+            <button class="chip" data-sch="done" type="button">지난 경기</button>
+            <button class="chip" data-sch="all" type="button">전체</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>날짜</th><th>대회·경기</th><th>장소</th>
+                <th>상대</th><th>결과</th><th>상태</th>
+              </tr></thead>
+              <tbody id="scheduleRows"></tbody>
+            </table>
+          </div>
+          <div class="foot-note">참석 여부는 단톡방 투표로 받습니다.
+            투표 캡처는 운영진이 앱에 올려 명단으로 만듭니다.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="site-foot">
+    <span>방화 FC · 조기축구회 · 매주 일요일 07:00</span>
+    <span>문의 · 총무</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+/* ============================================================
+   방화 FC 홈페이지
+   화면 하나짜리 정적 페이지다. 지금은 아래 명단을 그대로 쓰고,
+   서버에 붙일 때는 MEMBERS / DUES / SUPPORT / SCHEDULE 를
+   fetch 로 바꾸기만 하면 된다 — 그리는 쪽은 손댈 데가 없다.
+
+   이름은 가운데를 가렸다(김*만). 저장소가 공개라 실명을 두지 않는다.
+   전화번호도 실제 번호가 아니라 화면을 보기 위한 값이다.
+   ============================================================ */
+
+/* ---------- 명단 ---------- */
+const MEMBERS = [
+  { no: 1,  name: '이*오', band: '60', pos: 'GK', joined: '1998-03', phone: '010-3101-4821', role: '회장' },
+  { no: 2,  name: '노*희', band: '60', pos: 'DF', joined: '1998-03', phone: '010-3102-7345', role: '고문' },
+  { no: 3,  name: '김*만', band: '60', pos: 'DF', joined: '1999-05', phone: '010-3103-9182', role: '' },
+  { no: 4,  name: '윤*중', band: '60', pos: 'MF', joined: '2001-04', phone: '010-3104-2673', role: '' },
+  { no: 5,  name: '박*수', band: '60', pos: 'FW', joined: '2002-09', phone: '010-3105-5390', role: '' },
+  { no: 6,  name: '황*용', band: '60', pos: 'DF', joined: '2004-03', phone: '010-3106-8147', role: '' },
+  { no: 7,  name: '최*모', band: '50', pos: 'MF', joined: '2006-06', phone: '010-3107-3925', role: '부회장' },
+  { no: 8,  name: '임*규', band: '50', pos: 'FW', joined: '2007-03', phone: '010-3108-6014', role: '' },
+  { no: 9,  name: '윤*훈', band: '50', pos: 'DF', joined: '2008-10', phone: '010-3109-4762', role: '' },
+  { no: 10, name: '김*창', band: '50', pos: 'GK', joined: '2009-04', phone: '010-3110-8539', role: '' },
+  { no: 11, name: '이*근', band: '50', pos: 'MF', joined: '2010-03', phone: '010-3111-2408', role: '감독' },
+  { no: 12, name: '신*일', band: '50', pos: 'DF', joined: '2011-08', phone: '010-3112-7156', role: '' },
+  { no: 13, name: '서*기', band: '50', pos: 'FW', joined: '2012-05', phone: '010-3113-9370', role: '' },
+  { no: 14, name: '오*현', band: '50', pos: 'MF', joined: '2013-03', phone: '010-3114-5281', role: '' },
+  { no: 15, name: '성*혁', band: '40', pos: 'FW', joined: '2014-04', phone: '010-3115-6934', role: '총무' },
+  { no: 16, name: '서*석', band: '40', pos: 'MF', joined: '2015-03', phone: '010-3116-1748', role: '' },
+  { no: 17, name: '강*구', band: '40', pos: 'DF', joined: '2015-09', phone: '010-3117-8025', role: '' },
+  { no: 18, name: '김*영', band: '40', pos: 'DF', joined: '2016-03', phone: '010-3118-3697', role: '' },
+  { no: 19, name: '강*수', band: '40', pos: 'MF', joined: '2016-11', phone: '010-3119-4520', role: '' },
+  { no: 20, name: '김*균', band: '40', pos: 'FW', joined: '2017-04', phone: '010-3120-9163', role: '코치' },
+  { no: 21, name: '김*호', band: '40', pos: 'GK', joined: '2018-03', phone: '010-3121-2874', role: '' },
+  { no: 22, name: '박*근', band: '40', pos: 'DF', joined: '2018-08', phone: '010-3122-6351', role: '' },
+  { no: 23, name: '최*용', band: '40', pos: 'MF', joined: '2019-03', phone: '010-3123-7042', role: '' },
+  { no: 24, name: '곽*문', band: '40', pos: 'FW', joined: '2019-10', phone: '010-3124-1589', role: '' },
+  { no: 25, name: '권*현', band: '40', pos: 'MF', joined: '2020-05', phone: '010-3125-8236', role: '' },
+  { no: 26, name: '조*원', band: '30', pos: 'FW', joined: '2021-03', phone: '010-3126-4907', role: '' },
+  { no: 27, name: '양*석', band: '30', pos: 'MF', joined: '2021-09', phone: '010-3127-5318', role: '' },
+  { no: 28, name: '김*훈', band: '30', pos: 'DF', joined: '2022-04', phone: '010-3128-2760', role: '' },
+  { no: 29, name: '이*윤', band: '30', pos: 'GK', joined: '2022-11', phone: '010-3129-9481', role: '' },
+  { no: 30, name: '정*구', band: '30', pos: 'MF', joined: '2023-03', phone: '010-3130-3625', role: '' },
+  { no: 31, name: '이*우', band: '30', pos: 'FW', joined: '2023-08', phone: '010-3131-7194', role: '' },
+  { no: 32, name: '권*성', band: '30', pos: 'DF', joined: '2024-04', phone: '010-3132-8053', role: '' },
+  { no: 33, name: '장*한', band: '30', pos: 'MF', joined: '2024-10', phone: '010-3133-4716', role: '' },
+  { no: 34, name: '채*석', band: '30', pos: 'FW', joined: '2025-03', phone: '010-3134-6289', role: '' },
+  { no: 35, name: '서*태', band: '20', pos: 'MF', joined: '2025-09', phone: '010-3135-1532', role: '' },
+  { no: 36, name: '윤*준', band: '20', pos: 'DF', joined: '2026-03', phone: '010-3136-9047', role: '' },
+];
+
+/* 연납한 사람. 그 해 열두 달이 모두 완납이다 — 금액을 12로 나누지 않는다. */
+const ANNUAL = new Set([1, 2, 7, 11, 15, 20]);
+
+const DUES_MONTHLY = 30000;
+const DUES_ANNUAL  = 300000;
+
+/* ---------- 연혁 ---------- */
+const HISTORY = [
+  { y: '1998', m: '03', t: '방화 FC 창단', d: '방화체육공원 축구장에서 열두 명으로 시작했습니다.', key: true },
+  { y: '2001', m: '05', t: '강서구 조기축구연합회 가입', d: '구 단위 정기 리그에 처음 이름을 올렸습니다.' },
+  { y: '2004', m: '10', t: '강서구청장기 첫 출전', d: '8강에서 발산 FC 에 아쉽게 졌습니다.' },
+  { y: '2008', m: '06', t: '회원 50명 돌파', d: '주말 두 팀 자체경기가 가능해졌습니다.', key: true },
+  { y: '2011', m: '09', t: '강서구청장기 준우승', d: '결승에서 승부차기까지 갔습니다.' },
+  { y: '2014', m: '04', t: '유니폼 전면 교체', d: '붉은 상의로 바꾸고 등번호를 정리했습니다.' },
+  { y: '2016', m: '11', t: '서울시 생활체육대회 16강', d: '팀 역사상 첫 시 단위 대회 본선이었습니다.' },
+  { y: '2019', m: '05', t: '강서구청장기 우승', d: '창단 21년 만의 첫 우승입니다.', key: true },
+  { y: '2021', m: '03', t: '회칙 전면 개정', d: '회비·찬조·징계 조항을 지금의 정관으로 정리했습니다.' },
+  { y: '2023', m: '07', t: '회원 80명 돌파', d: '연령대가 20대부터 60대까지 넓어졌습니다.' },
+  { y: '2025', m: '10', t: '강서구 리그 3위', d: '18경기 11승 4무 3패로 마쳤습니다.' },
+  { y: '2026', m: '02', t: '팀 운영 앱 도입', d: '출석·회비·라인업을 단톡방 대신 앱에서 봅니다.', key: true },
+];
+
+/* ---------- 찬조 ---------- */
+const SUPPORT = [
+  { date: '2026-08-31', who: '이*오', amt: 500000, why: '회장 취임 기념', use: '하계 훈련 간식' },
+  { date: '2026-08-10', who: '김*균', amt: 200000, why: '승진', use: '음료·간식' },
+  { date: '2026-07-20', who: '박*수', amt: 300000, why: '개업', use: '대회 참가비' },
+  { date: '2026-06-29', who: '최*모', amt: 300000, why: '자녀 결혼', use: '유니폼 보수' },
+  { date: '2026-06-08', who: '서*기', amt: 150000, why: '생일', use: '축구공 5개' },
+  { date: '2026-05-18', who: '노*희', amt: 500000, why: '고문 위촉', use: '구급함·아이싱' },
+  { date: '2026-04-27', who: '윤*중', amt: 200000, why: '손주 백일', use: '음료·간식' },
+  { date: '2026-04-06', who: '강*구', amt: 100000, why: '생일', use: '조끼 20벌' },
+  { date: '2026-03-16', who: '임*규', amt: 300000, why: '개업', use: '시즌 개막 회식' },
+  { date: '2026-02-23', who: '황*용', amt: 200000, why: '정년 퇴임', use: '골대 그물 교체' },
+  { date: '2026-02-02', who: '조*원', amt: 100000, why: '첫 아이', use: '음료·간식' },
+  { date: '2026-01-12', who: '이*근', amt: 300000, why: '감독 연임', use: '정기총회 식사' },
+];
+
+/* ---------- 대회일정 ---------- */
+const SCHEDULE = [
+  { date: '2026-11-15', name: '강서구청장기 결승 토너먼트', place: '강서구민운동장', vs: '미정', result: '', state: '예정' },
+  { date: '2026-10-25', name: '강서구 리그 18R', place: '방화체육공원', vs: '등촌 FC', result: '', state: '예정' },
+  { date: '2026-10-11', name: '강서구 리그 17R', place: '가양 인조구장', vs: '가양 유나이티드', result: '', state: '예정' },
+  { date: '2026-09-28', name: '친선경기', place: '방화체육공원', vs: '마곡 FC', result: '', state: '예정' },
+  { date: '2026-09-20', name: '강서구 리그 16R', place: '방화체육공원', vs: '발산 FC', result: '', state: '예정' },
+  { date: '2026-09-06', name: '강서구 리그 15R', place: '개화 축구장', vs: '개화 조기회', result: '3 : 1 승', state: '완료' },
+  { date: '2026-08-23', name: '강서구 리그 14R', place: '방화체육공원', vs: '공항 FC', result: '2 : 2 무', state: '완료' },
+  { date: '2026-08-09', name: '하계 자체경기', place: '방화체육공원', vs: '자체 홍백전', result: '4 : 3', state: '완료' },
+  { date: '2026-07-26', name: '강서구 리그 13R', place: '등촌 축구장', vs: '등촌 FC', result: '0 : 2 패', state: '완료' },
+  { date: '2026-07-12', name: '강서구청장기 8강', place: '강서구민운동장', vs: '화곡 FC', result: '2 : 1 승', state: '완료' },
+  { date: '2026-06-28', name: '강서구 리그 12R', place: '방화체육공원', vs: '가양 유나이티드', result: '1 : 0 승', state: '완료' },
+  { date: '2026-06-14', name: '우천 취소', place: '방화체육공원', vs: '마곡 FC', result: '', state: '취소' },
+];
+
+/* ---------- 정관 ---------- */
+const RULES = [
+  { ch: '제1장 총칙', arts: [
+    { t: '제1조 (명칭)', p: ['본회는 방화 FC 조기축구회(이하 "본회")라 한다.'] },
+    { t: '제2조 (목적)', p: ['본회는 회원 상호간의 친목을 다지고 건강을 지키며, 축구를 통하여 지역사회와 함께하는 것을 목적으로 한다.'] },
+    { t: '제3조 (소재지)', p: ['본회는 서울특별시 강서구에 두고, 주 활동 구장은 방화체육공원 축구장으로 한다.'] },
+    { t: '제4조 (활동일)', p: ['정기 운동은 매주 일요일 오전 7시로 한다. 기상 사정으로 어려울 때는 운영진이 전날 단톡방에 알린다.'] },
+  ]},
+  { ch: '제2장 회원', arts: [
+    { t: '제5조 (자격)', p: ['본회의 목적에 동의하는 만 19세 이상의 남녀는 회원이 될 수 있다. 가입은 기존 회원 1인의 추천과 운영진의 승인으로 이루어진다.'] },
+    { t: '제6조 (권리)', li: ['총회에 참석하여 의견을 내고 의결에 참여할 권리', '임원을 선출하고 임원으로 선출될 권리', '본회의 재정 운영 내역을 열람할 권리'] },
+    { t: '제7조 (의무)', li: ['정관과 총회 의결을 지킬 의무', '회비를 정한 때에 낼 의무', '정기 운동과 대회에 성실히 참여할 의무', '팀의 이름을 걸고 예의를 지킬 의무'] },
+    { t: '제8조 (탈퇴와 제명)', p: ['회원은 언제든 총무에게 알리고 탈퇴할 수 있다. 이미 낸 회비는 돌려주지 않는다.', '회비를 3개월 이상 내지 않거나 팀의 명예를 크게 해친 회원은 운영진 의결로 제명할 수 있다. 제명에 앞서 본인에게 소명할 기회를 준다.'] },
+  ]},
+  { ch: '제3장 임원', arts: [
+    { t: '제9조 (구성)', p: ['본회는 회장 1인, 부회장 1인, 총무 1인, 감독 1인, 코치 약간 명을 둔다. 필요할 때 고문을 위촉할 수 있다.'] },
+    { t: '제10조 (임기)', p: ['임원의 임기는 2년으로 하고 연임할 수 있다. 임기 중 자리가 비면 남은 기간을 채운다.'] },
+    { t: '제11조 (직무)', li: ['회장은 본회를 대표하고 총회와 운영진 회의를 소집한다.', '부회장은 회장을 돕고, 회장이 없을 때 그 직무를 대행한다.', '총무는 회원 명단과 재정을 맡고 매월 수입·지출을 공개한다.', '감독과 코치는 경기 운영과 선수 기용을 맡는다.'] },
+  ]},
+  { ch: '제4장 회의', arts: [
+    { t: '제12조 (정기총회)', p: ['정기총회는 매년 1월에 열고, 전년도 결산과 당해 연도 사업·예산을 의결한다.'] },
+    { t: '제13조 (임시총회)', p: ['회장이 필요하다고 인정하거나 재적 회원 3분의 1 이상이 요구할 때 임시총회를 연다.'] },
+    { t: '제14조 (의결)', p: ['총회는 재적 회원 과반수의 출석으로 열고 출석 회원 과반수의 찬성으로 의결한다. 다만 정관 개정과 회원 제명은 재적 회원 과반수의 찬성을 얻어야 한다.'] },
+  ]},
+  { ch: '제5장 재정', arts: [
+    { t: '제15조 (회비)', p: ['월 회비는 3만원으로 하고 매월 10일까지 낸다. 한 해를 한 번에 내는 경우 30만원으로 하며, 그 해 열두 달을 모두 낸 것으로 본다.'] },
+    { t: '제16조 (찬조금)', p: ['회원은 좋은 일이 있을 때 찬조금을 낼 수 있다. 찬조금은 회비와 따로 적고, 받은 날과 쓴 곳을 함께 공개한다.'] },
+    { t: '제17조 (회계연도)', p: ['본회의 회계연도는 매년 1월 1일부터 12월 31일까지로 한다.'] },
+    { t: '제18조 (결산 공개)', p: ['총무는 매월 말 수입과 지출을 회원에게 공개하고, 연 1회 정기총회에서 결산을 보고하여 승인을 받는다.'] },
+  ]},
+  { ch: '제6장 상벌과 부칙', arts: [
+    { t: '제19조 (포상)', p: ['한 해 동안 출석과 팀 활동에 공이 큰 회원에게 정기총회에서 상을 줄 수 있다.'] },
+    { t: '제20조 (징계)', p: ['경기 중 심판이나 상대 팀에게 무례한 행동을 한 회원에게는 운영진 의결로 출전 정지를 둘 수 있다.'] },
+    { t: '부칙', p: ['이 정관은 1998년 3월 1일부터 시행한다.', '이 개정 정관은 2026년 1월 11일 정기총회 의결에 따라 같은 날부터 시행한다.'] },
+  ]},
+];
+
+/* ============================================================
+   거들기
+   ============================================================ */
+const $  = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const won = (n) => n.toLocaleString('ko-KR') + '원';
+const digits = (s) => String(s).replace(/\D/g, '');
+
+/** 전화번호 가운데를 가린다. 명단은 회원 모두가 보는 화면이다. */
+function maskPhone(p) {
+  const d = digits(p);
+  if (d.length < 8) return p;
+  return d.slice(0, 3) + '-****-' + d.slice(-4);
+}
+
+/** 숫자만 눌러도 줄이 들어가게. 010-1234-5678 */
+function formatPhone(v) {
+  const d = digits(v).slice(0, 11);
+  if (d.length < 4) return d;
+  if (d.length < 8) return d.slice(0, 3) + '-' + d.slice(3);
+  return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+}
+
+const STAFF = new Set(['회장', '부회장', '총무', '감독', '코치', '고문']);
+const isStaff = (m) => !!m && STAFF.has(m.role);
+
+const TODAY = new Date();
+const TODAY_ISO = [
+  TODAY.getFullYear(),
+  String(TODAY.getMonth() + 1).padStart(2, '0'),
+  String(TODAY.getDate()).padStart(2, '0'),
+].join('-');
+const YEAR = TODAY.getFullYear();
+const CUR_MONTH = TODAY.getMonth() + 1;
+
+/** 요약 칸 한 줄. v 가 숫자가 아니면 글씨를 한 단 줄인다. */
+function statCards(list) {
+  return list.map(([k, v, u]) => {
+    const text = typeof v !== 'number' && !/^[\d,]+$/.test(String(v));
+    return '<div class="stat"><div class="stat-k">' + esc(k) + '</div>' +
+      '<div class="stat-v' + (text ? ' t' : '') + '">' + esc(String(v)) +
+      (u ? ' <small>' + esc(u) + '</small>' : '') + '</div></div>';
+  }).join('');
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* ============================================================
+   로그인
+   이름 · 전화번호 · 비밀번호(전화번호 뒤 4자리) 셋이 맞아야 들어온다.
+
+   화면 안에서만 하는 확인이다. 명단이 브라우저에 그대로 실려 있으니
+   이대로는 "잠금"이 아니라 "문패"에 가깝다 — 서버에 붙일 때는 이 함수를
+   그대로 두지 말고 로그인 요청 하나로 바꾼다.
+   ============================================================ */
+let me = null;
+
+function findMember(name, phone) {
+  const n = name.trim();
+  const d = digits(phone);
+  return MEMBERS.find((m) => m.name === n && digits(m.phone) === d) || null;
+}
+
+function doLogin(e) {
+  e.preventDefault();
+  const err = $('loginErr');
+  const name  = $('inName').value.trim();
+  const phone = $('inPhone').value.trim();
+  const pw    = $('inPw').value.trim();
+
+  if (!name || !phone || !pw) { err.textContent = '세 칸을 모두 채워 주세요.'; return; }
+
+  const m = findMember(name, phone);
+  if (!m) {
+    // 이름이 틀렸는지 번호가 틀렸는지는 알려주지 않는다 — 명단을 떠보는 길이 된다.
+    err.textContent = '이름과 전화번호가 명단과 맞지 않아요. 총무에게 확인해 주세요.';
+    return;
+  }
+  if (pw !== digits(m.phone).slice(-4)) {
+    err.textContent = '비밀번호가 달라요. 전화번호 뒤 4자리입니다.';
+    return;
+  }
+
+  err.textContent = '';
+  setMe(m);
+  try { localStorage.setItem('bhfc-who', String(m.no)); } catch (_) { /* 저장이 막혀 있다 */ }
+  showToast(m.name + '님, 어서 오세요.');
+}
+
+function setMe(m) {
+  me = m;
+  $('gate').hidden = true;
+  $('app').hidden = false;
+  $('authBar').innerHTML =
+    '<b>' + esc(m.name) + '</b>' +
+    (m.role ? ' <span class="role-tag">' + esc(m.role) + '</span>' : '') +
+    ' · ' + esc(m.pos) + ' · ' + esc(String(m.no)) + '번';
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
+function doLogout() {
+  me = null;
+  try { localStorage.removeItem('bhfc-who'); } catch (_) { /* noop */ }
+  $('app').hidden = true;
+  $('gate').hidden = false;
+  $('inPw').value = '';
+  $('loginErr').textContent = '';
+  showToast('로그아웃했어요.');
+  window.scrollTo(0, 0);
+}
+
+/* ============================================================
+   메뉴 · 테마
+   ============================================================ */
+function openTab(key) {
+  document.querySelectorAll('.tab-btn').forEach((b) =>
+    b.classList.toggle('active', b.dataset.tab === key));
+  document.querySelectorAll('.tab-panel').forEach((p) =>
+    p.classList.toggle('active', p.id === 'tab-' + key));
+  try { localStorage.setItem('bhfc-tab', key); } catch (_) { /* noop */ }
+}
+
+function toggleTheme() {
+  const now = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', now);
+  try { localStorage.setItem('bhfc-theme', now); } catch (_) { /* noop */ }
+}
+
+/* ============================================================
+   1. 연혁
+   ============================================================ */
+function renderHistory() {
+  const founded = Number(HISTORY[0].y);
+  const years = YEAR - founded + 1;
+  $('ageBadge').textContent = '창단 ' + years + '년차';
+
+  $('historyStats').innerHTML = statCards([
+    ['창단', founded + '년', '3월'],
+    ['함께한 햇수', years, '년'],
+    ['지금 회원', MEMBERS.length, '명'],
+    ['구청장기', '우승 1 · 준우승 1', ''],
+  ]);
+
+  $('historyList').innerHTML = HISTORY.slice().reverse().map((h) =>
+    '<div class="tl-item' + (h.key ? ' key' : '') + '">' +
+      '<div class="tl-y">' + esc(h.y) + '.' + esc(h.m) + '</div>' +
+      '<div class="tl-t">' + esc(h.t) + '</div>' +
+      '<div class="tl-d">' + esc(h.d) + '</div>' +
+    '</div>').join('');
+}
+
+/* ============================================================
+   2. 회원
+   ============================================================ */
+function renderMemberStats() {
+  const bands = {};
+  MEMBERS.forEach((m) => { bands[m.band] = (bands[m.band] || 0) + 1; });
+  const staff = MEMBERS.filter(isStaff).length;
+  const thisYear = MEMBERS.filter((m) => m.joined.startsWith(String(YEAR))).length;
+
+  $('memberCount').textContent = '모두 ' + MEMBERS.length + '명';
+  $('memberStats').innerHTML = statCards([
+    ['전체', MEMBERS.length, '명'],
+    ['운영진', staff, '명'],
+    ['올해 들어온 분', thisYear, '명'],
+    ['가장 많은 연령대',
+      Object.keys(bands).sort((a, b) => bands[b] - bands[a])[0] + '대',
+      bands[Object.keys(bands).sort((a, b) => bands[b] - bands[a])[0]] + '명'],
+  ]);
+}
+
+function renderMembers() {
+  const q    = $('memberSearch').value.trim().toLowerCase();
+  const band = $('memberBand').value;
+  const rows = MEMBERS.filter((m) => {
+    if (band && m.band !== band) return false;
+    if (!q) return true;
+    return (m.name + ' ' + m.pos + ' ' + m.role).toLowerCase().includes(q);
+  });
+
+  if (!rows.length) {
+    $('memberRows').innerHTML =
+      '<tr><td colspan="7" class="empty">찾는 분이 없어요. 다른 이름으로 찾아보세요.</td></tr>';
+    return;
+  }
+
+  // 본인 번호와 운영진에게만 번호를 다 보여준다.
+  const canSeeAll = isStaff(me);
+  $('memberRows').innerHTML = rows.map((m) => {
+    const mine = me && m.no === me.no;
+    const phone = (canSeeAll || mine) ? m.phone : maskPhone(m.phone);
+    return '<tr>' +
+      '<td class="rank-cell">' + m.no + '</td>' +
+      '<td>' + esc(m.name) + (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
+      '<td>' + esc(m.band) + '대</td>' +
+      '<td>' + esc(m.pos) + '</td>' +
+      '<td>' + esc(m.joined.replace('-', '. ')) + '</td>' +
+      '<td>' + esc(phone) + '</td>' +
+      '<td>' + (m.role ? '<span class="badge badge-accent">' + esc(m.role) + '</span>' : '<span class="badge badge-mute">회원</span>') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ============================================================
+   3. 회비
+   ============================================================ */
+/** 그 달이 채워졌는지만 본다. 연납은 금액을 12로 나누지 않는다. */
+function isPaid(m, month) {
+  if (ANNUAL.has(m.no)) return true;
+  if ((month * 3 + m.no * 7) % 11 === 0) return false;          // 그 달을 건너뛴 사람
+  if (month === CUR_MONTH && m.no % 5 === 0) return false;      // 이번 달은 아직 걷는 중
+  return true;
+}
+
+function paidDay(m, month) {
+  if (ANNUAL.has(m.no)) return YEAR + '-01-' + String((m.no % 9) + 5).padStart(2, '0');
+  // 이번 달은 아직 지나지 않았다 — 오늘보다 뒤의 날짜가 "낸 날"로 찍히면 안 된다.
+  const last = month === CUR_MONTH ? TODAY.getDate() : 28;
+  const day = Math.min((m.no * 3) % 18 + 4, last);
+  return YEAR + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+}
+
+let duesFilter = 'all';
+
+function renderDuesMonths() {
+  $('duesMonth').innerHTML = Array.from({ length: CUR_MONTH }, (_, i) => CUR_MONTH - i)
+    .map((m) => '<option value="' + m + '">' + YEAR + '년 ' + m + '월</option>').join('');
+}
+
+function renderDues() {
+  const month = Number($('duesMonth').value) || CUR_MONTH;
+  const paid   = MEMBERS.filter((m) => isPaid(m, month));
+  const unpaid = MEMBERS.filter((m) => !isPaid(m, month));
+  const annual = MEMBERS.filter((m) => ANNUAL.has(m.no));
+  const cash   = (paid.length - annual.length) * DUES_MONTHLY;
+
+  $('duesStats').innerHTML = statCards([
+    ['완납', paid.length, '명'],
+    ['미납', unpaid.length, '명'],
+    [month + '월 걷은 돈', cash.toLocaleString('ko-KR'), '원'],
+    ['연납', annual.length, '명'],
+  ]);
+
+  let rows = MEMBERS;
+  if (duesFilter === 'paid')   rows = paid;
+  if (duesFilter === 'unpaid') rows = unpaid;
+
+  if (!rows.length) {
+    $('duesRows').innerHTML =
+      '<tr><td colspan="6" class="empty">해당하는 분이 없어요.</td></tr>';
+    return;
+  }
+
+  $('duesRows').innerHTML = rows.map((m) => {
+    const ok  = isPaid(m, month);
+    const ann = ANNUAL.has(m.no);
+    return '<tr>' +
+      '<td>' + esc(m.name) + (me && m.no === me.no ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
+      '<td>' + esc(m.band) + '대</td>' +
+      '<td class="num-cell">' + (ann ? won(DUES_ANNUAL) : ok ? won(DUES_MONTHLY) : '—') + '</td>' +
+      '<td>' + (ok ? esc(paidDay(m, month)) : '—') + '</td>' +
+      '<td>' + (ann ? '<span class="badge badge-info">연납</span>'
+                    : ok ? (m.no % 3 === 0 ? '현금' : '계좌이체') : '—') + '</td>' +
+      '<td>' + (ok ? '<span class="badge badge-ok">완납</span>'
+                   : '<span class="badge badge-danger">미납</span>') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ============================================================
+   4. 찬조
+   ============================================================ */
+function renderSupport() {
+  const total = SUPPORT.reduce((s, x) => s + x.amt, 0);
+  const top   = SUPPORT.reduce((a, b) => (b.amt > a.amt ? b : a), SUPPORT[0]);
+  const avg   = Math.round(total / SUPPORT.length);
+
+  $('supportYear').textContent = YEAR + '년';
+  $('supportTotal').textContent = won(total);
+  $('supportStats').innerHTML = statCards([
+    ['건수', SUPPORT.length, '건'],
+    ['가장 큰 찬조', top.amt.toLocaleString('ko-KR'), '원 · ' + top.who],
+    ['평균', avg.toLocaleString('ko-KR'), '원'],
+    ['최근', SUPPORT[0].date.slice(5).replace('-', '. '), ''],
+  ]);
+
+  $('supportRows').innerHTML = SUPPORT.map((s) =>
+    '<tr>' +
+      '<td>' + esc(s.date) + '</td>' +
+      '<td>' + esc(s.who) + '</td>' +
+      '<td class="num-cell">' + won(s.amt) + '</td>' +
+      '<td>' + esc(s.why) + '</td>' +
+      '<td class="wrap">' + esc(s.use) + '</td>' +
+    '</tr>').join('');
+}
+
+/* ============================================================
+   5. 정관
+   ============================================================ */
+function renderRules() {
+  $('ruleNav').innerHTML = RULES.map((c, i) =>
+    '<button class="chip" type="button" data-ch="' + i + '">' + esc(c.ch) + '</button>').join('');
+
+  $('ruleBody').innerHTML = RULES.map((c, i) =>
+    '<section class="rule-ch" id="ch-' + i + '">' +
+      '<h3>' + esc(c.ch) + '</h3>' +
+      c.arts.map((a) =>
+        '<div class="rule-art">' +
+          '<h4>' + esc(a.t) + '</h4>' +
+          (a.p ? a.p.map((t) => '<p>' + esc(t) + '</p>').join('') : '') +
+          (a.li ? '<ol>' + a.li.map((t) => '<li>' + esc(t) + '</li>').join('') + '</ol>' : '') +
+        '</div>').join('') +
+    '</section>').join('');
+
+  $('ruleNav').querySelectorAll('.chip').forEach((b) => {
+    b.addEventListener('click', () => {
+      const el = $('ch-' + b.dataset.ch);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+/* ============================================================
+   6. 대회일정
+   ============================================================ */
+let schFilter = 'upcoming';
+
+function renderSchedule() {
+  const sorted = SCHEDULE.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+  const upcoming = sorted.filter((s) => s.date >= TODAY_ISO && s.state === '예정')
+                         .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const done = sorted.filter((s) => s.state === '완료');
+  const w = done.filter((s) => s.result.includes('승')).length;
+  const d = done.filter((s) => s.result.includes('무')).length;
+  const l = done.filter((s) => s.result.includes('패')).length;
+
+  $('scheduleCount').textContent = '남은 경기 ' + upcoming.length + '개';
+
+  const next = upcoming[0];
+  $('nextMatch').innerHTML = next
+    ? '<div class="next-card">' +
+        '<div class="next-k">다음 경기</div>' +
+        '<div class="next-t">' + esc(next.name) + '</div>' +
+        '<div class="next-m">' + esc(next.date) + ' · ' + esc(next.place) +
+          ' · ' + esc(next.vs) + '</div>' +
+        '<div class="next-dday">D-' + dday(next.date) + '</div>' +
+      '</div>'
+    : '<div class="empty">잡힌 경기가 없어요. 새 일정을 올려 보세요.</div>';
+
+  $('scheduleStats').innerHTML = statCards([
+    ['올해 전적', w + '승 ' + d + '무 ' + l + '패', ''],
+    ['치른 경기', done.length, '경기'],
+    ['남은 경기', upcoming.length, '경기'],
+    ['홈 구장', '방화체육공원', ''],
+  ]);
+
+  let rows = sorted;
+  if (schFilter === 'upcoming') rows = upcoming;
+  if (schFilter === 'done')     rows = done;
+
+  if (!rows.length) {
+    $('scheduleRows').innerHTML =
+      '<tr><td colspan="6" class="empty">해당하는 일정이 없어요.</td></tr>';
+    return;
+  }
+
+  const tone = { '예정': 'badge-accent', '완료': 'badge-mute', '취소': 'badge-warn' };
+  $('scheduleRows').innerHTML = rows.map((s) =>
+    '<tr>' +
+      '<td>' + esc(s.date) + '</td>' +
+      '<td class="wrap">' + esc(s.name) + '</td>' +
+      '<td>' + esc(s.place) + '</td>' +
+      '<td>' + esc(s.vs) + '</td>' +
+      '<td>' + (s.result
+        ? '<b>' + esc(s.result) + '</b>'
+        : '<span style="color:var(--text-tertiary)">—</span>') + '</td>' +
+      '<td><span class="badge ' + (tone[s.state] || 'badge-mute') + '">' + esc(s.state) + '</span></td>' +
+    '</tr>').join('');
+}
+
+function dday(iso) {
+  const a = new Date(iso + 'T00:00:00');
+  const b = new Date(TODAY_ISO + 'T00:00:00');
+  return Math.max(0, Math.round((a - b) / 86400000));
+}
+
+/* ============================================================
+   그리기 · 묶기
+   ============================================================ */
+function renderAll() {
+  renderHistory();
+  renderMemberStats();
+  renderMembers();
+  renderDues();
+  renderSupport();
+  renderSchedule();
+}
+
+function init() {
+  // 둘러보기용 계정 한 줄. 비밀번호는 전화번호 뒤 4자리다.
+  const demo = MEMBERS[2];
+  $('demoName').textContent  = demo.name;
+  $('demoPhone').textContent = demo.phone;
+  $('demoPw').textContent    = digits(demo.phone).slice(-4);
+
+  $('loginForm').addEventListener('submit', doLogin);
+  $('logoutBtn').addEventListener('click', doLogout);
+  $('themeToggle').addEventListener('click', toggleTheme);
+
+  $('inPhone').addEventListener('input', (e) => {
+    const el = e.target;
+    const atEnd = el.selectionStart === el.value.length;
+    el.value = formatPhone(el.value);
+    if (atEnd) el.setSelectionRange(el.value.length, el.value.length);
+  });
+  $('inPw').addEventListener('input', (e) => { e.target.value = digits(e.target.value).slice(0, 4); });
+
+  $('tabBar').addEventListener('click', (e) => {
+    const b = e.target.closest('.tab-btn');
+    if (b) openTab(b.dataset.tab);
+  });
+
+  $('memberSearch').addEventListener('input', renderMembers);
+  $('memberBand').addEventListener('change', renderMembers);
+
+  renderDuesMonths();
+  $('duesMonth').addEventListener('change', renderDues);
+  $('duesFilter').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    duesFilter = b.dataset.dues;
+    $('duesFilter').querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b));
+    renderDues();
+  });
+
+  $('scheduleFilter').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    schFilter = b.dataset.sch;
+    $('scheduleFilter').querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b));
+    renderSchedule();
+  });
+
+  renderRules();
+
+  // 지난번에 보던 메뉴로 돌아온다
+  let tab = 'history';
+  try { tab = localStorage.getItem('bhfc-tab') || 'history'; } catch (_) { /* noop */ }
+  if (document.getElementById('tab-' + tab)) openTab(tab);
+
+  // 로그인해 두었으면 문을 다시 묻지 않는다
+  let who = null;
+  try { who = localStorage.getItem('bhfc-who'); } catch (_) { /* noop */ }
+  const m = who && MEMBERS.find((x) => String(x.no) === who);
+  if (m) setMe(m); else $('inName').focus();
+}
+
+init();
+</script>
+</body>
+</html>
