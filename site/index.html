@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>방화 FC · 조기축구회</title>
+<title>방화 FC</title>
 <meta name="description" content="방화 FC 조기축구회 · 연혁, 회원, 회비, 찬조, 정관, 대회일정을 한 곳에서 봅니다.">
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,11 +13,12 @@
       rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
 <script>
-  /* 저장해둔 선택을 첫 페인트 전에 적용한다. 저장값이 없으면 화이트가 기본. */
+  /* 저장해둔 선택을 첫 페인트 전에 적용한다. 고른 적이 없으면 건드리지 않는다 —
+     감싸는 쪽이 이미 밝기를 정해 두었을 수 있고, 아무것도 없으면 화이트가 기본이다. */
   (function(){
-    var t = "light";
-    try { if (localStorage.getItem("bhfc-theme") === "dark") t = "dark"; } catch (e) {}
-    document.documentElement.setAttribute("data-theme", t);
+    var t = null;
+    try { t = localStorage.getItem("bhfc-theme"); } catch (e) {}
+    if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
   })();
 </script>
 <style>
