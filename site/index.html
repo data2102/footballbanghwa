@@ -501,6 +501,9 @@ tbody tr:hover td{ background:var(--surface-sunken); }
    바탕까지 칠하면 아무도 안 낸 첫 화면이 온통 노란 벽이 된다 — 테두리만 쓴다. */
 .mo-btn.late{ border-style:dashed; border-color:var(--warning); }
 .mo-btn.off{ background:var(--surface-sunken); border-style:dotted; cursor:not-allowed; }
+/* 연선납으로 한 해가 통째로 덮인 칸. 켜져 있지만 달마다 끄고 켤 수는 없다. */
+.mo-btn.fixed{ cursor:not-allowed; }
+.mo-btn.fixed.on{ background:var(--success-strong); border-color:var(--success-strong); }
 .mo-btn:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
 /* 보기 전용 칸. 누를 수 없다는 것이 손끝에서도 보여야 한다. */
 .mo-btn.ro{ cursor:default; }
@@ -792,8 +795,10 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             <span class="badge badge-accent" id="duesYear"></span>
           </div>
           <div class="stat-grid" id="duesStats"></div>
-          <div class="foot-note">회비는 <b>한 달 2만원</b>입니다. 체크가 켜진 칸이 낸 달이고,
+          <div class="foot-note">회비는 <b>한 달 2만원</b>이고, 한 해를 미리 내면
+            두 달치를 깎아 <b>20만원</b>입니다. 체크가 켜진 칸이 낸 달이고,
             테두리가 점선인 칸은 지나간 달인데 아직 안 낸 달입니다.
+            <b>연선납</b>은 열두 달이 모두 켜지고 낸 돈이 20만원으로 적힙니다.
             <b>여기서는 보기만 합니다</b> — 체크는 마스터·총무·부총무가 관리자 메뉴에서 합니다.
             <button type="button" class="btn-ghost" id="duesAdminLink" hidden>관리자에서 체크하기</button></div>
         </div>
@@ -975,7 +980,10 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             </table>
           </div>
           <div class="foot-note">낸 달의 칸을 누르면 켜지고 다시 누르면 꺼집니다.
+            <b>연선납</b>을 켜면 열두 달이 모두 채워지고 낸 돈이 <b>20만원</b>으로 잡힙니다
+            (두 달치 할인이라 2만원 × 12가 아닙니다).
             <b>면제</b>는 그분의 열두 달을 통째로 셈에서 뺍니다.
+            연선납과 면제는 같이 설 수 없어서 하나를 켜면 다른 하나가 내려갑니다.
             맨 오른쪽 <b>비고</b>에는 특별한 사항을 그대로 적습니다 — 적는 대로 저장됩니다.
             <b>체크와 비고는 이 기기에만 저장됩니다.</b></div>
         </section>
@@ -1086,8 +1094,12 @@ function buildMembers() {
     .map((m, i) => ({ ...m, no: i + 1 }));
 }
 
-/* 회비는 모든 회원이 한 달 2만원이다. 면제는 사람마다 총무가 켠다. */
+/* 회비는 모든 회원이 한 달 2만원이다. 면제는 사람마다 총무가 켠다.
+   한 해를 미리 내면 두 달치를 깎아 20만원이다 — **24만원을 12로 나눈 값이 아니라
+   그 자체가 한 해치다.** 나눠서 달에 붙이면 매달 조금씩 모자란 것처럼 보여서
+   연선납한 분이 열두 달 내내 미납으로 뜬다. */
 const DUES_MONTHLY = 20000;
+const DUES_ANNUAL  = 200000;
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 /* ---------- 연혁 ---------- */
@@ -1159,7 +1171,7 @@ const RULES = [
     { t: '제14조 (의결)', p: ['총회는 재적 회원 과반수의 출석으로 열고 출석 회원 과반수의 찬성으로 의결한다. 다만 정관 개정과 회원 제명은 재적 회원 과반수의 찬성을 얻어야 한다.'] },
   ]},
   { ch: '제5장 재정', arts: [
-    { t: '제15조 (회비)', p: ['월 회비는 2만원으로 하고 매월 10일까지 낸다.', '총회 의결로 정한 회원은 회비를 면제할 수 있다. 면제 사유가 없어지면 그 달부터 다시 낸다.'] },
+    { t: '제15조 (회비)', p: ['월 회비는 2만원으로 하고 매월 10일까지 낸다.', '한 해분을 미리 내는 경우 두 달분을 깎아 20만원으로 하며, 그 해 열두 달을 모두 낸 것으로 본다.', '총회 의결로 정한 회원은 회비를 면제할 수 있다. 면제 사유가 없어지면 그 달부터 다시 낸다.'] },
     { t: '제16조 (찬조금)', p: ['회원은 좋은 일이 있을 때 찬조금을 낼 수 있다. 찬조금은 회비와 따로 적고, 받은 날과 쓴 곳을 함께 공개한다.'] },
     { t: '제17조 (회계연도)', p: ['본회의 회계연도는 매년 1월 1일부터 12월 31일까지로 한다.'] },
     { t: '제18조 (결산 공개)', p: ['총무는 매월 말 수입과 지출을 회원에게 공개하고, 연 1회 정기총회에서 결산을 보고하여 승인을 받는다.'] },
@@ -1496,8 +1508,8 @@ function renderMembers() {
    ============================================================ */
 const DUES_KEY = 'bhfc-dues-' + YEAR;
 
-/* { "01090454815": { paid: [1,2,3], exempt: false } }
-   사람은 전화번호로 잡는다 — 번호로 잡으면 명단이 늘 때 밀려서
+/* { "01090454815": { paid: [1,2,3], annual: false, exempt: false, note: '' } }
+   사람은 uid 로 잡는다 — 번호로 잡으면 명단이 늘 때 밀려서
    남의 줄에 체크가 붙는다. */
 let duesBook = {};
 
@@ -1512,31 +1524,52 @@ function saveDues() {
 
 function duesOf(m) {
   const k = m.uid;
-  if (!duesBook[k]) duesBook[k] = { paid: [], exempt: false, note: '' };
-  if (duesBook[k].note === undefined) duesBook[k].note = '';   // 예전에 저장된 줄
-  return duesBook[k];
+  if (!duesBook[k]) duesBook[k] = { paid: [], annual: false, exempt: false, note: '' };
+  const r = duesBook[k];                       // 예전에 저장된 줄에는 없는 칸이 있다
+  if (r.note === undefined)   r.note = '';
+  if (r.annual === undefined) r.annual = false;
+  return r;
 }
+const isAnnual = (m) => duesOf(m).annual;
 const isExempt = (m) => duesOf(m).exempt;
-const hasPaid  = (m, mo) => duesOf(m).paid.includes(mo);
+/** 연선납은 열두 달을 덮는다. 달칸을 하나씩 켜 두지 않는다 —
+    연선납을 풀었을 때 원래 내던 달이 살아 있어야 한다. */
+const hasPaid  = (m, mo) => isAnnual(m) || duesOf(m).paid.includes(mo);
+/** 달마다 켜고 끌 수 없는 줄. 한 해치로 이미 정해진 사람들이다. */
+const locked   = (m) => isAnnual(m) || isExempt(m);
+/** 그 사람이 올해 낸 돈. 연선납은 나누지 않고 한 해치 그대로다. */
+const paidWon  = (m) => isExempt(m) ? 0
+                      : isAnnual(m) ? DUES_ANNUAL
+                      : duesOf(m).paid.length * DUES_MONTHLY;
 
 function toggleMonth(m, mo) {
   const rec = duesOf(m);
-  if (rec.exempt) return;
+  if (locked(m)) return;
   const i = rec.paid.indexOf(mo);
   if (i === -1) rec.paid.push(mo); else rec.paid.splice(i, 1);
   rec.paid.sort((a, b) => a - b);
   saveDues();
 }
 
+/* 연선납과 면제는 같이 설 수 없다 — 한 해치를 냈는데 면제일 수는 없다.
+   하나를 켜면 다른 하나는 내려간다. */
+function toggleAnnual(m) {
+  const rec = duesOf(m);
+  rec.annual = !rec.annual;
+  if (rec.annual) rec.exempt = false;
+  saveDues();
+}
+
 function toggleExempt(m) {
   const rec = duesOf(m);
   rec.exempt = !rec.exempt;
+  if (rec.exempt) rec.annual = false;
   saveDues();
 }
 
 /* 지나간 달만 센다. 12월치를 9월에 미납이라 부를 수는 없다. */
 const dueMonths = () => MONTHS.filter((mo) => mo <= CUR_MONTH);
-const owes = (m) => !isExempt(m) && dueMonths().some((mo) => !hasPaid(m, mo));
+const owes = (m) => !locked(m) && dueMonths().some((mo) => !hasPaid(m, mo));
 
 let duesFilter = 'all';
 
@@ -1548,8 +1581,9 @@ function duesHeadHtml(editable) {
   return '<th class="dues-name">이름</th>' +
     MONTHS.map((mo) =>
       '<th class="dues-mo' + (mo === CUR_MONTH ? ' now' : '') + '">' + mo + '</th>').join('') +
-    '<th class="num-cell">낸 돈</th><th>면제</th>' +
-    (editable ? '<th class="dues-note-h">비고</th>' : '');
+    '<th class="num-cell">낸 돈</th>' +
+    (editable ? '<th>연선납</th><th>면제</th><th class="dues-note-h">비고</th>'
+              : '<th>구분</th>');
 }
 
 function duesRowsFor(filter) {
@@ -1559,7 +1593,7 @@ function duesRowsFor(filter) {
 }
 
 function duesBodyHtml(rows, editable, filter) {
-  const cols = MONTHS.length + 3 + (editable ? 1 : 0);
+  const cols = MONTHS.length + (editable ? 5 : 3);
   if (!rows.length) {
     return '<tr><td colspan="' + cols + '" class="empty">' +
       (filter === 'unpaid' ? '미납인 분이 없어요.' : '해당하는 분이 없어요.') + '</td></tr>';
@@ -1567,27 +1601,33 @@ function duesBodyHtml(rows, editable, filter) {
   return rows.map((m) => {
     const rec  = duesOf(m);
     const mine = me && m.no === me.no;
+    const fixed = locked(m);
     const cells = MONTHS.map((mo) => {
       const on   = hasPaid(m, mo);
-      const late = !rec.exempt && !on && mo <= CUR_MONTH;
-      const cls  = 'mo-btn' + (on ? ' on' : '') + (late ? ' late' : '') + (rec.exempt ? ' off' : '');
-      const what = esc(m.name) + ' ' + mo + '월 ' + (rec.exempt ? '면제' : on ? '납부함' : '안 냄');
+      const late = !fixed && !on && mo <= CUR_MONTH;
+      const cls  = 'mo-btn' + (on ? ' on' : '') + (late ? ' late' : '') +
+                   (rec.exempt ? ' off' : '') + (rec.annual ? ' fixed' : '');
+      const what = esc(m.name) + ' ' + mo + '월 ' +
+                   (rec.exempt ? '면제' : rec.annual ? '연선납' : on ? '납부함' : '안 냄');
       if (!editable) {
         return '<td class="dues-cell"><span class="' + cls + ' ro" role="img"' +
           ' aria-label="' + what + '">' + (on ? '✓' : '') + '</span></td>';
       }
       return '<td class="dues-cell">' +
-        '<button type="button" class="' + cls + '"' + (rec.exempt ? ' disabled' : '') +
+        '<button type="button" class="' + cls + '"' + (fixed ? ' disabled' : '') +
           ' data-uid="' + esc(m.uid) + '" data-mo="' + mo + '"' +
           ' aria-pressed="' + on + '" aria-label="' + what + '">' +
           (on ? '✓' : '') + '</button></td>';
     }).join('');
 
-    const exemptCell = editable
-      ? '<td><button type="button" class="chip mini' + (rec.exempt ? ' on' : '') + '"' +
+    const markCells = editable
+      ? '<td><button type="button" class="chip mini' + (rec.annual ? ' on' : '') + '"' +
+          ' data-annual="' + esc(m.uid) + '" aria-pressed="' + rec.annual + '">연선납</button></td>' +
+        '<td><button type="button" class="chip mini' + (rec.exempt ? ' on' : '') + '"' +
           ' data-exempt="' + esc(m.uid) + '" aria-pressed="' + rec.exempt + '">면제</button></td>'
-      : '<td>' + (rec.exempt ? '<span class="badge badge-info">면제</span>'
-                             : '<span class="dash">—</span>') + '</td>';
+      : '<td>' + (rec.annual ? '<span class="badge badge-ok">연선납</span>'
+                : rec.exempt ? '<span class="badge badge-info">면제</span>'
+                : '<span class="dash">—</span>') + '</td>';
 
     const noteCell = editable
       ? '<td><input type="text" class="note-in" maxlength="60"' +
@@ -1601,21 +1641,23 @@ function duesBodyHtml(rows, editable, filter) {
       '<td class="dues-name">' + esc(m.name) +
         (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
       cells +
-      '<td class="num-cell">' + (rec.exempt ? '—' : won(rec.paid.length * DUES_MONTHLY)) + '</td>' +
-      exemptCell + noteCell +
+      '<td class="num-cell">' + (rec.exempt ? '—' : won(paidWon(m))) + '</td>' +
+      markCells + noteCell +
     '</tr>';
   }).join('');
 }
 
 function duesStatCards() {
   const paying = MEMBERS.filter((m) => !isExempt(m));
-  const total  = paying.reduce((sum, m) => sum + duesOf(m).paid.length, 0) * DUES_MONTHLY;
+  const total  = paying.reduce((sum, m) => sum + paidWon(m), 0);
   const thisMo = paying.filter((m) => hasPaid(m, CUR_MONTH)).length;
+  const annual = MEMBERS.filter(isAnnual).length;
+  const exempt = MEMBERS.filter(isExempt).length;
   return statCards([
     ['올해 걷은 돈', total.toLocaleString('ko-KR'), '원'],
     [CUR_MONTH + '월 납부', thisMo + ' / ' + paying.length, '명'],
     ['미납 있는 분', MEMBERS.filter(owes).length, '명'],
-    ['면제', MEMBERS.filter(isExempt).length, '명'],
+    ['연선납 · 면제', annual + ' · ' + exempt, '명'],
   ]);
 }
 
@@ -2011,11 +2053,15 @@ function init() {
   $('adminDuesRows').addEventListener('click', (e) => {
     if (!isAdmin(me)) return;
     const mo = e.target.closest('.mo-btn');
+    const an = e.target.closest('[data-annual]');
     const ex = e.target.closest('[data-exempt]');
-    if (!mo && !ex) return;
-    const who = MEMBERS.find((m) => m.uid === (mo ? mo.dataset.uid : ex.dataset.exempt));
+    if (!mo && !an && !ex) return;
+    const uid = mo ? mo.dataset.uid : an ? an.dataset.annual : ex.dataset.exempt;
+    const who = MEMBERS.find((m) => m.uid === uid);
     if (!who) return;
-    if (mo) toggleMonth(who, Number(mo.dataset.mo)); else toggleExempt(who);
+    if (mo)      toggleMonth(who, Number(mo.dataset.mo));
+    else if (an) toggleAnnual(who);
+    else         toggleExempt(who);
     renderAdminDues();
     renderDues();
   });
