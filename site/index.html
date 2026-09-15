@@ -890,6 +890,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
           </div>
           <div class="foot-note">강서구 조기축구연합회 공식 대회 셋입니다.
             <b>예선을 통과해야 본선에 나갑니다</b> — 본선 날짜는 미리 잡아 두고 결과에 따라 나갑니다.
+            <b>구장은 대회마다 주최 측이 정합니다</b> — 정해지면 그 줄에 한 곳만 남깁니다.
             참석 여부는 단톡방 투표로 받습니다.</div>
         </div>
       </div>
@@ -1019,7 +1020,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
    없으면 아래 데모 명단으로 뜬다(이름 가운데를 가렸고 번호도 실제가 아니다).
    ------------------------------------------------------------------ */
 const DEMO_MEMBERS = [
-  { no: 1,  name: '이*오', band: '60', pos: 'GK', joined: '1976-03', phone: '010-3101-4821', role: '회장' },
+  { no: 1,  name: '이*오', band: '60', pos: 'GK', joined: '1976-03', phone: '010-3101-4821', role: '' },
   { no: 2,  name: '노*희', band: '60', pos: 'DF', joined: '1976-03', phone: '010-3102-7345', role: '' },
   { no: 3,  name: '김*만', band: '60', pos: 'DF', joined: '1999-05', phone: '010-3103-9182', role: '' },
   { no: 4,  name: '윤*중', band: '60', pos: 'MF', joined: '2001-04', phone: '010-3104-2673', role: '' },
@@ -1094,7 +1095,19 @@ function buildMembers() {
     .map((m) => ({ ...m, ...(rosterEdit.edit[m.uid] || {}) }))
     .concat(rosterEdit.add.filter((m) => !rosterEdit.del.includes(m.uid))
                           .map((m) => ({ pos: '', joined: '', role: '', birth: '', ...m, real: true })))
+    .sort((a, b) => ageKey(a) - ageKey(b))     // 나이 많은 분이 위로
     .map((m, i) => ({ ...m, no: i + 1 }));
+}
+
+/** 줄 세우는 데 쓰는 나이. 작을수록 나이가 많다.
+    생년월일이 있으면 그 해를 쓰고, 연령대만 아는 분은 그 띠의 한가운데로 친다.
+    둘 다 모르면 맨 아래 — 모르는 것을 60대 위에 세울 수는 없다. */
+function ageKey(m) {
+  const y = Number(String(m.birth || '').slice(0, 4));
+  if (y) return y;
+  const b = Number(m.band);
+  if (b) return YEAR - b - 5;
+  return Infinity;
 }
 
 /* 회비는 모든 회원이 한 달 2만원이다. 면제는 사람마다 총무가 켠다.
@@ -1140,13 +1153,16 @@ const SUPPORT = [
 /* ---------- 대회일정 ----------
    강서구 조기축구연합회 공식 대회 셋. 예선과 본선이 한 주 간격이고 모두 일요일이다.
    결과는 경기를 치르고 나서 result 에 적는다 — 미리 채우지 않는다. */
+/* 구장은 대회마다 주최 측이 정한다. 정해진 곳이 오면 그 줄만 고치면 된다. */
+const VENUES = '마포고등학교 · 개화축구장 · 우장산축구장 등';
+
 const SCHEDULE = [
-  { date: '2026-03-22', cup: '강서구 연합회장기 축구대회',   round: '예선', place: '강서구민운동장', result: '' },
-  { date: '2026-03-29', cup: '강서구 연합회장기 축구대회',   round: '본선', place: '강서구민운동장', result: '' },
-  { date: '2026-06-21', cup: '강서구 자문위원장기 축구대회', round: '예선', place: '강서구민운동장', result: '' },
-  { date: '2026-06-28', cup: '강서구 자문위원장기 축구대회', round: '본선', place: '강서구민운동장', result: '' },
-  { date: '2026-10-18', cup: '강서구 구청장기 축구대회',     round: '예선', place: '강서구민운동장', result: '' },
-  { date: '2026-10-25', cup: '강서구 구청장기 축구대회',     round: '본선', place: '강서구민운동장', result: '' },
+  { date: '2026-03-22', cup: '강서구 연합회장기 축구대회',   round: '예선', place: VENUES, result: '' },
+  { date: '2026-03-29', cup: '강서구 연합회장기 축구대회',   round: '본선', place: VENUES, result: '' },
+  { date: '2026-06-21', cup: '강서구 자문위원장기 축구대회', round: '예선', place: VENUES, result: '' },
+  { date: '2026-06-28', cup: '강서구 자문위원장기 축구대회', round: '본선', place: VENUES, result: '' },
+  { date: '2026-10-18', cup: '강서구 구청장기 축구대회',     round: '예선', place: VENUES, result: '' },
+  { date: '2026-10-25', cup: '강서구 구청장기 축구대회',     round: '본선', place: VENUES, result: '' },
 ];
 
 /* ---------- 정관 ---------- */
@@ -1971,7 +1987,7 @@ function renderSchedule() {
       '<td class="wrap">' + esc(s.cup) + '</td>' +
       '<td><span class="badge ' +
         (s.round === '본선' ? 'badge-accent' : 'badge-mute') + '">' + esc(s.round) + '</span></td>' +
-      '<td>' + esc(s.place) + '</td>' +
+      '<td class="wrap">' + esc(s.place) + '</td>' +
       '<td>' + (s.result ? '<b>' + esc(s.result) + '</b>'
                          : '<span style="color:var(--text-tertiary)">—</span>') + '</td>' +
       '<td>' + (isPast(s) ? '<span class="badge badge-mute">지남</span>'
