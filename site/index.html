@@ -466,39 +466,45 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 .tl-d{ font-size:var(--fs-caption); color:var(--text-secondary); margin-top:var(--sp-1); }
 
 /* ---------- 집행부 ---------- */
-.staff-grid{
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-  gap:var(--sp-3);
+/* 아직 사람이 없는 자리. 옆의 "미정" 배지를 거들 뿐이라 조용해야 한다. */
+.seat-wait{ font-size:var(--fs-footnote); color:var(--text-tertiary); }
+
+/* ---------- 회비 열두 달 표 ---------- */
+/* 이름 칸은 가로로 밀어도 따라온다 — 열두 칸을 넘기다 보면 누구 줄인지 잃는다. */
+.dues-table th.dues-name,
+.dues-table td.dues-name{
+  position:sticky; left:0; z-index:1;
+  background:var(--surface); min-width:92px;
 }
-.staff-card{
-  border:1px solid var(--border); border-radius:var(--radius-lg);
-  padding:var(--sp-4); background:var(--surface-sunken);
-}
-/* 자리 하나만 띄운다 — 회장·감독까지 다 테두리를 두르면 층이 사라진다. */
-.staff-card.lead{
-  background:var(--accent-bg); border-color:var(--accent);
-}
-.staff-role{
-  font-size:var(--fs-footnote); font-weight:var(--fw-bold);
-  color:var(--accent-strong); letter-spacing:.02em;
-}
-.staff-card.lead .staff-role{ color:var(--accent-strong); }
-.staff-name{
-  font-size:var(--fs-subhead); font-weight:var(--fw-bold);
-  letter-spacing:var(--ls-tight); margin-top:var(--sp-1);
-}
-.staff-meta{
-  font-size:var(--fs-footnote); color:var(--text-secondary);
-  margin-top:var(--sp-2); line-height:var(--lh-body);
+.dues-table tbody tr:hover td.dues-name{ background:var(--surface-sunken); }
+.dues-table th.dues-mo{
+  text-align:center; padding:var(--sp-2) 0; min-width:32px;
   font-variant-numeric:tabular-nums;
 }
-.staff-demo{
-  display:inline-block; margin-left:var(--sp-2);
-  font-size:10px; font-weight:var(--fw-medium);
-  padding:1px var(--sp-2); border-radius:var(--radius-pill);
-  background:var(--surface); color:var(--text-tertiary);
-  border:1px solid var(--border-strong); vertical-align:2px;
+/* 이번 달은 눈이 먼저 가야 한다 */
+.dues-table th.dues-mo.now{ color:var(--accent-strong); font-weight:var(--fw-bold); }
+.dues-cell{ padding:var(--sp-1) 2px; text-align:center; }
+
+.mo-btn{
+  width:26px; height:26px; padding:0; cursor:pointer;
+  border:1px solid var(--border-strong); border-radius:var(--radius-sm);
+  background:var(--surface); color:var(--on-accent);
+  font-family:inherit; font-size:var(--fs-footnote); font-weight:var(--fw-bold);
+  line-height:1;
+  transition:background var(--dur-fast) var(--ease-standard),
+             border-color var(--dur-fast) var(--ease-standard);
 }
+.mo-btn:hover:not(:disabled){ border-color:var(--accent); background:var(--accent-bg); }
+.mo-btn.on{ background:var(--accent-strong); border-color:var(--accent-strong); }
+/* 지나간 달인데 비어 있는 칸. 빨강은 이미 켠 칸이 쓰고 있어서 여기는 점선으로 말한다.
+   바탕까지 칠하면 아무도 안 낸 첫 화면이 온통 노란 벽이 된다 — 테두리만 쓴다. */
+.mo-btn.late{ border-style:dashed; border-color:var(--warning); }
+.mo-btn.off{ background:var(--surface-sunken); border-style:dotted; cursor:not-allowed; }
+.mo-btn:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
+
+.chip.mini{ padding:var(--sp-1) var(--sp-3); font-size:var(--fs-footnote); }
+/* 면제인 줄은 가라앉힌다. 셈에서 빠졌다는 것이 줄만 봐도 보여야 한다. */
+.row-exempt td.dues-name{ color:var(--text-tertiary); }
 
 /* ---------- 정관 ---------- */
 .rule-nav{ display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-5); }
@@ -522,6 +528,31 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 .rule-art li{ margin-bottom:var(--sp-1); }
 
 /* ---------- 대회일정 ---------- */
+.cup-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr));
+  gap:var(--sp-3); margin-top:var(--sp-4);
+}
+.cup-card{
+  border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:var(--sp-4); background:var(--surface-sunken);
+}
+.cup-name{
+  font-size:var(--fs-caption); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); line-height:var(--lh-tight);
+}
+.cup-leg{
+  display:flex; align-items:baseline; gap:var(--sp-2);
+  margin-top:var(--sp-3); font-size:var(--fs-footnote);
+  font-variant-numeric:tabular-nums;
+}
+.cup-leg-k{ min-width:28px; color:var(--text-tertiary); font-weight:var(--fw-medium); }
+.cup-leg-d{ color:var(--text-primary); font-weight:var(--fw-medium); }
+/* 지난 일정은 줄을 긋는다 — 목록에서 지우면 그 대회가 몇 번짼지 알 수 없다. */
+.cup-leg.past .cup-leg-d{ color:var(--text-tertiary); text-decoration:line-through; }
+.cup-leg-dd{
+  margin-left:auto; font-family:var(--font-mono);
+  color:var(--accent-strong); font-weight:var(--fw-bold);
+}
 .next-card{
   background:var(--accent-bg); border:1px solid var(--accent);
   border-radius:var(--radius-lg); padding:var(--sp-5);
@@ -669,7 +700,15 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             <span class="spacer"></span>
             <span class="badge badge-mute" id="staffCount"></span>
           </div>
-          <div class="staff-grid" id="staffGrid"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th class="rank-cell">순</th><th>직책</th><th>성명</th>
+                <th>생년월일</th><th>연락처</th>
+              </tr></thead>
+              <tbody id="staffRows"></tbody>
+            </table>
+          </div>
           <div class="foot-note" id="staffNote"></div>
         </div>
       </div>
@@ -687,13 +726,13 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         <div class="panel">
           <div class="filter-row" id="memberBands" role="group" aria-label="연령대 고르기"></div>
           <div class="filter-row">
-            <input type="search" id="memberSearch" placeholder="이름·직책·포지션으로 찾기"
+            <input type="search" id="memberSearch" placeholder="이름·포지션으로 찾기"
                    aria-label="회원 찾기">
           </div>
           <div class="table-wrap">
             <table>
               <thead><tr>
-                <th class="rank-cell">번호</th><th>이름</th><th>직책</th>
+                <th class="rank-cell">번호</th><th>이름</th>
                 <th>생년월일</th><th>연령대</th><th>포지션</th><th>연락처</th>
               </tr></thead>
               <tbody id="memberRows"></tbody>
@@ -710,28 +749,27 @@ tbody tr:hover td{ background:var(--surface-sunken); }
           <div class="panel-head">
             <h2>회비</h2>
             <span class="spacer"></span>
-            <select id="duesMonth" aria-label="달 고르기" style="width:auto;min-width:140px;"></select>
+            <span class="badge badge-accent" id="duesYear"></span>
           </div>
           <div class="stat-grid" id="duesStats"></div>
-          <div class="foot-note">월 회비는 <b>3만원</b>이고, 연납은 <b>30만원</b>입니다(두 달치 할인).
-            연납하신 분은 그 해 열두 달이 모두 완납으로 보입니다.
-            <b>기록 없음</b>은 아직 회비 내역을 옮겨 넣지 않은 분입니다 — 완납·미납 수에서 뺍니다.</div>
+          <div class="foot-note">회비는 <b>한 달 2만원</b>입니다. 낸 달의 칸을 누르면 체크가 켜지고,
+            다시 누르면 꺼집니다. <b>면제</b>를 누르면 그분은 열두 달 모두 셈에서 빠집니다.
+            테두리가 점선인 칸은 지나간 달인데 아직 안 낸 달입니다.</div>
         </div>
         <div class="panel">
           <div class="filter-row" id="duesFilter">
             <button class="chip on" data-dues="all" type="button">전체</button>
-            <button class="chip" data-dues="paid" type="button">완납</button>
             <button class="chip" data-dues="unpaid" type="button">미납</button>
+            <button class="chip" data-dues="exempt" type="button">면제</button>
           </div>
           <div class="table-wrap">
-            <table>
-              <thead><tr>
-                <th>이름</th><th>연령대</th><th class="num-cell">금액</th>
-                <th>낸 날</th><th>방식</th><th>상태</th>
-              </tr></thead>
+            <table class="dues-table">
+              <thead><tr id="duesHead"></tr></thead>
               <tbody id="duesRows"></tbody>
             </table>
           </div>
+          <div class="foot-note"><b>체크는 이 기기에만 저장됩니다.</b> 아직 서버가 없어서
+            총무가 켠 표가 다른 분 화면에는 안 보입니다 — 붙이면 모두가 같은 표를 봅니다.</div>
         </div>
       </div>
 
@@ -786,25 +824,26 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             <span class="badge badge-mute" id="scheduleCount"></span>
           </div>
           <div id="nextMatch"></div>
-          <div class="stat-grid" id="scheduleStats"></div>
+          <div class="cup-grid" id="cupGrid"></div>
         </div>
         <div class="panel">
           <div class="filter-row" id="scheduleFilter">
-            <button class="chip on" data-sch="upcoming" type="button">예정</button>
-            <button class="chip" data-sch="done" type="button">지난 경기</button>
-            <button class="chip" data-sch="all" type="button">전체</button>
+            <button class="chip on" data-sch="all" type="button">전체</button>
+            <button class="chip" data-sch="upcoming" type="button">남은 일정</button>
+            <button class="chip" data-sch="done" type="button">지난 일정</button>
           </div>
           <div class="table-wrap">
             <table>
               <thead><tr>
-                <th>날짜</th><th>대회·경기</th><th>장소</th>
-                <th>상대</th><th>결과</th><th>상태</th>
+                <th>날짜</th><th>대회</th><th>구분</th>
+                <th>장소</th><th>결과</th><th>상태</th>
               </tr></thead>
               <tbody id="scheduleRows"></tbody>
             </table>
           </div>
-          <div class="foot-note">참석 여부는 단톡방 투표로 받습니다.
-            투표 캡처는 운영진이 앱에 올려 명단으로 만듭니다.</div>
+          <div class="foot-note">강서구 조기축구연합회 공식 대회 셋입니다.
+            <b>예선을 통과해야 본선에 나갑니다</b> — 본선 날짜는 미리 잡아 두고 결과에 따라 나갑니다.
+            참석 여부는 단톡방 투표로 받습니다.</div>
         </div>
       </div>
 
@@ -882,11 +921,9 @@ const MEMBERS = (Array.isArray(window.BHFC_ROSTER) ? window.BHFC_ROSTER : [])
   .concat(DEMO_MEMBERS.map((m) => ({ birth: '', ...m, real: false })))
   .map((m, i) => ({ ...m, no: i + 1 }));
 
-/* 연납한 사람. 그 해 열두 달이 모두 완납이다 — 금액을 12로 나누지 않는다. */
-const ANNUAL = new Set([1, 2, 7, 11, 15, 20]);
-
-const DUES_MONTHLY = 30000;
-const DUES_ANNUAL  = 300000;
+/* 회비는 모든 회원이 한 달 2만원이다. 면제는 사람마다 총무가 켠다. */
+const DUES_MONTHLY = 20000;
+const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 /* ---------- 연혁 ---------- */
 const HISTORY = [
@@ -920,20 +957,16 @@ const SUPPORT = [
   { date: '2026-01-12', who: '이*근', amt: 300000, why: '감독 연임', use: '정기총회 식사' },
 ];
 
-/* ---------- 대회일정 ---------- */
+/* ---------- 대회일정 ----------
+   강서구 조기축구연합회 공식 대회 셋. 예선과 본선이 한 주 간격이고 모두 일요일이다.
+   결과는 경기를 치르고 나서 result 에 적는다 — 미리 채우지 않는다. */
 const SCHEDULE = [
-  { date: '2026-11-15', name: '강서구청장기 결승 토너먼트', place: '강서구민운동장', vs: '미정', result: '', state: '예정' },
-  { date: '2026-10-25', name: '강서구 리그 18R', place: '방화체육공원', vs: '등촌 FC', result: '', state: '예정' },
-  { date: '2026-10-11', name: '강서구 리그 17R', place: '가양 인조구장', vs: '가양 유나이티드', result: '', state: '예정' },
-  { date: '2026-09-28', name: '친선경기', place: '방화체육공원', vs: '마곡 FC', result: '', state: '예정' },
-  { date: '2026-09-20', name: '강서구 리그 16R', place: '방화체육공원', vs: '발산 FC', result: '', state: '예정' },
-  { date: '2026-09-06', name: '강서구 리그 15R', place: '개화 축구장', vs: '개화 조기회', result: '3 : 1 승', state: '완료' },
-  { date: '2026-08-23', name: '강서구 리그 14R', place: '방화체육공원', vs: '공항 FC', result: '2 : 2 무', state: '완료' },
-  { date: '2026-08-09', name: '하계 자체경기', place: '방화체육공원', vs: '자체 홍백전', result: '4 : 3', state: '완료' },
-  { date: '2026-07-26', name: '강서구 리그 13R', place: '등촌 축구장', vs: '등촌 FC', result: '0 : 2 패', state: '완료' },
-  { date: '2026-07-12', name: '강서구청장기 8강', place: '강서구민운동장', vs: '화곡 FC', result: '2 : 1 승', state: '완료' },
-  { date: '2026-06-28', name: '강서구 리그 12R', place: '방화체육공원', vs: '가양 유나이티드', result: '1 : 0 승', state: '완료' },
-  { date: '2026-06-14', name: '우천 취소', place: '방화체육공원', vs: '마곡 FC', result: '', state: '취소' },
+  { date: '2026-03-22', cup: '강서구 연합회장기 축구대회',   round: '예선', place: '강서구민운동장', result: '' },
+  { date: '2026-03-29', cup: '강서구 연합회장기 축구대회',   round: '본선', place: '강서구민운동장', result: '' },
+  { date: '2026-06-21', cup: '강서구 자문위원장기 축구대회', round: '예선', place: '강서구민운동장', result: '' },
+  { date: '2026-06-28', cup: '강서구 자문위원장기 축구대회', round: '본선', place: '강서구민운동장', result: '' },
+  { date: '2026-10-18', cup: '강서구 구청장기 축구대회',     round: '예선', place: '강서구민운동장', result: '' },
+  { date: '2026-10-25', cup: '강서구 구청장기 축구대회',     round: '본선', place: '강서구민운동장', result: '' },
 ];
 
 /* ---------- 정관 ---------- */
@@ -961,7 +994,7 @@ const RULES = [
     { t: '제14조 (의결)', p: ['총회는 재적 회원 과반수의 출석으로 열고 출석 회원 과반수의 찬성으로 의결한다. 다만 정관 개정과 회원 제명은 재적 회원 과반수의 찬성을 얻어야 한다.'] },
   ]},
   { ch: '제5장 재정', arts: [
-    { t: '제15조 (회비)', p: ['월 회비는 3만원으로 하고 매월 10일까지 낸다. 한 해를 한 번에 내는 경우 30만원으로 하며, 그 해 열두 달을 모두 낸 것으로 본다.'] },
+    { t: '제15조 (회비)', p: ['월 회비는 2만원으로 하고 매월 10일까지 낸다.', '총회 의결로 정한 회원은 회비를 면제할 수 있다. 면제 사유가 없어지면 그 달부터 다시 낸다.'] },
     { t: '제16조 (찬조금)', p: ['회원은 좋은 일이 있을 때 찬조금을 낼 수 있다. 찬조금은 회비와 따로 적고, 받은 날과 쓴 곳을 함께 공개한다.'] },
     { t: '제17조 (회계연도)', p: ['본회의 회계연도는 매년 1월 1일부터 12월 31일까지로 한다.'] },
     { t: '제18조 (결산 공개)', p: ['총무는 매월 말 수입과 지출을 회원에게 공개하고, 연 1회 정기총회에서 결산을 보고하여 승인을 받는다.'] },
@@ -1148,49 +1181,59 @@ function renderHistory() {
 /* ============================================================
    2. 집행부
    ============================================================ */
-/* 총회에서 부르는 차례 그대로. 여기 없는 직책은 뒤에 붙는다. */
-const ROLE_ORDER = ['회장', '고문', '수석부회장', '경기부회장', '섭외부회장',
-                    '재무부회장', '부회장', '총무', '감독', '코치', '주장', '총무보'];
-const roleRank = (r) => {
-  const i = ROLE_ORDER.indexOf(r);
-  return i === -1 ? ROLE_ORDER.length : i;
-};
+/* 집행부 자리. **여기 적힌 차례가 곧 표의 줄 순서다.**
+   자리 이름을 고치거나 사이에 끼워 넣으면 표가 그대로 따라간다.
+   명단(roster)의 role 과 글자가 같아야 그 자리에 사람이 선다. */
+const STAFF_SEATS = [
+  '회장', '수석부회장', '재무부회장', '경기부회장', '섭외부회장',
+  '총무', '감독', '코치', '고문',
+];
 
 function renderStaff() {
-  const staff = MEMBERS.filter(isStaff)
-    .slice()
-    .sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.no - b.no);
+  // 자리를 먼저 세우고 그 자리에 사람을 앉힌다. 빈 자리도 줄은 남는다 —
+  // 어느 자리가 비었는지가 집행부 표에서 제일 먼저 보여야 할 사실이다.
+  const rows = [];
+  STAFF_SEATS.forEach((seat) => {
+    const who = MEMBERS.filter((m) => m.role === seat);
+    if (who.length) who.forEach((m) => rows.push({ seat, m }));
+    else rows.push({ seat, m: null });
+  });
+  // 자리 목록에 없는 직책이 명단에 있으면 빠뜨리지 않고 뒤에 붙인다.
+  MEMBERS.filter((m) => isStaff(m) && !STAFF_SEATS.includes(m.role))
+    .forEach((m) => rows.push({ seat: m.role, m }));
 
-  $('staffCount').textContent = staff.length ? staff.length + '명' : '준비 중';
-
-  if (!staff.length) {
-    $('staffGrid').innerHTML =
-      '<div class="empty">아직 집행부 명단이 없어요. 명단을 주시면 여기에 채웁니다.</div>';
-    $('staffNote').textContent = '';
-    return;
-  }
+  const filled = rows.filter((r) => r.m).length;
+  const empty  = rows.length - filled;
+  $('staffCount').textContent =
+    filled + '자리 채움' + (empty ? ' · ' + empty + '자리 비어 있음' : '');
 
   const canSeeAll = isStaff(me);
-  $('staffGrid').innerHTML = staff.map((m) => {
+  $('staffRows').innerHTML = rows.map((r, i) => {
+    const m = r.m;
+    if (!m) {
+      return '<tr>' +
+        '<td class="rank-cell">' + (i + 1) + '</td>' +
+        '<td><b>' + esc(r.seat) + '</b></td>' +
+        '<td colspan="3"><span class="badge badge-mute">미정</span>' +
+          ' <span class="seat-wait">명단을 주시면 채웁니다</span></td>' +
+      '</tr>';
+    }
     const mine = me && m.no === me.no;
-    const phone = (canSeeAll || mine) ? m.phone : maskPhone(m.phone);
-    const band = bandOf(m);
-    return '<div class="staff-card' + (roleRank(m.role) === 0 ? ' lead' : '') + '">' +
-      '<div class="staff-role">' + esc(m.role) + '</div>' +
-      '<div class="staff-name">' + esc(m.name) +
+    return '<tr>' +
+      '<td class="rank-cell">' + (i + 1) + '</td>' +
+      '<td><b>' + esc(r.seat) + '</b></td>' +
+      '<td>' + esc(m.name) +
         (mine ? ' <span class="badge badge-accent">나</span>' : '') +
-        (m.real ? '' : '<span class="staff-demo">데모</span>') + '</div>' +
-      '<div class="staff-meta">' +
-        (m.birth ? esc(birthText(m.birth)) + (band ? ' · ' + esc(band) + '대' : '') + '<br>' : '') +
-        esc(phone) +
-      '</div>' +
-    '</div>';
+        (m.real ? '' : ' <span class="badge badge-mute">데모</span>') + '</td>' +
+      '<td>' + esc(birthText(m.birth)) + '</td>' +
+      '<td>' + esc((canSeeAll || mine) ? m.phone : maskPhone(m.phone)) + '</td>' +
+    '</tr>';
   }).join('');
 
-  const demo = staff.filter((m) => !m.real).length;
-  $('staffNote').innerHTML = demo
-    ? '<b>데모</b> 표가 붙은 자리는 아직 명단을 받지 못한 자리입니다 — 주시면 바로 채웁니다.'
-    : '직책은 회원 명단에서 가져옵니다. 자리가 바뀌면 명단의 직책만 고치면 됩니다.';
+  const demo = rows.filter((r) => r.m && !r.m.real).length;
+  $('staffNote').innerHTML =
+    '자리 차례는 정해 두고 사람만 명단에서 가져옵니다 — 자리가 바뀌면 명단의 직책 한 줄만 고치면 됩니다.' +
+    (demo ? ' <b>데모</b> 표가 붙은 줄은 아직 명단을 받지 못한 자리입니다.' : '');
 }
 
 /* ============================================================
@@ -1237,12 +1280,12 @@ function renderMembers() {
   const rows = MEMBERS.filter((m) => {
     if (!pick.has(bandOf(m))) return false;
     if (!q) return true;
-    return (m.name + ' ' + m.pos + ' ' + m.role + ' ' + m.birth).toLowerCase().includes(q);
+    return (m.name + ' ' + m.pos + ' ' + m.birth).toLowerCase().includes(q);
   });
 
   if (!rows.length) {
     $('memberRows').innerHTML =
-      '<tr><td colspan="7" class="empty">' +
+      '<tr><td colspan="6" class="empty">' +
       (memberBand ? '이 연령대에는 찾는 분이 없어요.' : '찾는 분이 없어요. 다른 이름으로 찾아보세요.') +
       '</td></tr>';
     return;
@@ -1257,8 +1300,6 @@ function renderMembers() {
     return '<tr>' +
       '<td class="rank-cell">' + m.no + '</td>' +
       '<td>' + esc(m.name) + (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
-      '<td>' + (m.role ? '<span class="badge badge-accent">' + esc(m.role) + '</span>'
-                       : '<span class="badge badge-mute">회원</span>') + '</td>' +
       '<td>' + esc(birthText(m.birth)) + '</td>' +
       '<td>' + (band ? esc(band) + '대' : '—') + '</td>' +
       '<td>' + (m.pos ? esc(m.pos) : '—') + '</td>' +
@@ -1269,77 +1310,113 @@ function renderMembers() {
 
 /* ============================================================
    3. 회비
+   한 달 2만원. 낸 달의 칸을 눌러 켜고, 면제는 사람 단위로 켠다.
+
+   지금은 서버가 없어서 체크가 이 브라우저에만 남는다(localStorage).
+   붙일 때는 loadDues/saveDues 둘만 요청으로 바꾸면 되고, 그리는 쪽은
+   손댈 데가 없다.
    ============================================================ */
-/** 그 달이 채워졌는지만 본다. 연납은 금액을 12로 나누지 않는다. */
-function isPaid(m, month) {
-  if (ANNUAL.has(m.no)) return true;
-  if ((month * 3 + m.no * 7) % 11 === 0) return false;          // 그 달을 건너뛴 사람
-  if (month === CUR_MONTH && m.no % 5 === 0) return false;      // 이번 달은 아직 걷는 중
-  return true;
+const DUES_KEY = 'bhfc-dues-' + YEAR;
+
+/* { "01090454815": { paid: [1,2,3], exempt: false } }
+   사람은 전화번호로 잡는다 — 번호로 잡으면 명단이 늘 때 밀려서
+   남의 줄에 체크가 붙는다. */
+let duesBook = {};
+
+function loadDues() {
+  try { duesBook = JSON.parse(localStorage.getItem(DUES_KEY) || '{}') || {}; }
+  catch (_) { duesBook = {}; }
+}
+function saveDues() {
+  try { localStorage.setItem(DUES_KEY, JSON.stringify(duesBook)); }
+  catch (_) { /* 저장이 막혀 있다 */ }
 }
 
-function paidDay(m, month) {
-  if (ANNUAL.has(m.no)) return YEAR + '-01-' + String((m.no % 9) + 5).padStart(2, '0');
-  // 이번 달은 아직 지나지 않았다 — 오늘보다 뒤의 날짜가 "낸 날"로 찍히면 안 된다.
-  const last = month === CUR_MONTH ? TODAY.getDate() : 28;
-  const day = Math.min((m.no * 3) % 18 + 4, last);
-  return YEAR + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+function duesOf(m) {
+  const k = digits(m.phone);
+  if (!duesBook[k]) duesBook[k] = { paid: [], exempt: false };
+  return duesBook[k];
 }
+const isExempt = (m) => duesOf(m).exempt;
+const hasPaid  = (m, mo) => duesOf(m).paid.includes(mo);
+
+function toggleMonth(m, mo) {
+  const rec = duesOf(m);
+  if (rec.exempt) return;
+  const i = rec.paid.indexOf(mo);
+  if (i === -1) rec.paid.push(mo); else rec.paid.splice(i, 1);
+  rec.paid.sort((a, b) => a - b);
+  saveDues();
+}
+
+function toggleExempt(m) {
+  const rec = duesOf(m);
+  rec.exempt = !rec.exempt;
+  saveDues();
+}
+
+/* 지나간 달만 센다. 12월치를 9월에 미납이라 부를 수는 없다. */
+const dueMonths = () => MONTHS.filter((mo) => mo <= CUR_MONTH);
+const owes = (m) => !isExempt(m) && dueMonths().some((mo) => !hasPaid(m, mo));
 
 let duesFilter = 'all';
 
-function renderDuesMonths() {
-  $('duesMonth').innerHTML = Array.from({ length: CUR_MONTH }, (_, i) => CUR_MONTH - i)
-    .map((m) => '<option value="' + m + '">' + YEAR + '년 ' + m + '월</option>').join('');
+function renderDuesHead() {
+  $('duesHead').innerHTML =
+    '<th class="dues-name">이름</th>' +
+    MONTHS.map((mo) =>
+      '<th class="dues-mo' + (mo === CUR_MONTH ? ' now' : '') + '">' + mo + '</th>').join('') +
+    '<th class="num-cell">낸 돈</th><th>면제</th>';
 }
 
 function renderDues() {
-  const month = Number($('duesMonth').value) || CUR_MONTH;
-  // 실제 명단으로 들어온 분들은 아직 낸 기록이 없다. 없는 것을 세지 않는다.
-  const counted = MEMBERS.filter((m) => !m.real);
-  const paid   = counted.filter((m) => isPaid(m, month));
-  const unpaid = counted.filter((m) => !isPaid(m, month));
-  const annual = counted.filter((m) => ANNUAL.has(m.no));
-  const cash   = (paid.length - annual.length) * DUES_MONTHLY;
+  const paying = MEMBERS.filter((m) => !isExempt(m));
+  const total  = paying.reduce((sum, m) => sum + duesOf(m).paid.length, 0) * DUES_MONTHLY;
+  const thisMo = paying.filter((m) => hasPaid(m, CUR_MONTH)).length;
 
+  $('duesYear').textContent = YEAR + '년';
   $('duesStats').innerHTML = statCards([
-    ['완납', paid.length, '명'],
-    ['미납', unpaid.length, '명'],
-    [month + '월 걷은 돈', cash.toLocaleString('ko-KR'), '원'],
-    ['연납', annual.length, '명'],
+    ['올해 걷은 돈', total.toLocaleString('ko-KR'), '원'],
+    [CUR_MONTH + '월 납부', thisMo + ' / ' + paying.length, '명'],
+    ['미납 있는 분', MEMBERS.filter(owes).length, '명'],
+    ['면제', MEMBERS.filter(isExempt).length, '명'],
   ]);
 
   let rows = MEMBERS;
-  if (duesFilter === 'paid')   rows = paid;
-  if (duesFilter === 'unpaid') rows = unpaid;
+  if (duesFilter === 'unpaid') rows = MEMBERS.filter(owes);
+  if (duesFilter === 'exempt') rows = MEMBERS.filter(isExempt);
 
   if (!rows.length) {
     $('duesRows').innerHTML =
-      '<tr><td colspan="6" class="empty">해당하는 분이 없어요.</td></tr>';
+      '<tr><td colspan="' + (MONTHS.length + 3) + '" class="empty">' +
+      (duesFilter === 'unpaid' ? '미납인 분이 없어요.' : '면제인 분이 없어요.') +
+      '</td></tr>';
     return;
   }
 
   $('duesRows').innerHTML = rows.map((m) => {
+    const rec  = duesOf(m);
     const mine = me && m.no === me.no;
-    if (m.real) {
-      return '<tr>' +
-        '<td>' + esc(m.name) + (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
-        '<td>' + (bandOf(m) ? esc(bandOf(m)) + '대' : '—') + '</td>' +
-        '<td class="num-cell">—</td><td>—</td><td>—</td>' +
-        '<td><span class="badge badge-mute">기록 없음</span></td>' +
-      '</tr>';
-    }
-    const ok  = isPaid(m, month);
-    const ann = ANNUAL.has(m.no);
-    return '<tr>' +
-      '<td>' + esc(m.name) + (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
-      '<td>' + (bandOf(m) ? esc(bandOf(m)) + '대' : '—') + '</td>' +
-      '<td class="num-cell">' + (ann ? won(DUES_ANNUAL) : ok ? won(DUES_MONTHLY) : '—') + '</td>' +
-      '<td>' + (ok ? esc(paidDay(m, month)) : '—') + '</td>' +
-      '<td>' + (ann ? '<span class="badge badge-info">연납</span>'
-                    : ok ? (m.no % 3 === 0 ? '현금' : '계좌이체') : '—') + '</td>' +
-      '<td>' + (ok ? '<span class="badge badge-ok">완납</span>'
-                   : '<span class="badge badge-danger">미납</span>') + '</td>' +
+    const cells = MONTHS.map((mo) => {
+      const on   = hasPaid(m, mo);
+      const late = !rec.exempt && !on && mo <= CUR_MONTH;
+      return '<td class="dues-cell">' +
+        '<button type="button" class="mo-btn' + (on ? ' on' : '') +
+          (late ? ' late' : '') + (rec.exempt ? ' off' : '') + '"' +
+          (rec.exempt ? ' disabled' : '') +
+          ' data-phone="' + digits(m.phone) + '" data-mo="' + mo + '"' +
+          ' aria-pressed="' + on + '"' +
+          ' aria-label="' + esc(m.name) + ' ' + mo + '월 ' + (on ? '납부함' : '안 냄') + '">' +
+          (on ? '✓' : '') + '</button></td>';
+    }).join('');
+    return '<tr' + (rec.exempt ? ' class="row-exempt"' : '') + '>' +
+      '<td class="dues-name">' + esc(m.name) +
+        (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
+      cells +
+      '<td class="num-cell">' + (rec.exempt ? '—' : won(rec.paid.length * DUES_MONTHLY)) + '</td>' +
+      '<td><button type="button" class="chip mini' + (rec.exempt ? ' on' : '') + '"' +
+        ' data-exempt="' + digits(m.phone) + '"' +
+        ' aria-pressed="' + rec.exempt + '">면제</button></td>' +
     '</tr>';
   }).join('');
 }
@@ -1400,36 +1477,61 @@ function renderRules() {
 /* ============================================================
    6. 대회일정
    ============================================================ */
-let schFilter = 'upcoming';
+let schFilter = 'all';
+
+/** 지난 일정인지는 날짜만 보고 가른다. 상태를 따로 적어 두면 날짜와 어긋난다. */
+const isPast = (s) => s.date < TODAY_ISO;
+
+function dday(iso) {
+  const a = new Date(iso + 'T00:00:00');
+  const b = new Date(TODAY_ISO + 'T00:00:00');
+  return Math.max(0, Math.round((a - b) / 86400000));
+}
+
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+/** 요일까지 적는다. 조기축구는 요일이 날짜만큼 중요하다. */
+const weekdayOf = (iso) => WEEKDAY[new Date(iso + 'T00:00:00').getDay()];
+/** 2026-03-22 → 3. 22(일) — 대회 카드처럼 좁은 자리에서 쓴다. */
+const dateShort = (iso) =>
+  Number(iso.slice(5, 7)) + '. ' + Number(iso.slice(8, 10)) + '(' + weekdayOf(iso) + ')';
+/** 2026-03-22(일) — 표와 다음 일정처럼 해까지 보여야 하는 자리에서 쓴다. */
+const dateFull = (iso) => iso + '(' + weekdayOf(iso) + ')';
 
 function renderSchedule() {
-  const sorted = SCHEDULE.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
-  const upcoming = sorted.filter((s) => s.date >= TODAY_ISO && s.state === '예정')
-                         .sort((a, b) => (a.date < b.date ? -1 : 1));
-  const done = sorted.filter((s) => s.state === '완료');
-  const w = done.filter((s) => s.result.includes('승')).length;
-  const d = done.filter((s) => s.result.includes('무')).length;
-  const l = done.filter((s) => s.result.includes('패')).length;
+  const sorted   = SCHEDULE.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+  const upcoming = sorted.filter((s) => !isPast(s));
+  const done     = sorted.filter(isPast);
 
-  $('scheduleCount').textContent = '남은 경기 ' + upcoming.length + '개';
+  $('scheduleCount').textContent = '남은 일정 ' + upcoming.length + '개';
 
   const next = upcoming[0];
   $('nextMatch').innerHTML = next
     ? '<div class="next-card">' +
-        '<div class="next-k">다음 경기</div>' +
-        '<div class="next-t">' + esc(next.name) + '</div>' +
-        '<div class="next-m">' + esc(next.date) + ' · ' + esc(next.place) +
-          ' · ' + esc(next.vs) + '</div>' +
+        '<div class="next-k">다음 일정</div>' +
+        '<div class="next-t">' + esc(next.cup) + ' ' + esc(next.round) + '</div>' +
+        '<div class="next-m">' + esc(dateFull(next.date)) +
+          ' · ' + esc(next.place) + '</div>' +
         '<div class="next-dday">D-' + dday(next.date) + '</div>' +
       '</div>'
-    : '<div class="empty">잡힌 경기가 없어요. 새 일정을 올려 보세요.</div>';
+    : '<div class="empty">올해 남은 대회가 없어요. 내년 일정이 나오면 채웁니다.</div>';
 
-  $('scheduleStats').innerHTML = statCards([
-    ['올해 전적', w + '승 ' + d + '무 ' + l + '패', ''],
-    ['치른 경기', done.length, '경기'],
-    ['남은 경기', upcoming.length, '경기'],
-    ['홈 구장', '방화체육공원', ''],
-  ]);
+  // 대회 하나에 예선·본선이 묶여 있다. 그 묶음이 표보다 먼저 눈에 들어와야 한다.
+  const cups = [];
+  sorted.forEach((s) => {
+    let c = cups.find((x) => x.cup === s.cup);
+    if (!c) cups.push(c = { cup: s.cup, legs: [] });
+    c.legs.push(s);
+  });
+  $('cupGrid').innerHTML = cups.map((c) =>
+    '<div class="cup-card">' +
+      '<div class="cup-name">' + esc(c.cup) + '</div>' +
+      c.legs.map((s) =>
+        '<div class="cup-leg' + (isPast(s) ? ' past' : '') + '">' +
+          '<span class="cup-leg-k">' + esc(s.round) + '</span>' +
+          '<span class="cup-leg-d">' + esc(dateShort(s.date)) + '</span>' +
+          (isPast(s) ? '' : '<span class="cup-leg-dd">D-' + dday(s.date) + '</span>') +
+        '</div>').join('') +
+    '</div>').join('');
 
   let rows = sorted;
   if (schFilter === 'upcoming') rows = upcoming;
@@ -1441,24 +1543,18 @@ function renderSchedule() {
     return;
   }
 
-  const tone = { '예정': 'badge-accent', '완료': 'badge-mute', '취소': 'badge-warn' };
   $('scheduleRows').innerHTML = rows.map((s) =>
     '<tr>' +
-      '<td>' + esc(s.date) + '</td>' +
-      '<td class="wrap">' + esc(s.name) + '</td>' +
+      '<td>' + esc(dateFull(s.date)) + '</td>' +
+      '<td class="wrap">' + esc(s.cup) + '</td>' +
+      '<td><span class="badge ' +
+        (s.round === '본선' ? 'badge-accent' : 'badge-mute') + '">' + esc(s.round) + '</span></td>' +
       '<td>' + esc(s.place) + '</td>' +
-      '<td>' + esc(s.vs) + '</td>' +
-      '<td>' + (s.result
-        ? '<b>' + esc(s.result) + '</b>'
-        : '<span style="color:var(--text-tertiary)">—</span>') + '</td>' +
-      '<td><span class="badge ' + (tone[s.state] || 'badge-mute') + '">' + esc(s.state) + '</span></td>' +
+      '<td>' + (s.result ? '<b>' + esc(s.result) + '</b>'
+                         : '<span style="color:var(--text-tertiary)">—</span>') + '</td>' +
+      '<td>' + (isPast(s) ? '<span class="badge badge-mute">지남</span>'
+                          : '<span class="badge badge-accent">D-' + dday(s.date) + '</span>') + '</td>' +
     '</tr>').join('');
-}
-
-function dday(iso) {
-  const a = new Date(iso + 'T00:00:00');
-  const b = new Date(TODAY_ISO + 'T00:00:00');
-  return Math.max(0, Math.round((a - b) / 86400000));
 }
 
 /* ============================================================
@@ -1476,6 +1572,7 @@ function renderAll() {
 }
 
 function init() {
+  loadDues();
   $('loginForm').addEventListener('submit', doLogin);
   $('logoutBtn').addEventListener('click', doLogout);
   $('themeToggle').addEventListener('click', toggleTheme);
@@ -1502,8 +1599,18 @@ function init() {
     renderMembers();
   });
 
-  renderDuesMonths();
-  $('duesMonth').addEventListener('change', renderDues);
+  renderDuesHead();
+  // 표가 크다 — 칸마다 듣지 않고 표 하나가 듣는다.
+  $('duesRows').addEventListener('click', (e) => {
+    const mo = e.target.closest('.mo-btn');
+    const ex = e.target.closest('[data-exempt]');
+    if (!mo && !ex) return;
+    const phone = mo ? mo.dataset.phone : ex.dataset.exempt;
+    const who = MEMBERS.find((m) => digits(m.phone) === phone);
+    if (!who) return;
+    if (mo) toggleMonth(who, Number(mo.dataset.mo)); else toggleExempt(who);
+    renderDues();
+  });
   $('duesFilter').addEventListener('click', (e) => {
     const b = e.target.closest('.chip');
     if (!b) return;
