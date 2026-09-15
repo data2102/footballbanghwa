@@ -486,6 +486,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 .dues-cell{ padding:var(--sp-1) 2px; text-align:center; }
 
 .mo-btn{
+  display:inline-flex; align-items:center; justify-content:center;
   width:26px; height:26px; padding:0; cursor:pointer;
   border:1px solid var(--border-strong); border-radius:var(--radius-sm);
   background:var(--surface); color:var(--on-accent);
@@ -501,6 +502,43 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 .mo-btn.late{ border-style:dashed; border-color:var(--warning); }
 .mo-btn.off{ background:var(--surface-sunken); border-style:dotted; cursor:not-allowed; }
 .mo-btn:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
+/* 보기 전용 칸. 누를 수 없다는 것이 손끝에서도 보여야 한다. */
+.mo-btn.ro{ cursor:default; }
+.dash{ color:var(--text-tertiary); }
+
+/* ---------- 관리자 ---------- */
+.dues-table th.dues-note-h{ min-width:150px; }
+.note-in{
+  width:100%; min-width:140px; padding:var(--sp-1) var(--sp-2);
+  font-size:var(--fs-footnote); border-radius:var(--radius-sm);
+}
+/* 고치는 칸은 판 위에 한 겹 올라온 것처럼 보여야 한다 — 표와 섞이면 어디를 보는지 잃는다. */
+.edit-card{
+  border:1px solid var(--accent); border-radius:var(--radius-lg);
+  background:var(--accent-bg); padding:var(--sp-5);
+  margin-bottom:var(--sp-5);
+}
+.edit-title{
+  font-size:var(--fs-subhead); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); margin-bottom:var(--sp-4);
+}
+.edit-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:var(--sp-3);
+}
+.edit-card .field{ margin-bottom:0; }
+.edit-card input{ background:var(--surface); }
+.edit-actions{ display:flex; gap:var(--sp-3); align-items:center; margin-top:var(--sp-2); }
+.edit-actions .btn{ width:auto; min-width:120px; margin-top:0; }
+@media (max-width:520px){
+  /* 좁은 화면에서는 버튼도 세로로 쌓는다 */
+  .edit-actions{ flex-direction:column; align-items:stretch; }
+  .edit-actions .btn, .edit-actions .btn-ghost{ width:100%; }
+}
+.row-acts{ display:flex; gap:var(--sp-2); white-space:nowrap; }
+/* 지우기는 한 번 더 물어본 다음에만 빨개진다 */
+.btn-ghost.danger{ color:var(--danger-strong); border-color:var(--danger); }
+.btn-ghost.danger:hover{ background:var(--danger-bg); }
 
 .chip.mini{ padding:var(--sp-1) var(--sp-3); font-size:var(--fs-footnote); }
 /* 면제인 줄은 가라앉힌다. 셈에서 빠졌다는 것이 줄만 봐도 보여야 한다. */
@@ -670,6 +708,8 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M8 13h8M8 17h5"></path></svg>정관</button>
       <button class="tab-btn" data-tab="schedule" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 11h18"></path></svg>대회일정</button>
+      <button class="tab-btn" data-tab="admin" type="button" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"></path><path d="M9.5 12l1.8 1.8L15 10"></path></svg>관리자</button>
     </div></nav>
 
     <div class="panels">
@@ -752,9 +792,10 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             <span class="badge badge-accent" id="duesYear"></span>
           </div>
           <div class="stat-grid" id="duesStats"></div>
-          <div class="foot-note">회비는 <b>한 달 2만원</b>입니다. 낸 달의 칸을 누르면 체크가 켜지고,
-            다시 누르면 꺼집니다. <b>면제</b>를 누르면 그분은 열두 달 모두 셈에서 빠집니다.
-            테두리가 점선인 칸은 지나간 달인데 아직 안 낸 달입니다.</div>
+          <div class="foot-note">회비는 <b>한 달 2만원</b>입니다. 체크가 켜진 칸이 낸 달이고,
+            테두리가 점선인 칸은 지나간 달인데 아직 안 낸 달입니다.
+            <b>여기서는 보기만 합니다</b> — 체크는 마스터·총무·부총무가 관리자 메뉴에서 합니다.
+            <button type="button" class="btn-ghost" id="duesAdminLink" hidden>관리자에서 체크하기</button></div>
         </div>
         <div class="panel">
           <div class="filter-row" id="duesFilter">
@@ -769,7 +810,8 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             </table>
           </div>
           <div class="foot-note"><b>체크는 이 기기에만 저장됩니다.</b> 아직 서버가 없어서
-            총무가 켠 표가 다른 분 화면에는 안 보입니다 — 붙이면 모두가 같은 표를 봅니다.</div>
+            총무가 켠 표가 다른 분 화면에는 안 보입니다 — 붙이면 모두가 같은 표를 봅니다.
+            비고는 관리자 메뉴에서만 보입니다.</div>
         </div>
       </div>
 
@@ -847,6 +889,98 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         </div>
       </div>
 
+      <!-- ===== 관리자 (마스터 · 총무 · 부총무) ===== -->
+      <div class="tab-panel" id="tab-admin">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>관리자</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-accent" id="adminWho"></span>
+          </div>
+          <div class="filter-row" id="adminNav" role="group" aria-label="관리자 화면 고르기">
+            <button class="chip on" data-admin="roster" type="button">회원 명단</button>
+            <button class="chip" data-admin="dues" type="button">회비 체크</button>
+          </div>
+          <div class="foot-note">명단 고치기와 회비 체크는 <b>마스터 · 총무 · 부총무</b>만 할 수 있습니다.
+            다른 회원에게는 이 메뉴가 아예 보이지 않습니다.</div>
+        </div>
+
+        <section class="panel" id="admin-roster">
+          <div class="panel-head">
+            <h2>회원 명단</h2>
+            <span class="spacer"></span>
+            <button type="button" class="btn-ghost" id="rosterAddBtn">회원 추가하기</button>
+            <button type="button" class="btn-ghost" id="rosterResetBtn" hidden>고친 것 되돌리기</button>
+          </div>
+
+          <form class="edit-card" id="rosterForm" hidden>
+            <div class="edit-title" id="rosterFormTitle">새 회원 넣기</div>
+            <div class="edit-grid">
+              <div class="field">
+                <label for="efName">성명</label>
+                <input type="text" id="efName" maxlength="20" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="efRole">직책</label>
+                <input type="text" id="efRole" list="roleList" maxlength="20"
+                       autocomplete="off" placeholder="비우면 일반 회원">
+                <datalist id="roleList"></datalist>
+              </div>
+              <div class="field">
+                <label for="efBirth">생년월일</label>
+                <input type="text" id="efBirth" maxlength="10" inputmode="numeric"
+                       autocomplete="off" placeholder="1988-08-01">
+              </div>
+              <div class="field">
+                <label for="efPhone">전화번호</label>
+                <input type="tel" id="efPhone" maxlength="13" inputmode="numeric"
+                       autocomplete="off" placeholder="010-0000-0000">
+              </div>
+            </div>
+            <div class="form-error" id="rosterErr" role="alert" aria-live="polite"></div>
+            <div class="edit-actions">
+              <button class="btn" type="submit">저장하기</button>
+              <button class="btn-ghost" type="button" id="efCancel">취소</button>
+            </div>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th class="rank-cell">번호</th><th>성명</th><th>직책</th>
+                <th>생년월일</th><th>전화번호</th><th>고치기</th>
+              </tr></thead>
+              <tbody id="rosterRows"></tbody>
+            </table>
+          </div>
+          <div class="foot-note" id="rosterNote"></div>
+        </section>
+
+        <section class="panel" id="admin-dues" hidden>
+          <div class="panel-head">
+            <h2>회비 체크</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-accent" id="adminDuesYear"></span>
+          </div>
+          <div class="stat-grid" id="adminDuesStats"></div>
+          <div class="filter-row" id="adminDuesFilter">
+            <button class="chip on" data-dues="all" type="button">전체</button>
+            <button class="chip" data-dues="unpaid" type="button">미납</button>
+            <button class="chip" data-dues="exempt" type="button">면제</button>
+          </div>
+          <div class="table-wrap">
+            <table class="dues-table">
+              <thead><tr id="adminDuesHead"></tr></thead>
+              <tbody id="adminDuesRows"></tbody>
+            </table>
+          </div>
+          <div class="foot-note">낸 달의 칸을 누르면 켜지고 다시 누르면 꺼집니다.
+            <b>면제</b>는 그분의 열두 달을 통째로 셈에서 뺍니다.
+            맨 오른쪽 <b>비고</b>에는 특별한 사항을 그대로 적습니다 — 적는 대로 저장됩니다.
+            <b>체크와 비고는 이 기기에만 저장됩니다.</b></div>
+        </section>
+      </div>
+
     </div>
   </div>
 
@@ -915,11 +1049,42 @@ const DEMO_MEMBERS = [
   { no: 36, name: '윤*준', band: '20', pos: 'DF', joined: '2026-03', phone: '010-3136-9047', role: '' },
 ];
 
-/* 실제 명단이 앞에 서고 데모가 뒤를 잇는다. 번호는 받은 순서 그대로 다시 매긴다. */
-const MEMBERS = (Array.isArray(window.BHFC_ROSTER) ? window.BHFC_ROSTER : [])
-  .map((m) => ({ pos: '', joined: '', role: '', ...m, real: true }))
-  .concat(DEMO_MEMBERS.map((m) => ({ birth: '', ...m, real: false })))
-  .map((m, i) => ({ ...m, no: i + 1 }));
+/* 관리자가 고친 것은 **명단 파일을 덮지 않고 그 위에 얹는다.**
+   덮어 버리면 roster.local.js 를 나중에 고쳐도 이 기기에서는 옛 명단이 계속 뜬다.
+   지운 사람 · 고친 칸 · 새로 넣은 사람만 따로 들고 있다가 그릴 때 겹친다. */
+const ROSTER_KEY = 'bhfc-roster-edit';
+let rosterEdit = { del: [], edit: {}, add: [] };
+
+function loadRosterEdit() {
+  try {
+    const v = JSON.parse(localStorage.getItem(ROSTER_KEY) || 'null');
+    if (v && Array.isArray(v.del) && Array.isArray(v.add) && v.edit) rosterEdit = v;
+  } catch (_) { /* 저장이 막혀 있다 */ }
+}
+function saveRosterEdit() {
+  try { localStorage.setItem(ROSTER_KEY, JSON.stringify(rosterEdit)); }
+  catch (_) { /* 저장이 막혀 있다 */ }
+  buildMembers();
+}
+const rosterEdited = () =>
+  rosterEdit.del.length + rosterEdit.add.length + Object.keys(rosterEdit.edit).length;
+
+/* 사람을 잡는 열쇠는 uid 다. 전화번호를 고치는 순간 번호로 잡던 회비·로그인이
+   남의 줄로 가 버린다 — 처음 들어온 번호를 그대로 열쇠로 굳힌다. */
+let MEMBERS = [];
+
+function buildMembers() {
+  const base = (Array.isArray(window.BHFC_ROSTER) ? window.BHFC_ROSTER : [])
+    .map((m) => ({ pos: '', joined: '', role: '', birth: '', ...m, real: true, uid: digits(m.phone) }))
+    .concat(DEMO_MEMBERS.map((m) => ({ birth: '', ...m, real: false, uid: digits(m.phone) })));
+
+  MEMBERS = base
+    .filter((m) => !rosterEdit.del.includes(m.uid))
+    .map((m) => ({ ...m, ...(rosterEdit.edit[m.uid] || {}) }))
+    .concat(rosterEdit.add.filter((m) => !rosterEdit.del.includes(m.uid))
+                          .map((m) => ({ pos: '', joined: '', role: '', birth: '', ...m, real: true })))
+    .map((m, i) => ({ ...m, no: i + 1 }));
+}
 
 /* 회비는 모든 회원이 한 달 2만원이다. 면제는 사람마다 총무가 켠다. */
 const DUES_MONTHLY = 20000;
@@ -1045,6 +1210,15 @@ function formatPhone(v) {
 /* 직책이 적혀 있으면 운영진이다. 부회장이 셋이라 이름을 하나씩 세지 않는다. */
 const isStaff = (m) => !!m && !!m.role && m.role !== '회원';
 
+/* 회비를 체크하고 명단을 고칠 수 있는 사람. 돈이 오가는 자리라 좁게 둔다 —
+   운영진이라고 다 되는 게 아니다. */
+const ADMIN_ROLES = ['마스터', '총무', '부총무'];
+const isAdmin = (m) => !!m && ADMIN_ROLES.includes(m.role);
+
+/* 관리자 화면에서 고를 수 있는 직책. 여기 없는 것도 직접 적어 넣을 수 있다. */
+const ROLE_CHOICES = ['마스터', '회장', '수석부회장', '재무부회장', '경기부회장',
+                      '섭외부회장', '총무', '부총무', '감독', '코치', '고문'];
+
 const TODAY = new Date();
 const TODAY_ISO = [
   TODAY.getFullYear(),
@@ -1111,7 +1285,7 @@ function doLogin(e) {
 
   err.textContent = '';
   setMe(m);
-  try { localStorage.setItem('bhfc-who', digits(m.phone)); } catch (_) { /* 저장이 막혀 있다 */ }
+  try { localStorage.setItem('bhfc-who', m.uid); } catch (_) { /* 저장이 막혀 있다 */ }
   showToast(m.name + '님, 어서 오세요.');
 }
 
@@ -1142,6 +1316,8 @@ function doLogout() {
    메뉴 · 테마
    ============================================================ */
 function openTab(key) {
+  // 화면을 숨기는 것만으로는 부족하다 — 주소에 남아 있던 탭으로 들어올 수 있다.
+  if (key === 'admin' && !isAdmin(me)) key = 'history';
   document.querySelectorAll('.tab-btn').forEach((b) =>
     b.classList.toggle('active', b.dataset.tab === key));
   document.querySelectorAll('.tab-panel').forEach((p) =>
@@ -1186,8 +1362,10 @@ function renderHistory() {
    명단(roster)의 role 과 글자가 같아야 그 자리에 사람이 선다. */
 const STAFF_SEATS = [
   '회장', '수석부회장', '재무부회장', '경기부회장', '섭외부회장',
-  '총무', '감독', '코치', '고문',
+  '총무', '부총무', '감독', '코치', '고문',
 ];
+/* 마스터는 집행부 자리가 아니라 화면 권한이다 — 표에 세우지 않는다. */
+const SEAT_HIDE = ['마스터'];
 
 function renderStaff() {
   // 자리를 먼저 세우고 그 자리에 사람을 앉힌다. 빈 자리도 줄은 남는다 —
@@ -1199,7 +1377,7 @@ function renderStaff() {
     else rows.push({ seat, m: null });
   });
   // 자리 목록에 없는 직책이 명단에 있으면 빠뜨리지 않고 뒤에 붙인다.
-  MEMBERS.filter((m) => isStaff(m) && !STAFF_SEATS.includes(m.role))
+  MEMBERS.filter((m) => isStaff(m) && !STAFF_SEATS.includes(m.role) && !SEAT_HIDE.includes(m.role))
     .forEach((m) => rows.push({ seat: m.role, m }));
 
   const filled = rows.filter((r) => r.m).length;
@@ -1333,8 +1511,9 @@ function saveDues() {
 }
 
 function duesOf(m) {
-  const k = digits(m.phone);
-  if (!duesBook[k]) duesBook[k] = { paid: [], exempt: false };
+  const k = m.uid;
+  if (!duesBook[k]) duesBook[k] = { paid: [], exempt: false, note: '' };
+  if (duesBook[k].note === undefined) duesBook[k].note = '';   // 예전에 저장된 줄
   return duesBook[k];
 }
 const isExempt = (m) => duesOf(m).exempt;
@@ -1361,64 +1540,259 @@ const owes = (m) => !isExempt(m) && dueMonths().some((mo) => !hasPaid(m, mo));
 
 let duesFilter = 'all';
 
-function renderDuesHead() {
-  $('duesHead').innerHTML =
-    '<th class="dues-name">이름</th>' +
+/* 회비 표는 두 군데에 뜬다 — 회비 탭은 보기만, 관리자 탭은 체크까지.
+   두 벌로 적으면 반드시 어긋나므로 그리는 함수 하나를 나눠 쓴다.
+   editable 이 아닐 때는 누를 수 있는 것을 아예 내놓지 않는다 — 눌러도 안 되는
+   버튼을 두면 "왜 안 되지"를 묻게 된다. */
+function duesHeadHtml(editable) {
+  return '<th class="dues-name">이름</th>' +
     MONTHS.map((mo) =>
       '<th class="dues-mo' + (mo === CUR_MONTH ? ' now' : '') + '">' + mo + '</th>').join('') +
-    '<th class="num-cell">낸 돈</th><th>면제</th>';
+    '<th class="num-cell">낸 돈</th><th>면제</th>' +
+    (editable ? '<th class="dues-note-h">비고</th>' : '');
 }
 
-function renderDues() {
-  const paying = MEMBERS.filter((m) => !isExempt(m));
-  const total  = paying.reduce((sum, m) => sum + duesOf(m).paid.length, 0) * DUES_MONTHLY;
-  const thisMo = paying.filter((m) => hasPaid(m, CUR_MONTH)).length;
+function duesRowsFor(filter) {
+  if (filter === 'unpaid') return MEMBERS.filter(owes);
+  if (filter === 'exempt') return MEMBERS.filter(isExempt);
+  return MEMBERS;
+}
 
-  $('duesYear').textContent = YEAR + '년';
-  $('duesStats').innerHTML = statCards([
-    ['올해 걷은 돈', total.toLocaleString('ko-KR'), '원'],
-    [CUR_MONTH + '월 납부', thisMo + ' / ' + paying.length, '명'],
-    ['미납 있는 분', MEMBERS.filter(owes).length, '명'],
-    ['면제', MEMBERS.filter(isExempt).length, '명'],
-  ]);
-
-  let rows = MEMBERS;
-  if (duesFilter === 'unpaid') rows = MEMBERS.filter(owes);
-  if (duesFilter === 'exempt') rows = MEMBERS.filter(isExempt);
-
+function duesBodyHtml(rows, editable, filter) {
+  const cols = MONTHS.length + 3 + (editable ? 1 : 0);
   if (!rows.length) {
-    $('duesRows').innerHTML =
-      '<tr><td colspan="' + (MONTHS.length + 3) + '" class="empty">' +
-      (duesFilter === 'unpaid' ? '미납인 분이 없어요.' : '면제인 분이 없어요.') +
-      '</td></tr>';
-    return;
+    return '<tr><td colspan="' + cols + '" class="empty">' +
+      (filter === 'unpaid' ? '미납인 분이 없어요.' : '해당하는 분이 없어요.') + '</td></tr>';
   }
-
-  $('duesRows').innerHTML = rows.map((m) => {
+  return rows.map((m) => {
     const rec  = duesOf(m);
     const mine = me && m.no === me.no;
     const cells = MONTHS.map((mo) => {
       const on   = hasPaid(m, mo);
       const late = !rec.exempt && !on && mo <= CUR_MONTH;
+      const cls  = 'mo-btn' + (on ? ' on' : '') + (late ? ' late' : '') + (rec.exempt ? ' off' : '');
+      const what = esc(m.name) + ' ' + mo + '월 ' + (rec.exempt ? '면제' : on ? '납부함' : '안 냄');
+      if (!editable) {
+        return '<td class="dues-cell"><span class="' + cls + ' ro" role="img"' +
+          ' aria-label="' + what + '">' + (on ? '✓' : '') + '</span></td>';
+      }
       return '<td class="dues-cell">' +
-        '<button type="button" class="mo-btn' + (on ? ' on' : '') +
-          (late ? ' late' : '') + (rec.exempt ? ' off' : '') + '"' +
-          (rec.exempt ? ' disabled' : '') +
-          ' data-phone="' + digits(m.phone) + '" data-mo="' + mo + '"' +
-          ' aria-pressed="' + on + '"' +
-          ' aria-label="' + esc(m.name) + ' ' + mo + '월 ' + (on ? '납부함' : '안 냄') + '">' +
+        '<button type="button" class="' + cls + '"' + (rec.exempt ? ' disabled' : '') +
+          ' data-uid="' + esc(m.uid) + '" data-mo="' + mo + '"' +
+          ' aria-pressed="' + on + '" aria-label="' + what + '">' +
           (on ? '✓' : '') + '</button></td>';
     }).join('');
+
+    const exemptCell = editable
+      ? '<td><button type="button" class="chip mini' + (rec.exempt ? ' on' : '') + '"' +
+          ' data-exempt="' + esc(m.uid) + '" aria-pressed="' + rec.exempt + '">면제</button></td>'
+      : '<td>' + (rec.exempt ? '<span class="badge badge-info">면제</span>'
+                             : '<span class="dash">—</span>') + '</td>';
+
+    const noteCell = editable
+      ? '<td><input type="text" class="note-in" maxlength="60"' +
+          ' id="note-' + esc(m.uid) + '" data-note="' + esc(m.uid) + '"' +
+          ' value="' + esc(rec.note || '') + '"' +
+          ' aria-label="' + esc(m.name) + ' 비고"' +
+          ' placeholder="특별한 사항"></td>'
+      : '';
+
     return '<tr' + (rec.exempt ? ' class="row-exempt"' : '') + '>' +
       '<td class="dues-name">' + esc(m.name) +
         (mine ? ' <span class="badge badge-accent">나</span>' : '') + '</td>' +
       cells +
       '<td class="num-cell">' + (rec.exempt ? '—' : won(rec.paid.length * DUES_MONTHLY)) + '</td>' +
-      '<td><button type="button" class="chip mini' + (rec.exempt ? ' on' : '') + '"' +
-        ' data-exempt="' + digits(m.phone) + '"' +
-        ' aria-pressed="' + rec.exempt + '">면제</button></td>' +
+      exemptCell + noteCell +
     '</tr>';
   }).join('');
+}
+
+function duesStatCards() {
+  const paying = MEMBERS.filter((m) => !isExempt(m));
+  const total  = paying.reduce((sum, m) => sum + duesOf(m).paid.length, 0) * DUES_MONTHLY;
+  const thisMo = paying.filter((m) => hasPaid(m, CUR_MONTH)).length;
+  return statCards([
+    ['올해 걷은 돈', total.toLocaleString('ko-KR'), '원'],
+    [CUR_MONTH + '월 납부', thisMo + ' / ' + paying.length, '명'],
+    ['미납 있는 분', MEMBERS.filter(owes).length, '명'],
+    ['면제', MEMBERS.filter(isExempt).length, '명'],
+  ]);
+}
+
+/** 회비 탭 — 보기만 한다. */
+function renderDues() {
+  $('duesYear').textContent = YEAR + '년';
+  $('duesStats').innerHTML = duesStatCards();
+  $('duesHead').innerHTML  = duesHeadHtml(false);
+  $('duesRows').innerHTML  = duesBodyHtml(duesRowsFor(duesFilter), false, duesFilter);
+  // 총무가 보고 있으면 체크하러 갈 길을 여기서 바로 내준다.
+  $('duesAdminLink').hidden = !isAdmin(me);
+}
+
+/* ============================================================
+   관리자 (마스터 · 총무 · 부총무)
+   명단을 고치고 회비를 체크하는 곳. 돈과 명단이 걸린 자리라
+   화면을 숨기는 것으로 끝내지 않고 그리는 쪽도 권한을 다시 본다.
+   ============================================================ */
+let adminView   = 'roster';
+let adminFilter = 'all';
+let editingUid  = null;   // null 이면 새로 넣는 중
+let pendingDel  = null;   // "삭제"를 한 번 누른 사람. 두 번째 눌러야 지운다.
+
+function renderAdminNav() {
+  $('adminNav').querySelectorAll('.chip').forEach((b) =>
+    b.classList.toggle('on', b.dataset.admin === adminView));
+  $('admin-roster').hidden = adminView !== 'roster';
+  $('admin-dues').hidden   = adminView !== 'dues';
+}
+
+function renderRoster() {
+  $('rosterResetBtn').hidden = !rosterEdited();
+  $('rosterRows').innerHTML = MEMBERS.map((m) =>
+    '<tr>' +
+      '<td class="rank-cell">' + m.no + '</td>' +
+      '<td>' + esc(m.name) +
+        (m.real ? '' : ' <span class="badge badge-mute">데모</span>') + '</td>' +
+      '<td>' + (m.role ? '<span class="badge badge-accent">' + esc(m.role) + '</span>'
+                       : '<span class="dash">—</span>') + '</td>' +
+      '<td>' + esc(birthText(m.birth)) + '</td>' +
+      '<td>' + esc(m.phone) + '</td>' +
+      '<td><div class="row-acts">' +
+        '<button type="button" class="btn-ghost" data-edit="' + esc(m.uid) + '">수정</button>' +
+        (pendingDel === m.uid
+          ? '<button type="button" class="btn-ghost danger" data-del="' + esc(m.uid) + '">정말 지울까요?</button>'
+          : '<button type="button" class="btn-ghost" data-askdel="' + esc(m.uid) + '">삭제</button>') +
+      '</div></td>' +
+    '</tr>').join('');
+
+  const n = rosterEdited();
+  $('rosterNote').innerHTML = n
+    ? '이 기기에서 <b>' + n + '건</b>을 고쳤습니다. 명단 파일은 그대로 두고 그 위에 얹혀 있어서, ' +
+      '"고친 것 되돌리기"를 누르면 파일 그대로로 돌아갑니다.'
+    : '명단 파일을 그대로 보고 있습니다. 여기서 고치면 <b>이 기기에만</b> 얹힙니다 — ' +
+      '서버에 붙이기 전까지는 다른 분 화면이 바뀌지 않습니다.';
+}
+
+function renderAdminDues() {
+  $('adminDuesYear').textContent = YEAR + '년';
+  $('adminDuesStats').innerHTML = duesStatCards();
+  $('adminDuesHead').innerHTML  = duesHeadHtml(true);
+  $('adminDuesRows').innerHTML  = duesBodyHtml(duesRowsFor(adminFilter), true, adminFilter);
+}
+
+function renderAdmin() {
+  const on = isAdmin(me);
+  const btn = document.querySelector('.tab-btn[data-tab="admin"]');
+  if (btn) btn.hidden = !on;
+  if (!on) return;
+  $('adminWho').textContent = me.role;
+  renderAdminNav();
+  renderRoster();
+  renderAdminDues();
+}
+
+/* ---------- 명단 고치기 ---------- */
+
+/** 1988.08.01 · 19880801 · 1988-08-01 을 모두 받는다. 못 읽으면 빈 값. */
+function normBirth(v) {
+  const d = digits(v);
+  if (d.length !== 8) return '';
+  return d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6);
+}
+
+/** 관리자를 전부 없애면 이 기기에서는 아무도 명단을 못 고친다 —
+    마지막 한 사람은 스스로도 내려놓지 못하게 막는다. */
+function wouldOrphan(uid, nextRole) {
+  const others = MEMBERS.filter((m) => m.uid !== uid && ADMIN_ROLES.includes(m.role));
+  return !others.length && !ADMIN_ROLES.includes(nextRole);
+}
+
+function openRosterForm(uid) {
+  editingUid = uid || null;
+  const m = uid ? MEMBERS.find((x) => x.uid === uid) : null;
+  $('rosterFormTitle').textContent = m ? m.name + ' 님 고치기' : '새 회원 넣기';
+  $('efName').value  = m ? m.name  : '';
+  $('efRole').value  = m ? m.role  : '';
+  $('efBirth').value = m ? m.birth : '';
+  $('efPhone').value = m ? m.phone : '';
+  $('rosterErr').textContent = '';
+  $('rosterForm').hidden = false;
+  $('efName').focus();
+}
+
+function closeRosterForm() {
+  $('rosterForm').hidden = true;
+  editingUid = null;
+}
+
+function submitRoster(e) {
+  e.preventDefault();
+  if (!isAdmin(me)) return;
+  const err   = $('rosterErr');
+  const name  = $('efName').value.trim();
+  const role  = $('efRole').value.trim();
+  const raw   = $('efBirth').value.trim();
+  const birth = normBirth(raw);
+  const phone = $('efPhone').value.trim();
+  err.textContent = '';
+
+  if (!name) { err.textContent = '성명을 적어 주세요.'; return; }
+  if (digits(phone).length < 8) {
+    err.textContent = '전화번호를 다시 봐 주세요. 비밀번호가 뒤 4자리라 번호가 있어야 들어옵니다.';
+    return;
+  }
+  if (raw && !birth) { err.textContent = '생년월일은 1988-08-01 처럼 적어 주세요.'; return; }
+  // 같은 번호가 둘이면 로그인이 어느 쪽인지 갈린다
+  const dup = MEMBERS.find((x) => digits(x.phone) === digits(phone) && x.uid !== editingUid);
+  if (dup) { err.textContent = '이미 ' + dup.name + ' 님이 쓰는 번호예요.'; return; }
+  if (editingUid && wouldOrphan(editingUid, role)) {
+    err.textContent = '마지막 관리자예요. 다른 분에게 마스터·총무·부총무를 먼저 맡겨 주세요.';
+    return;
+  }
+
+  if (editingUid) {
+    const mine = rosterEdit.add.find((x) => x.uid === editingUid);
+    if (mine) Object.assign(mine, { name, role, birth, phone });
+    else rosterEdit.edit[editingUid] =
+      Object.assign({}, rosterEdit.edit[editingUid], { name, role, birth, phone });
+  } else {
+    rosterEdit.add.push({
+      uid: 'n' + Date.now().toString(36) + Math.floor(Math.random() * 1e4),
+      name, role, birth, phone,
+    });
+  }
+  const what = editingUid ? '고쳤어요.' : name + ' 님을 넣었어요.';
+  saveRosterEdit();
+  closeRosterForm();
+  renderAll();
+  showToast(what);
+}
+
+function deleteMember(uid) {
+  if (!isAdmin(me)) return;
+  if (wouldOrphan(uid, '')) {
+    pendingDel = null;
+    renderRoster();
+    showToast('마지막 관리자라 뺄 수 없어요.');
+    return;
+  }
+  const wasMe = me.uid === uid;
+  const i = rosterEdit.add.findIndex((x) => x.uid === uid);
+  if (i !== -1) rosterEdit.add.splice(i, 1);
+  else if (!rosterEdit.del.includes(uid)) rosterEdit.del.push(uid);
+  delete rosterEdit.edit[uid];
+  pendingDel = null;
+  saveRosterEdit();
+  if (wasMe) { doLogout(); return; }   // 내가 빠졌으면 문 밖으로 나간다
+  renderAll();
+  showToast('명단에서 뺐어요.');
+}
+
+function resetRoster() {
+  rosterEdit = { del: [], edit: {}, add: [] };
+  saveRosterEdit();
+  renderAll();
+  showToast('명단 파일 그대로로 되돌렸어요.');
 }
 
 /* ============================================================
@@ -1561,6 +1935,7 @@ function renderSchedule() {
    그리기 · 묶기
    ============================================================ */
 function renderAll() {
+  renderAdmin();
   renderHistory();
   renderStaff();
   renderMemberStats();
@@ -1572,6 +1947,8 @@ function renderAll() {
 }
 
 function init() {
+  loadRosterEdit();
+  buildMembers();
   loadDues();
   $('loginForm').addEventListener('submit', doLogin);
   $('logoutBtn').addEventListener('click', doLogout);
@@ -1599,17 +1976,66 @@ function init() {
     renderMembers();
   });
 
-  renderDuesHead();
+  $('duesAdminLink').addEventListener('click', () => {
+    adminView = 'dues';
+    renderAdminNav();
+    openTab('admin');
+    window.scrollTo(0, 0);
+  });
+
+  /* ---------- 관리자 ---------- */
+  $('roleList').innerHTML = ROLE_CHOICES.map((r) => '<option value="' + r + '"></option>').join('');
+
+  $('adminNav').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    adminView = b.dataset.admin;
+    renderAdminNav();
+  });
+
+  $('rosterAddBtn').addEventListener('click', () => openRosterForm(null));
+  $('efCancel').addEventListener('click', closeRosterForm);
+  $('rosterForm').addEventListener('submit', submitRoster);
+  $('rosterResetBtn').addEventListener('click', resetRoster);
+
+  $('rosterRows').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-edit],[data-askdel],[data-del]');
+    if (!b) return;
+    if (b.dataset.edit)   { openRosterForm(b.dataset.edit); return; }
+    // 지우는 것은 되돌릴 데가 없다. 한 번 더 물어본다.
+    if (b.dataset.askdel) { pendingDel = b.dataset.askdel; renderRoster(); return; }
+    if (b.dataset.del)    deleteMember(b.dataset.del);
+  });
+
   // 표가 크다 — 칸마다 듣지 않고 표 하나가 듣는다.
-  $('duesRows').addEventListener('click', (e) => {
+  $('adminDuesRows').addEventListener('click', (e) => {
+    if (!isAdmin(me)) return;
     const mo = e.target.closest('.mo-btn');
     const ex = e.target.closest('[data-exempt]');
     if (!mo && !ex) return;
-    const phone = mo ? mo.dataset.phone : ex.dataset.exempt;
-    const who = MEMBERS.find((m) => digits(m.phone) === phone);
+    const who = MEMBERS.find((m) => m.uid === (mo ? mo.dataset.uid : ex.dataset.exempt));
     if (!who) return;
     if (mo) toggleMonth(who, Number(mo.dataset.mo)); else toggleExempt(who);
+    renderAdminDues();
     renderDues();
+  });
+
+  // 비고는 글자를 칠 때마다 저장하되 **다시 그리지 않는다** — 그리면 커서가 날아간다.
+  $('adminDuesRows').addEventListener('input', (e) => {
+    const el = e.target.closest('[data-note]');
+    if (!el || !isAdmin(me)) return;
+    const who = MEMBERS.find((m) => m.uid === el.dataset.note);
+    if (!who) return;
+    duesOf(who).note = el.value;
+    saveDues();
+  });
+
+  $('adminDuesFilter').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    adminFilter = b.dataset.dues;
+    $('adminDuesFilter').querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b));
+    renderAdminDues();
   });
   $('duesFilter').addEventListener('click', (e) => {
     const b = e.target.closest('.chip');
@@ -1629,16 +2055,18 @@ function init() {
 
   renderRules();
 
+  // 로그인해 두었으면 문을 다시 묻지 않는다.
+  // **먼저 누구인지부터 정한다** — 관리자 탭은 권한을 보고 열리므로,
+  // 순서가 뒤집히면 관리자가 관리자 탭에서 새로고침할 때마다 연혁으로 튕긴다.
+  let who = null;
+  try { who = localStorage.getItem('bhfc-who'); } catch (_) { /* noop */ }
+  const m = who && MEMBERS.find((x) => x.uid === who);
+  if (m) setMe(m); else $('inName').focus();
+
   // 지난번에 보던 메뉴로 돌아온다
   let tab = 'history';
   try { tab = localStorage.getItem('bhfc-tab') || 'history'; } catch (_) { /* noop */ }
   if (document.getElementById('tab-' + tab)) openTab(tab);
-
-  // 로그인해 두었으면 문을 다시 묻지 않는다
-  let who = null;
-  try { who = localStorage.getItem('bhfc-who'); } catch (_) { /* noop */ }
-  const m = who && MEMBERS.find((x) => digits(x.phone) === who);
-  if (m) setMe(m); else $('inName').focus();
 }
 
 init();
