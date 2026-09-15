@@ -151,39 +151,76 @@ table, .num{ font-variant-numeric:tabular-nums; }
 
 /* ============================================================
    로그인 문 — 여기를 지나야 아래가 보인다
+
+   이 화면만 문장(crest)의 세계로 간다 — 남색 바탕에 금색.
+   토큰을 #gate 안에서만 다시 정하므로 문을 지난 뒤의 화면(빨강)은 그대로다.
    ============================================================ */
 #gate{
-  min-height:calc(100vh - var(--sp-6) - var(--sp-12));
+  /* 로그인 화면은 판이 아니라 문이다. 화면을 꽉 채운다. */
+  position:fixed; inset:0; z-index:var(--z-modal);
+  overflow-y:auto; overscroll-behavior:contain;
   display:flex; align-items:center; justify-content:center;
+  padding:var(--sp-8) var(--sp-4);
+
+  --navy-deep:  #060d22;
+  --navy:       #0e1c40;
+  --navy-line:  #24386e;
+  --gold:       #f2cf62;
+  --gold-soft:  #cbb478;
+  --gold-deep:  #b08d2e;
+  --on-gold:    #0b142e;
+
+  color:#e8ecf7;
+  /* 문장의 후광이 그대로 이어지도록 가운데를 조금 들어올린다 */
+  background:
+    radial-gradient(120% 80% at 50% 12%, #1b2f60 0%, var(--navy) 38%, var(--navy-deep) 100%);
 }
 #gate[hidden]{ display:none; }
+
 .gate-card{
-  width:100%; max-width:400px;
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:var(--radius-xl); box-shadow:var(--shadow-card);
-  padding:var(--sp-8) var(--sp-6) var(--sp-6);
+  width:100%; max-width:380px;
+  background:rgba(8, 16, 40, 0.62);
+  border:1px solid var(--navy-line);
+  border-radius:var(--radius-xl);
+  box-shadow:0 18px 48px rgba(0,0,0,0.45);
+  padding:var(--sp-6);
+  backdrop-filter:blur(2px);
 }
+
+/* 문장이 주인공이다. 화면에 큰 것은 이것 하나. */
 .gate-crest{
-  width:56px; height:56px; border-radius:var(--radius-lg);
-  background:var(--accent-strong); color:var(--on-accent);
-  display:flex; align-items:center; justify-content:center;
-  font-size:var(--fs-heading); font-weight:var(--fw-bold);
-  letter-spacing:var(--ls-tight); margin-bottom:var(--sp-5);
+  display:block; width:auto; height:150px;
+  margin:0 auto var(--sp-4);
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,0.5));
 }
+.gate-head{ text-align:center; margin-bottom:var(--sp-6); }
 .gate-card h1{
   font-size:var(--fs-title); font-weight:var(--fw-bold);
-  letter-spacing:var(--ls-tight); line-height:var(--lh-tight); margin:0;
+  letter-spacing:var(--ls-tight); line-height:var(--lh-tight);
+  margin:0; color:var(--gold);
+}
+.gate-en{
+  margin-top:var(--sp-2);
+  font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--gold-soft); font-weight:var(--fw-medium);
+}
+/* 금색 실선 한 줄. 문장의 테두리와 같은 말을 한다. */
+.gate-rule{
+  height:1px; margin:var(--sp-4) auto 0; max-width:180px;
+  background:linear-gradient(90deg, transparent, var(--gold-deep), transparent);
 }
 .gate-sub{
-  font-size:var(--fs-caption); color:var(--text-secondary);
-  margin-top:var(--sp-2); margin-bottom:var(--sp-6);
+  font-size:var(--fs-caption); color:#aeb9d6;
+  margin-top:var(--sp-4);
 }
+
 .field{ margin-bottom:var(--sp-4); }
 .field label{
-  display:block; font-size:var(--fs-footnote); color:var(--text-tertiary);
-  margin-bottom:var(--sp-1); font-weight:var(--fw-medium);
+  display:block; font-size:var(--fs-footnote); margin-bottom:var(--sp-1);
+  font-weight:var(--fw-medium);
 }
-.field-hint{ font-size:var(--fs-footnote); color:var(--text-tertiary); margin-top:var(--sp-1); }
+#gate .field label{ color:var(--gold-soft); }
+.field-hint{ font-size:var(--fs-footnote); margin-top:var(--sp-1); color:#8d99ba; }
 
 input[type=text],input[type=tel],input[type=password],input[type=search],select,textarea{
   background:var(--surface); border:1px solid var(--border-strong);
@@ -197,17 +234,70 @@ input:focus,select:focus,textarea:focus{
   outline:none; border-color:var(--accent); box-shadow:var(--shadow-focus);
 }
 input::placeholder{ color:var(--text-disabled); }
-.form-error{
-  color:var(--danger-strong); font-size:var(--fs-footnote);
-  margin-top:var(--sp-3); min-height:18px;
+
+/* 문 안의 입력칸은 남색 위에 선다 */
+#gate input{
+  background:rgba(255,255,255,0.05);
+  border-color:var(--navy-line);
+  color:#f2f5ff;
 }
+#gate input::placeholder{ color:#6f7ea6; }
+#gate input:focus{
+  border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(242,207,98,0.22);
+  background:rgba(255,255,255,0.08);
+}
+/* 브라우저가 채워 준 칸도 남색으로 — 기본값은 흰 바탕이라 혼자 튄다 */
+#gate input:-webkit-autofill,
+#gate input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#f2f5ff;
+  -webkit-box-shadow:0 0 0 1000px #16264f inset;
+  caret-color:#f2f5ff;
+}
+
+.form-error{
+  font-size:var(--fs-footnote); margin-top:var(--sp-3); min-height:18px;
+  color:var(--danger-strong);
+}
+#gate .form-error{ color:#ff9a90; }
+
+/* 문의 단추는 금색이다. 화면에 채운 단추는 이것 하나. */
+#gate .btn{
+  background:linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+  color:var(--on-gold);
+  box-shadow:0 2px 10px rgba(0,0,0,0.35);
+}
+#gate .btn:hover:not(:disabled){ filter:brightness(1.06); background:var(--gold); }
+#gate .btn:active:not(:disabled){ filter:brightness(0.94); }
+#gate .btn:focus-visible{ box-shadow:0 0 0 3px rgba(242,207,98,0.45); }
+
 .gate-demo{
   margin-top:var(--sp-5); padding:var(--sp-4);
-  background:var(--surface-sunken); border:1px solid var(--border);
   border-radius:var(--radius-md);
-  font-size:var(--fs-footnote); color:var(--text-secondary); line-height:var(--lh-body);
+  font-size:var(--fs-footnote); line-height:var(--lh-body);
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--navy-line);
+  color:#aeb9d6; text-align:center;
 }
-.gate-demo b{ color:var(--text-primary); font-weight:var(--fw-medium); }
+.gate-demo b{ color:var(--gold-soft); font-weight:var(--fw-medium); }
+.gate-foot{
+  margin-top:var(--sp-5); text-align:center;
+  font-size:11px; letter-spacing:.14em; color:#5f6d92;
+}
+
+@media (max-width:380px){
+  .gate-crest{ height:120px; }
+}
+/* 화면이 낮으면(가로로 누운 폰, 작은 기기) 문장이 화면을 다 먹는다.
+   문장을 줄이고 여백을 좁혀 로그인 단추를 위로 끌어올린다. */
+@media (max-height:680px){
+  #gate{ align-items:flex-start; padding:var(--sp-5) var(--sp-4); }
+  .gate-crest{ height:96px; margin-bottom:var(--sp-3); }
+  .gate-card{ padding:var(--sp-5); }
+  .gate-head{ margin-bottom:var(--sp-4); }
+  .gate-sub{ margin-top:var(--sp-3); }
+  .gate-demo{ margin-top:var(--sp-4); }
+}
 
 /* ---------- 버튼 ---------- */
 .btn{
@@ -651,9 +741,14 @@ tbody tr:hover td{ background:var(--surface-sunken); }
      ============================================================ -->
 <div id="gate">
   <form class="gate-card" id="loginForm" autocomplete="on">
-    <div class="gate-crest">BH</div>
-    <h1>방화 FC</h1>
-    <div class="gate-sub">조기축구회 회원 전용 · 이름과 전화번호로 들어옵니다.</div>
+    <img class="gate-crest" src="crest.png" width="484" height="512"
+         alt="방화 FC 문장 — 왕관과 호랑이, SINCE 1976">
+    <div class="gate-head">
+      <h1>방화 FC</h1>
+      <div class="gate-en">Banghwa Football Club · Since 1976</div>
+      <div class="gate-rule"></div>
+      <div class="gate-sub">회원 전용 · 이름과 전화번호로 들어옵니다.</div>
+    </div>
 
     <div class="field">
       <label for="inName">이름</label>
@@ -678,9 +773,10 @@ tbody tr:hover td{ background:var(--surface-sunken); }
     <button class="btn" type="submit">로그인하기</button>
 
     <div class="gate-demo">
-      명단에 있는 이름과 전화번호로 들어옵니다.
-      명단에 없는 분은 총무에게 말씀해 주세요.
+      명단에 있는 이름과 전화번호로 들어옵니다.<br>
+      명단에 없는 분은 <b>총무</b>에게 말씀해 주세요.
     </div>
+    <div class="gate-foot">서남물재생센터 축구장 · 매주 일요일 07:00</div>
   </form>
 </div>
 
