@@ -478,7 +478,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 }
 .dues-table tbody tr:hover td.dues-name{ background:var(--surface-sunken); }
 .dues-table th.dues-mo{
-  text-align:center; padding:var(--sp-2) 0; min-width:32px;
+  text-align:center; padding:var(--sp-2) 0; min-width:40px;
   font-variant-numeric:tabular-nums;
 }
 /* 이번 달은 눈이 먼저 가야 한다 */
@@ -487,7 +487,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 
 .mo-btn{
   display:inline-flex; align-items:center; justify-content:center;
-  width:26px; height:26px; padding:0; cursor:pointer;
+  width:36px; height:26px; padding:0; cursor:pointer;
   border:1px solid var(--border-strong); border-radius:var(--radius-sm);
   background:var(--surface); color:var(--on-accent);
   font-family:inherit; font-size:var(--fs-footnote); font-weight:var(--fw-bold);
@@ -501,6 +501,18 @@ tbody tr:hover td{ background:var(--surface-sunken); }
    바탕까지 칠하면 아무도 안 낸 첫 화면이 온통 노란 벽이 된다 — 테두리만 쓴다. */
 .mo-btn.late{ border-style:dashed; border-color:var(--warning); }
 .mo-btn.off{ background:var(--surface-sunken); border-style:dotted; cursor:not-allowed; }
+/* 2만원이 아닌 금액이 적힌 칸. 글자가 들어가니 한 단 줄인다. */
+.mo-btn.amt{ font-size:10px; letter-spacing:-0.3px; }
+/* 냈지만 2만원에 모자란 달. 채워진 칸과 빈 칸 사이라 테두리로 구분한다. */
+.mo-btn.part{ background:var(--warning-bg); border-color:var(--warning); color:var(--warning-strong); }
+.mo-btn.part:hover:not(:disabled){ background:var(--warning-bg); }
+/* 받은 금액을 그대로 적는 칸 */
+.amt-in{
+  width:46px; padding:var(--sp-1) 2px; text-align:center;
+  font-size:11px; border-radius:var(--radius-sm);
+  font-variant-numeric:tabular-nums;
+}
+
 /* 연선납으로 한 해가 통째로 덮인 칸. 켜져 있지만 달마다 끄고 켤 수는 없다. */
 .mo-btn.fixed{ cursor:not-allowed; }
 .mo-btn.fixed.on{ background:var(--success-strong); border-color:var(--success-strong); }
@@ -797,9 +809,10 @@ tbody tr:hover td{ background:var(--surface-sunken); }
           <div class="stat-grid" id="duesStats"></div>
           <div class="foot-note">회비는 <b>한 달 2만원</b>이고, 한 해를 미리 내면
             두 달치를 깎아 <b>20만원</b>입니다. 체크가 켜진 칸이 낸 달이고,
+            <b>3.5만</b>처럼 금액이 적힌 칸은 그 달에 그만큼 받았다는 뜻입니다.
             테두리가 점선인 칸은 지나간 달인데 아직 안 낸 달입니다.
             <b>연선납</b>은 열두 달이 모두 켜지고 낸 돈이 20만원으로 적힙니다.
-            <b>여기서는 보기만 합니다</b> — 체크는 마스터·총무·부총무가 관리자 메뉴에서 합니다.
+            <b>여기서는 보기만 합니다</b> — 체크는 감독·총무가 관리자 메뉴에서 합니다.
             <button type="button" class="btn-ghost" id="duesAdminLink" hidden>관리자에서 체크하기</button></div>
         </div>
         <div class="panel">
@@ -907,7 +920,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             <button class="chip on" data-admin="roster" type="button">회원 명단</button>
             <button class="chip" data-admin="dues" type="button">회비 체크</button>
           </div>
-          <div class="foot-note">명단 고치기와 회비 체크는 <b>마스터 · 총무 · 부총무</b>만 할 수 있습니다.
+          <div class="foot-note">명단 고치기와 회비 체크는 <b>마스터 · 총무 · 부총무 · 감독</b>만 할 수 있습니다.
             다른 회원에게는 이 메뉴가 아예 보이지 않습니다.</div>
         </div>
 
@@ -969,6 +982,10 @@ tbody tr:hover td{ background:var(--surface-sunken); }
             <span class="badge badge-accent" id="adminDuesYear"></span>
           </div>
           <div class="stat-grid" id="adminDuesStats"></div>
+          <div class="filter-row" id="duesMode" role="group" aria-label="적는 방식 고르기">
+            <button class="chip on" data-mode="check" type="button">체크로 · 2만원</button>
+            <button class="chip" data-mode="amount" type="button">받은 금액으로</button>
+          </div>
           <div class="filter-row" id="adminDuesFilter">
             <button class="chip on" data-dues="all" type="button">전체</button>
             <button class="chip" data-dues="unpaid" type="button">미납</button>
@@ -980,7 +997,11 @@ tbody tr:hover td{ background:var(--surface-sunken); }
               <tbody id="adminDuesRows"></tbody>
             </table>
           </div>
-          <div class="foot-note">낸 달의 칸을 누르면 켜지고 다시 누르면 꺼집니다.
+          <div class="foot-note"><b>체크로</b>는 칸을 누를 때마다 <b>2만원씩 오릅니다</b>
+            (2만 → 4만 → 6만 …, 10만원을 넘기면 0으로 돌아갑니다).
+            딱 떨어지지 않는 돈을 받았으면 <b>받은 금액으로</b>를 눌러 칸에 금액을 그대로 적습니다
+            (예: 35000). 2만원이 아닌 달은 칸에 <b>3.5만</b>처럼 뜨고,
+            2만원에 모자라면 그 달은 미납으로 셉니다.
             <b>연선납</b>을 켜면 열두 달이 모두 채워지고 낸 돈이 <b>20만원</b>으로 잡힙니다
             (두 달치 할인이라 2만원 × 12가 아닙니다).
             <b>면제</b>는 그분의 열두 달을 통째로 셈에서 뺍니다.
@@ -1244,7 +1265,7 @@ const isStaff = (m) => !!m && !!m.role && m.role !== '회원';
 
 /* 회비를 체크하고 명단을 고칠 수 있는 사람. 돈이 오가는 자리라 좁게 둔다 —
    운영진이라고 다 되는 게 아니다. */
-const ADMIN_ROLES = ['마스터', '총무', '부총무'];
+const ADMIN_ROLES = ['마스터', '총무', '부총무', '감독'];
 const isAdmin = (m) => !!m && ADMIN_ROLES.includes(m.role);
 
 /* 관리자 화면에서 고를 수 있는 직책. 여기 없는 것도 직접 적어 넣을 수 있다. */
@@ -1546,30 +1567,55 @@ function saveDues() {
 
 function duesOf(m) {
   const k = m.uid;
-  if (!duesBook[k]) duesBook[k] = { paid: [], annual: false, exempt: false, note: '' };
+  if (!duesBook[k]) duesBook[k] = { paid: {}, annual: false, exempt: false, note: '' };
   const r = duesBook[k];                       // 예전에 저장된 줄에는 없는 칸이 있다
   if (r.note === undefined)   r.note = '';
   if (r.annual === undefined) r.annual = false;
+  /* paid 는 예전에 [1,2,3] 이었다. 이제 달마다 **받은 금액**을 담는다
+     ({ '1': 20000, '2': 35000 }) — 늘 2만원만 들어오는 게 아니라서다.
+     예전에 저장된 줄은 2만원씩 낸 것으로 옮긴다. */
+  if (Array.isArray(r.paid)) {
+    const o = {};
+    r.paid.forEach((mo) => { o[mo] = DUES_MONTHLY; });
+    r.paid = o;
+  }
+  if (!r.paid || typeof r.paid !== 'object') r.paid = {};
   return r;
 }
 const isAnnual = (m) => duesOf(m).annual;
 const isExempt = (m) => duesOf(m).exempt;
+/** 그 달에 받은 금액. 안 받았으면 0. */
+const paidAmt  = (m, mo) => Number(duesOf(m).paid[mo]) || 0;
 /** 연선납은 열두 달을 덮는다. 달칸을 하나씩 켜 두지 않는다 —
     연선납을 풀었을 때 원래 내던 달이 살아 있어야 한다. */
-const hasPaid  = (m, mo) => isAnnual(m) || duesOf(m).paid.includes(mo);
+const hasPaid  = (m, mo) => isAnnual(m) || paidAmt(m, mo) > 0;
+/** 그 달을 다 채웠는가. 2만원에 모자라게 받은 달은 아직 미납이다. */
+const fullPaid = (m, mo) => isAnnual(m) || paidAmt(m, mo) >= DUES_MONTHLY;
 /** 달마다 켜고 끌 수 없는 줄. 한 해치로 이미 정해진 사람들이다. */
 const locked   = (m) => isAnnual(m) || isExempt(m);
 /** 그 사람이 올해 낸 돈. 연선납은 나누지 않고 한 해치 그대로다. */
 const paidWon  = (m) => isExempt(m) ? 0
                       : isAnnual(m) ? DUES_ANNUAL
-                      : duesOf(m).paid.length * DUES_MONTHLY;
+                      : MONTHS.reduce((sum, mo) => sum + paidAmt(m, mo), 0);
 
-function toggleMonth(m, mo) {
+/** 한 칸을 누를 때마다 **2만원씩 오른다**. 한 달 칸에 두세 달치를 몰아 받는
+    일이 있어서다(6만원을 한 번에 주고 가는 식).
+    10만원을 넘기면 0으로 돌아간다 — 한 칸에 다섯 달치 넘게 들어올 일은 드물고,
+    잘못 눌렀을 때 몇 번만 더 누르면 지울 수 있어야 한다.
+    딱 떨어지지 않는 금액과 한 번에 지우기는 "받은 금액으로" 모드가 맡는다. */
+const DUES_STEP_MAX = DUES_MONTHLY * 5;
+function bumpMonth(m, mo) {
+  if (locked(m)) return;
+  const next = paidAmt(m, mo) + DUES_MONTHLY;
+  setMonthAmount(m, mo, next > DUES_STEP_MAX ? 0 : next);
+}
+
+/** 받은 금액을 그대로 적는다. 0 이면 그 달을 지운다. */
+function setMonthAmount(m, mo, won) {
   const rec = duesOf(m);
   if (locked(m)) return;
-  const i = rec.paid.indexOf(mo);
-  if (i === -1) rec.paid.push(mo); else rec.paid.splice(i, 1);
-  rec.paid.sort((a, b) => a - b);
+  const n = Math.max(0, Math.round(Number(won) || 0));
+  if (n > 0) rec.paid[mo] = n; else delete rec.paid[mo];
   saveDues();
 }
 
@@ -1591,9 +1637,18 @@ function toggleExempt(m) {
 
 /* 지나간 달만 센다. 12월치를 9월에 미납이라 부를 수는 없다. */
 const dueMonths = () => MONTHS.filter((mo) => mo <= CUR_MONTH);
-const owes = (m) => !locked(m) && dueMonths().some((mo) => !hasPaid(m, mo));
+const owes = (m) => !locked(m) && dueMonths().some((mo) => !fullPaid(m, mo));
+
+/** 20000 → "2만", 35000 → "3.5만". 칸이 좁아 원 단위를 다 적을 수 없다. */
+function shortWon(n) {
+  const man = n / 10000;
+  return (Number.isInteger(man) ? man : man.toFixed(1)) + '만';
+}
 
 let duesFilter = 'all';
+/* 'check' 는 한 번 눌러 2만원, 'amount' 는 받은 금액을 그대로 적는 칸.
+   흔한 쪽(2만원)을 기본으로 두고, 다른 금액일 때만 모드를 바꾼다. */
+let duesMode = 'check';
 
 /* 회비 표는 두 군데에 뜬다 — 회비 탭은 보기만, 관리자 탭은 체크까지.
    두 벌로 적으면 반드시 어긋나므로 그리는 함수 하나를 나눠 쓴다.
@@ -1625,21 +1680,37 @@ function duesBodyHtml(rows, editable, filter) {
     const mine = me && m.no === me.no;
     const fixed = locked(m);
     const cells = MONTHS.map((mo) => {
+      const amt  = paidAmt(m, mo);
       const on   = hasPaid(m, mo);
-      const late = !fixed && !on && mo <= CUR_MONTH;
-      const cls  = 'mo-btn' + (on ? ' on' : '') + (late ? ' late' : '') +
-                   (rec.exempt ? ' off' : '') + (rec.annual ? ' fixed' : '');
+      // 2만원에 모자라게 받은 달. 냈지만 아직 채워지지 않았다.
+      const part = !fixed && amt > 0 && amt < DUES_MONTHLY;
+      const late = !fixed && amt === 0 && mo <= CUR_MONTH;
+      const std  = rec.annual || amt === DUES_MONTHLY;
+      // 2만원이 아닌 달은 **얼마를 받았는지가 체크보다 중요하다**
+      const face = !on ? '' : std ? '✓' : shortWon(amt);
+      const cls  = 'mo-btn' + (on ? ' on' : '') + (part ? ' part' : '') + (late ? ' late' : '') +
+                   (rec.exempt ? ' off' : '') + (rec.annual ? ' fixed' : '') +
+                   (on && !std ? ' amt' : '');
       const what = esc(m.name) + ' ' + mo + '월 ' +
-                   (rec.exempt ? '면제' : rec.annual ? '연선납' : on ? '납부함' : '안 냄');
+                   (rec.exempt ? '면제' : rec.annual ? '연선납'
+                    : on ? won(amt) + ' 받음' : '안 냄');
       if (!editable) {
         return '<td class="dues-cell"><span class="' + cls + ' ro" role="img"' +
-          ' aria-label="' + what + '">' + (on ? '✓' : '') + '</span></td>';
+          ' aria-label="' + what + '">' + esc(face) + '</span></td>';
+      }
+      if (duesMode === 'amount' && !fixed) {
+        return '<td class="dues-cell">' +
+          '<input type="text" inputmode="numeric" class="amt-in" maxlength="7"' +
+            ' id="amt-' + esc(m.uid) + '-' + mo + '"' +
+            ' data-amt="' + esc(m.uid) + '" data-mo="' + mo + '"' +
+            ' value="' + (amt || '') + '" placeholder="0"' +
+            ' aria-label="' + what + '"></td>';
       }
       return '<td class="dues-cell">' +
         '<button type="button" class="' + cls + '"' + (fixed ? ' disabled' : '') +
           ' data-uid="' + esc(m.uid) + '" data-mo="' + mo + '"' +
-          ' aria-pressed="' + on + '" aria-label="' + what + '">' +
-          (on ? '✓' : '') + '</button></td>';
+          ' aria-label="' + what + '">' +
+          esc(face) + '</button></td>';
     }).join('');
 
     const markCells = editable
@@ -2081,7 +2152,7 @@ function init() {
     const uid = mo ? mo.dataset.uid : an ? an.dataset.annual : ex.dataset.exempt;
     const who = MEMBERS.find((m) => m.uid === uid);
     if (!who) return;
-    if (mo)      toggleMonth(who, Number(mo.dataset.mo));
+    if (mo)      bumpMonth(who, Number(mo.dataset.mo));
     else if (an) toggleAnnual(who);
     else         toggleExempt(who);
     renderAdminDues();
@@ -2096,6 +2167,25 @@ function init() {
     if (!who) return;
     duesOf(who).note = el.value;
     saveDues();
+  });
+
+  $('duesMode').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    duesMode = b.dataset.mode;
+    $('duesMode').querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b));
+    renderAdminDues();
+  });
+
+  // 금액은 칸을 떠날 때 넣는다. 글자를 칠 때마다 다시 그리면 커서가 날아간다.
+  $('adminDuesRows').addEventListener('change', (e) => {
+    const el = e.target.closest('[data-amt]');
+    if (!el || !isAdmin(me)) return;
+    const who = MEMBERS.find((m) => m.uid === el.dataset.amt);
+    if (!who) return;
+    setMonthAmount(who, Number(el.dataset.mo), digits(el.value));
+    renderAdminDues();
+    renderDues();
   });
 
   $('adminDuesFilter').addEventListener('click', (e) => {
