@@ -680,7 +680,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
     <div>
       <div class="eyebrow">Banghwa FC · 조기축구회</div>
       <h1>방화 FC</h1>
-      <div class="subline"><span class="live-dot"></span>매주 일요일 아침 · 방화체육공원</div>
+      <div class="subline"><span class="live-dot"></span>매주 일요일 아침 · 서남물재생센터 축구장</div>
     </div>
     <div class="head-right">
       <div class="head-top">
@@ -1020,7 +1020,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
    ------------------------------------------------------------------ */
 const DEMO_MEMBERS = [
   { no: 1,  name: '이*오', band: '60', pos: 'GK', joined: '1976-03', phone: '010-3101-4821', role: '회장' },
-  { no: 2,  name: '노*희', band: '60', pos: 'DF', joined: '1976-03', phone: '010-3102-7345', role: '고문' },
+  { no: 2,  name: '노*희', band: '60', pos: 'DF', joined: '1976-03', phone: '010-3102-7345', role: '' },
   { no: 3,  name: '김*만', band: '60', pos: 'DF', joined: '1999-05', phone: '010-3103-9182', role: '' },
   { no: 4,  name: '윤*중', band: '60', pos: 'MF', joined: '2001-04', phone: '010-3104-2673', role: '' },
   { no: 5,  name: '박*수', band: '60', pos: 'FW', joined: '2002-09', phone: '010-3105-5390', role: '' },
@@ -1083,7 +1083,10 @@ let MEMBERS = [];
 
 function buildMembers() {
   const base = (Array.isArray(window.BHFC_ROSTER) ? window.BHFC_ROSTER : [])
-    .map((m) => ({ pos: '', joined: '', role: '', birth: '', ...m, real: true, uid: digits(m.phone) }))
+    // 아직 번호를 못 받은 분은 명단 파일이 uid 를 직접 준다.
+    // 빈 번호로 두면 그분들이 모두 같은 열쇠('')를 써서 한 줄로 겹친다.
+    .map((m) => ({ pos: '', joined: '', role: '', birth: '', ...m, real: true,
+                   uid: m.uid || digits(m.phone) }))
     .concat(DEMO_MEMBERS.map((m) => ({ birth: '', ...m, real: false, uid: digits(m.phone) })));
 
   MEMBERS = base
@@ -1104,7 +1107,7 @@ const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 /* ---------- 연혁 ---------- */
 const HISTORY = [
-  { y: '1976', m: '03', t: '방화 FC 창단', d: '방화체육공원 축구장에서 열두 명으로 시작했습니다.', key: true },
+  { y: '1976', m: '03', t: '방화 FC 창단', d: '서남물재생센터 축구장에서 열두 명으로 시작했습니다.', key: true },
   { y: '2001', m: '05', t: '강서구 조기축구연합회 가입', d: '구 단위 정기 리그에 처음 이름을 올렸습니다.' },
   { y: '2004', m: '10', t: '강서구청장기 첫 출전', d: '8강에서 발산 FC 에 아쉽게 졌습니다.' },
   { y: '2008', m: '06', t: '회원 50명 돌파', d: '주말 두 팀 자체경기가 가능해졌습니다.', key: true },
@@ -1151,7 +1154,7 @@ const RULES = [
   { ch: '제1장 총칙', arts: [
     { t: '제1조 (명칭)', p: ['본회는 방화 FC 조기축구회(이하 "본회")라 한다.'] },
     { t: '제2조 (목적)', p: ['본회는 회원 상호간의 친목을 다지고 건강을 지키며, 축구를 통하여 지역사회와 함께하는 것을 목적으로 한다.'] },
-    { t: '제3조 (소재지)', p: ['본회는 서울특별시 강서구에 두고, 주 활동 구장은 방화체육공원 축구장으로 한다.'] },
+    { t: '제3조 (소재지)', p: ['본회는 서울특별시 강서구에 두고, 주 활동 구장은 서남물재생센터 축구장으로 한다.'] },
     { t: '제4조 (활동일)', p: ['정기 운동은 매주 일요일 오전 7시로 한다. 기상 사정으로 어려울 때는 운영진이 전날 단톡방에 알린다.'] },
   ]},
   { ch: '제2장 회원', arts: [
@@ -1195,6 +1198,7 @@ const digits = (s) => String(s).replace(/\D/g, '');
 /** 전화번호 가운데를 가린다. 명단은 회원 모두가 보는 화면이다. */
 function maskPhone(p) {
   const d = digits(p);
+  if (!d) return '—';            // 아직 못 받은 번호
   if (d.length < 4) return p;
   // 010 으로 시작하지 않는 짧은 번호도 있다. 앞을 지어내지 않고 뒤 네 자리만 남긴다.
   if (d.length < 10) return '****-' + d.slice(-4);
@@ -1228,8 +1232,9 @@ const ADMIN_ROLES = ['마스터', '총무', '부총무'];
 const isAdmin = (m) => !!m && ADMIN_ROLES.includes(m.role);
 
 /* 관리자 화면에서 고를 수 있는 직책. 여기 없는 것도 직접 적어 넣을 수 있다. */
-const ROLE_CHOICES = ['마스터', '회장', '수석부회장', '재무부회장', '경기부회장',
-                      '섭외부회장', '총무', '부총무', '감독', '코치', '고문'];
+const ROLE_CHOICES = ['마스터', '회장', '수석부회장', '홍보부회장', '경기부회장',
+                      '섭외부회장', '재무부회장', '감사', '총무', '부총무', '감독',
+                      '60대 코치', '50대 코치', '40대 코치', '30대 코치'];
 
 const TODAY = new Date();
 const TODAY_ISO = [
@@ -1373,8 +1378,9 @@ function renderHistory() {
    자리 이름을 고치거나 사이에 끼워 넣으면 표가 그대로 따라간다.
    명단(roster)의 role 과 글자가 같아야 그 자리에 사람이 선다. */
 const STAFF_SEATS = [
-  '회장', '수석부회장', '재무부회장', '경기부회장', '섭외부회장',
-  '총무', '부총무', '감독', '코치', '고문',
+  '회장', '수석부회장', '홍보부회장', '경기부회장', '섭외부회장', '재무부회장', '감사',
+  '총무', '부총무',
+  '감독', '60대 코치', '50대 코치', '40대 코치', '30대 코치',
 ];
 /* 마스터는 집행부 자리가 아니라 화면 권한이다 — 표에 세우지 않는다. */
 const SEAT_HIDE = ['마스터'];
@@ -1416,7 +1422,7 @@ function renderStaff() {
         (mine ? ' <span class="badge badge-accent">나</span>' : '') +
         (m.real ? '' : ' <span class="badge badge-mute">데모</span>') + '</td>' +
       '<td>' + esc(birthText(m.birth)) + '</td>' +
-      '<td>' + esc((canSeeAll || mine) ? m.phone : maskPhone(m.phone)) + '</td>' +
+      '<td>' + esc((canSeeAll || mine) ? (m.phone || '—') : maskPhone(m.phone)) + '</td>' +
     '</tr>';
   }).join('');
 
@@ -1485,7 +1491,7 @@ function renderMembers() {
   const canSeeAll = isStaff(me);
   $('memberRows').innerHTML = rows.map((m) => {
     const mine = me && m.no === me.no;
-    const phone = (canSeeAll || mine) ? m.phone : maskPhone(m.phone);
+    const phone = (canSeeAll || mine) ? (m.phone || '—') : maskPhone(m.phone);
     const band = bandOf(m);
     return '<tr>' +
       '<td class="rank-cell">' + m.no + '</td>' +
@@ -1698,7 +1704,7 @@ function renderRoster() {
       '<td>' + (m.role ? '<span class="badge badge-accent">' + esc(m.role) + '</span>'
                        : '<span class="dash">—</span>') + '</td>' +
       '<td>' + esc(birthText(m.birth)) + '</td>' +
-      '<td>' + esc(m.phone) + '</td>' +
+      '<td>' + esc(m.phone || '—') + '</td>' +
       '<td><div class="row-acts">' +
         '<button type="button" class="btn-ghost" data-edit="' + esc(m.uid) + '">수정</button>' +
         (pendingDel === m.uid
