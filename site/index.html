@@ -435,6 +435,9 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 }
 .chip:hover{ border-color:var(--accent); color:var(--accent); }
 .chip.on{ background:var(--accent-strong); color:var(--on-accent); border-color:var(--accent-strong); }
+/* 칩에 붙는 인원 수. 이름보다 뒤로 물러나야 고르는 데 방해가 안 된다. */
+.chip .num{ margin-left:2px; font-weight:var(--fw-regular); opacity:.55; }
+.chip.on .num{ opacity:.8; }
 .chip:focus-visible{ outline:none; box-shadow:var(--shadow-focus); }
 @media (max-width:520px){
   /* 좁은 화면에서 입력칸과 선택칸을 옆으로 늘어놓지 않는다 — 세로로 쌓는다. */
@@ -461,6 +464,41 @@ tbody tr:hover td{ background:var(--surface-sunken); }
 }
 .tl-t{ font-size:var(--fs-subhead); font-weight:var(--fw-medium); margin-top:2px; }
 .tl-d{ font-size:var(--fs-caption); color:var(--text-secondary); margin-top:var(--sp-1); }
+
+/* ---------- 집행부 ---------- */
+.staff-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:var(--sp-3);
+}
+.staff-card{
+  border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:var(--sp-4); background:var(--surface-sunken);
+}
+/* 자리 하나만 띄운다 — 회장·감독까지 다 테두리를 두르면 층이 사라진다. */
+.staff-card.lead{
+  background:var(--accent-bg); border-color:var(--accent);
+}
+.staff-role{
+  font-size:var(--fs-footnote); font-weight:var(--fw-bold);
+  color:var(--accent-strong); letter-spacing:.02em;
+}
+.staff-card.lead .staff-role{ color:var(--accent-strong); }
+.staff-name{
+  font-size:var(--fs-subhead); font-weight:var(--fw-bold);
+  letter-spacing:var(--ls-tight); margin-top:var(--sp-1);
+}
+.staff-meta{
+  font-size:var(--fs-footnote); color:var(--text-secondary);
+  margin-top:var(--sp-2); line-height:var(--lh-body);
+  font-variant-numeric:tabular-nums;
+}
+.staff-demo{
+  display:inline-block; margin-left:var(--sp-2);
+  font-size:10px; font-weight:var(--fw-medium);
+  padding:1px var(--sp-2); border-radius:var(--radius-pill);
+  background:var(--surface); color:var(--text-tertiary);
+  border:1px solid var(--border-strong); vertical-align:2px;
+}
 
 /* ---------- 정관 ---------- */
 .rule-nav{ display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-5); }
@@ -589,6 +627,8 @@ tbody tr:hover td{ background:var(--surface-sunken); }
     <nav class="tabs"><div class="tabs-in" id="tabBar">
       <button class="tab-btn active" data-tab="history" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v4l3 2"></path><circle cx="12" cy="12" r="9"></circle></svg>연혁</button>
+      <button class="tab-btn" data-tab="staff" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.4 4.9 5.6.8-4 4 .9 5.5L12 15.6 7.1 18.2l.9-5.5-4-4 5.6-.8z"></path></svg>집행부</button>
       <button class="tab-btn" data-tab="members" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 19v-2a4 4 0 0 0-3-3.9"></path></svg>회원</button>
       <button class="tab-btn" data-tab="dues" type="button">
@@ -621,7 +661,20 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         </div>
       </div>
 
-      <!-- ===== 2. 회원 ===== -->
+      <!-- ===== 2. 집행부 ===== -->
+      <div class="tab-panel" id="tab-staff">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>집행부</h2>
+            <span class="spacer"></span>
+            <span class="badge badge-mute" id="staffCount"></span>
+          </div>
+          <div class="staff-grid" id="staffGrid"></div>
+          <div class="foot-note" id="staffNote"></div>
+        </div>
+      </div>
+
+      <!-- ===== 3. 회원 ===== -->
       <div class="tab-panel" id="tab-members">
         <div class="panel">
           <div class="panel-head">
@@ -632,17 +685,10 @@ tbody tr:hover td{ background:var(--surface-sunken); }
           <div class="stat-grid" id="memberStats"></div>
         </div>
         <div class="panel">
+          <div class="filter-row" id="memberBands" role="group" aria-label="연령대 고르기"></div>
           <div class="filter-row">
-            <input type="search" id="memberSearch" placeholder="이름·포지션으로 찾기"
+            <input type="search" id="memberSearch" placeholder="이름·직책·포지션으로 찾기"
                    aria-label="회원 찾기">
-            <select id="memberBand" aria-label="연령대 고르기">
-              <option value="">연령대 전체</option>
-              <option value="60">60대</option>
-              <option value="50">50대</option>
-              <option value="40">40대</option>
-              <option value="30">30대</option>
-              <option value="20">20대</option>
-            </select>
           </div>
           <div class="table-wrap">
             <table>
@@ -658,7 +704,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         </div>
       </div>
 
-      <!-- ===== 3. 회비 ===== -->
+      <!-- ===== 4. 회비 ===== -->
       <div class="tab-panel" id="tab-dues">
         <div class="panel">
           <div class="panel-head">
@@ -689,7 +735,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         </div>
       </div>
 
-      <!-- ===== 4. 찬조 ===== -->
+      <!-- ===== 5. 찬조 ===== -->
       <div class="tab-panel" id="tab-support">
         <div class="panel">
           <div class="panel-head">
@@ -717,7 +763,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         </div>
       </div>
 
-      <!-- ===== 5. 정관 ===== -->
+      <!-- ===== 6. 정관 ===== -->
       <div class="tab-panel" id="tab-rules">
         <div class="panel">
           <div class="panel-head">
@@ -731,7 +777,7 @@ tbody tr:hover td{ background:var(--surface-sunken); }
         </div>
       </div>
 
-      <!-- ===== 6. 대회일정 ===== -->
+      <!-- ===== 7. 대회일정 ===== -->
       <div class="tab-panel" id="tab-schedule">
         <div class="panel">
           <div class="panel-head">
@@ -792,8 +838,8 @@ tbody tr:hover td{ background:var(--surface-sunken); }
    없으면 아래 데모 명단으로 뜬다(이름 가운데를 가렸고 번호도 실제가 아니다).
    ------------------------------------------------------------------ */
 const DEMO_MEMBERS = [
-  { no: 1,  name: '이*오', band: '60', pos: 'GK', joined: '1998-03', phone: '010-3101-4821', role: '회장' },
-  { no: 2,  name: '노*희', band: '60', pos: 'DF', joined: '1998-03', phone: '010-3102-7345', role: '고문' },
+  { no: 1,  name: '이*오', band: '60', pos: 'GK', joined: '1976-03', phone: '010-3101-4821', role: '회장' },
+  { no: 2,  name: '노*희', band: '60', pos: 'DF', joined: '1976-03', phone: '010-3102-7345', role: '고문' },
   { no: 3,  name: '김*만', band: '60', pos: 'DF', joined: '1999-05', phone: '010-3103-9182', role: '' },
   { no: 4,  name: '윤*중', band: '60', pos: 'MF', joined: '2001-04', phone: '010-3104-2673', role: '' },
   { no: 5,  name: '박*수', band: '60', pos: 'FW', joined: '2002-09', phone: '010-3105-5390', role: '' },
@@ -844,14 +890,14 @@ const DUES_ANNUAL  = 300000;
 
 /* ---------- 연혁 ---------- */
 const HISTORY = [
-  { y: '1998', m: '03', t: '방화 FC 창단', d: '방화체육공원 축구장에서 열두 명으로 시작했습니다.', key: true },
+  { y: '1976', m: '03', t: '방화 FC 창단', d: '방화체육공원 축구장에서 열두 명으로 시작했습니다.', key: true },
   { y: '2001', m: '05', t: '강서구 조기축구연합회 가입', d: '구 단위 정기 리그에 처음 이름을 올렸습니다.' },
   { y: '2004', m: '10', t: '강서구청장기 첫 출전', d: '8강에서 발산 FC 에 아쉽게 졌습니다.' },
   { y: '2008', m: '06', t: '회원 50명 돌파', d: '주말 두 팀 자체경기가 가능해졌습니다.', key: true },
   { y: '2011', m: '09', t: '강서구청장기 준우승', d: '결승에서 승부차기까지 갔습니다.' },
   { y: '2014', m: '04', t: '유니폼 전면 교체', d: '붉은 상의로 바꾸고 등번호를 정리했습니다.' },
   { y: '2016', m: '11', t: '서울시 생활체육대회 16강', d: '팀 역사상 첫 시 단위 대회 본선이었습니다.' },
-  { y: '2019', m: '05', t: '강서구청장기 우승', d: '창단 21년 만의 첫 우승입니다.', key: true },
+  { y: '2019', m: '05', t: '강서구청장기 우승', d: '창단 43년 만의 첫 우승입니다.', key: true },
   { y: '2021', m: '03', t: '회칙 전면 개정', d: '회비·찬조·징계 조항을 지금의 정관으로 정리했습니다.' },
   { y: '2023', m: '07', t: '회원 80명 돌파', d: '연령대가 20대부터 60대까지 넓어졌습니다.' },
   { y: '2025', m: '10', t: '강서구 리그 3위', d: '18경기 11승 4무 3패로 마쳤습니다.' },
@@ -923,7 +969,7 @@ const RULES = [
   { ch: '제6장 상벌과 부칙', arts: [
     { t: '제19조 (포상)', p: ['한 해 동안 출석과 팀 활동에 공이 큰 회원에게 정기총회에서 상을 줄 수 있다.'] },
     { t: '제20조 (징계)', p: ['경기 중 심판이나 상대 팀에게 무례한 행동을 한 회원에게는 운영진 의결로 출전 정지를 둘 수 있다.'] },
-    { t: '부칙', p: ['이 정관은 1998년 3월 1일부터 시행한다.', '이 개정 정관은 2026년 1월 11일 정기총회 의결에 따라 같은 날부터 시행한다.'] },
+    { t: '부칙', p: ['이 정관은 1976년 3월 1일부터 시행한다.', '이 개정 정관은 2026년 1월 11일 정기총회 의결에 따라 같은 날부터 시행한다.'] },
   ]},
 ];
 
@@ -1100,8 +1146,75 @@ function renderHistory() {
 }
 
 /* ============================================================
-   2. 회원
+   2. 집행부
    ============================================================ */
+/* 총회에서 부르는 차례 그대로. 여기 없는 직책은 뒤에 붙는다. */
+const ROLE_ORDER = ['회장', '고문', '수석부회장', '경기부회장', '섭외부회장',
+                    '재무부회장', '부회장', '총무', '감독', '코치', '주장', '총무보'];
+const roleRank = (r) => {
+  const i = ROLE_ORDER.indexOf(r);
+  return i === -1 ? ROLE_ORDER.length : i;
+};
+
+function renderStaff() {
+  const staff = MEMBERS.filter(isStaff)
+    .slice()
+    .sort((a, b) => roleRank(a.role) - roleRank(b.role) || a.no - b.no);
+
+  $('staffCount').textContent = staff.length ? staff.length + '명' : '준비 중';
+
+  if (!staff.length) {
+    $('staffGrid').innerHTML =
+      '<div class="empty">아직 집행부 명단이 없어요. 명단을 주시면 여기에 채웁니다.</div>';
+    $('staffNote').textContent = '';
+    return;
+  }
+
+  const canSeeAll = isStaff(me);
+  $('staffGrid').innerHTML = staff.map((m) => {
+    const mine = me && m.no === me.no;
+    const phone = (canSeeAll || mine) ? m.phone : maskPhone(m.phone);
+    const band = bandOf(m);
+    return '<div class="staff-card' + (roleRank(m.role) === 0 ? ' lead' : '') + '">' +
+      '<div class="staff-role">' + esc(m.role) + '</div>' +
+      '<div class="staff-name">' + esc(m.name) +
+        (mine ? ' <span class="badge badge-accent">나</span>' : '') +
+        (m.real ? '' : '<span class="staff-demo">데모</span>') + '</div>' +
+      '<div class="staff-meta">' +
+        (m.birth ? esc(birthText(m.birth)) + (band ? ' · ' + esc(band) + '대' : '') + '<br>' : '') +
+        esc(phone) +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  const demo = staff.filter((m) => !m.real).length;
+  $('staffNote').innerHTML = demo
+    ? '<b>데모</b> 표가 붙은 자리는 아직 명단을 받지 못한 자리입니다 — 주시면 바로 채웁니다.'
+    : '직책은 회원 명단에서 가져옵니다. 자리가 바뀌면 명단의 직책만 고치면 됩니다.';
+}
+
+/* ============================================================
+   3. 회원
+   ============================================================ */
+/* 연령대 고르는 줄. 20대와 30대는 인원이 적어 한 칸으로 묶는다. */
+const BANDS = [
+  { key: '',     label: '전체', has: () => true },
+  { key: '60',   label: '60대', has: (b) => b === '60' },
+  { key: '50',   label: '50대', has: (b) => b === '50' },
+  { key: '40',   label: '40대', has: (b) => b === '40' },
+  { key: '2030', label: '20~30대', has: (b) => b === '20' || b === '30' },
+];
+let memberBand = '';
+
+function renderBandChips() {
+  $('memberBands').innerHTML = BANDS.map((x) => {
+    const n = x.key === '' ? MEMBERS.length
+                           : MEMBERS.filter((m) => x.has(bandOf(m))).length;
+    return '<button class="chip' + (x.key === memberBand ? ' on' : '') + '" type="button" ' +
+      'data-band="' + x.key + '" aria-pressed="' + (x.key === memberBand) + '">' +
+      esc(x.label) + ' <span class="num">' + n + '</span></button>';
+  }).join('');
+}
 function renderMemberStats() {
   const bands = {};
   MEMBERS.forEach((m) => { const b = bandOf(m); if (b) bands[b] = (bands[b] || 0) + 1; });
@@ -1120,16 +1233,18 @@ function renderMemberStats() {
 
 function renderMembers() {
   const q    = $('memberSearch').value.trim().toLowerCase();
-  const band = $('memberBand').value;
+  const pick = BANDS.find((x) => x.key === memberBand) || BANDS[0];
   const rows = MEMBERS.filter((m) => {
-    if (band && bandOf(m) !== band) return false;
+    if (!pick.has(bandOf(m))) return false;
     if (!q) return true;
     return (m.name + ' ' + m.pos + ' ' + m.role + ' ' + m.birth).toLowerCase().includes(q);
   });
 
   if (!rows.length) {
     $('memberRows').innerHTML =
-      '<tr><td colspan="7" class="empty">찾는 분이 없어요. 다른 이름으로 찾아보세요.</td></tr>';
+      '<tr><td colspan="7" class="empty">' +
+      (memberBand ? '이 연령대에는 찾는 분이 없어요.' : '찾는 분이 없어요. 다른 이름으로 찾아보세요.') +
+      '</td></tr>';
     return;
   }
 
@@ -1351,7 +1466,9 @@ function dday(iso) {
    ============================================================ */
 function renderAll() {
   renderHistory();
+  renderStaff();
   renderMemberStats();
+  renderBandChips();
   renderMembers();
   renderDues();
   renderSupport();
@@ -1377,7 +1494,13 @@ function init() {
   });
 
   $('memberSearch').addEventListener('input', renderMembers);
-  $('memberBand').addEventListener('change', renderMembers);
+  $('memberBands').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    memberBand = b.dataset.band;
+    renderBandChips();
+    renderMembers();
+  });
 
   renderDuesMonths();
   $('duesMonth').addEventListener('change', renderDues);
