@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { blankMemberFields, useStore } from '@/lib/store';
 import { isLocalRepo } from '@/lib/repo';
 import { supabase } from '@/lib/supabase';
+import { displayLoginId } from '@/lib/loginId';
 import { formatDate, todayISO } from '@/lib/format';
 import {
   Button,
@@ -83,6 +84,11 @@ export default function SettingsScreen() {
   const [matchKickoff, setMatchKickoff] = useState('07:00');
   const [deviceNote, setDeviceNote] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  // 무슨 아이디로 들어와 있는지. 비밀번호를 바꾸기 전에 내 계정이 맞는지 보이게 한다.
+  const [loginId, setLoginId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase?.auth.getUser().then(({ data }) => setLoginId(displayLoginId(data.user?.email)));
+  }, []);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordNote, setPasswordNote] = useState<string | null>(null);
 
@@ -282,8 +288,11 @@ export default function SettingsScreen() {
             메일 링크로 들어온 사람은 비밀번호가 없다. 여기서 한 번 정해 두면
             다음부터는 메일을 기다리지 않고 바로 들어온다.
           */}
+          {loginId ? (
+            <Txt variant="small">{`로그인 아이디 ${loginId}`}</Txt>
+          ) : null}
           <Txt variant="tiny" muted>
-            비밀번호를 정해 두면 다음부터 메일 없이 바로 로그인할 수 있어요.
+            새 비밀번호를 정하면 다음부터 그걸로 로그인해요.
           </Txt>
           <TextInput
             value={newPassword}
@@ -304,7 +313,7 @@ export default function SettingsScreen() {
             }}
           />
           <Button
-            label="비밀번호 정하기"
+            label="비밀번호 바꾸기"
             tone="neutral"
             disabled={newPassword.length < 6 || savingPassword}
             loading={savingPassword}

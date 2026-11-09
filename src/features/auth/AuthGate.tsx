@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { authRedirectUrl } from '@/lib/links';
+import { isRealEmail, loginEmail, loginIdProblem } from '@/lib/loginId';
 import { useStore } from '@/lib/store';
 import { Button, Card, Divider, Row, Screen, Txt, radius, space } from '@/components/ui';
 import { usePalette } from '@/theme';
@@ -13,7 +14,7 @@ import { usePalette } from '@/theme';
 function explain(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes('invalid login credentials')) {
-    return '이메일이나 비밀번호가 맞지 않아요. 처음이시면 아래에서 계정을 만들어 주세요.';
+    return '아이디나 비밀번호가 맞지 않아요. 처음이시면 아래에서 계정을 만들어 주세요.';
   }
   if (lower.includes('email not confirmed')) {
     return '메일 확인이 아직 안 됐어요. 받은 메일의 링크를 한 번 눌러 주세요.';
@@ -22,7 +23,11 @@ function explain(message: string): string {
     return '비밀번호가 너무 짧아요. 여섯 자 이상으로 정해 주세요.';
   }
   if (lower.includes('already registered') || lower.includes('already exists')) {
-    return '이미 있는 이메일이에요. 위에서 비밀번호로 로그인해 주세요.';
+    return '이미 있는 아이디예요. 다른 아이디를 정하거나, 내 아이디면 로그인해 주세요.';
+  }
+  if (lower.includes('email') && lower.includes('invalid')) {
+    // 아이디를 바꾼 내부 주소를 Supabase 가 받아 주지 않을 때. 사람이 고칠 수 있는 게 없다.
+    return '이 아이디로는 계정을 만들 수 없어요. 운영진에게 알려 주세요.';
   }
   if (lower.includes('rate limit')) {
     return '너무 자주 시도했어요. 잠시 뒤에 다시 해 주세요.';
@@ -56,7 +61,10 @@ const TITLE: Record<Mode, string> = {
 /**
  * 로그인.
  *
- * 기본은 이메일 + 비밀번호다. 메일이 오기를 기다리지 않아도 되고, 확인하러 다른 앱으로
+ * 기본은 **아이디 + 비밀번호**다(`lib/loginId.ts`). 회원은 메일을 열어 볼 일이 없고,
+ * 단톡방에서 아이디·비번으로 주고받는 게 익숙하다. 칸에 `@` 가 있으면 예전처럼 이메일로 본다.
+ *
+ * 비밀번호 방식은 메일이 오기를 기다리지 않아도 되고, 확인하러 다른 앱으로
  * 넘어갔다 돌아올 필요도 없다. 폰에서 매주 여는 앱이라 이 차이가 크다.
  *
  * 메일 링크 방식도 남겨 뒀다. 비밀번호를 잊었을 때 들어올 길이 그것뿐이라
@@ -67,6 +75,9 @@ export function AuthGate() {
   const load = useStore((state) => state.load);
   const [mode, setMode] = useState<Mode>('password');
   const [email, setEmail] = useState('');
+  // 칸 이름은 email 이지만 아이디가 들어온다. Supabase 에 넘길 때만 이메일로 바꾼다.
+  const target = loginEmail(email);
+  const idProblem = loginIdProblem(email);
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
@@ -83,7 +94,8 @@ export function AuthGate() {
     fontSize: 16,
   };
 
-  const validEmail = email.includes('@');
+  // 메일 링크는 진짜 이메일에만 보낼 수 있다. 아이디의 내부 주소에는 받을 사람이 없다.
+  const validEmail = mode === 'link' ? isRealEmail(email) && target !== null : target !== null;
 
   function switchTo(next: Mode) {
     setMode(next);
@@ -94,11 +106,11 @@ export function AuthGate() {
   }
 
   async function signIn() {
-    if (!supabase || !validEmail || !password) return;
+    if (!supabase || !target || !password) return;
     setBusy(true);
     setError(null);
     const { error: caught } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: target,
       password,
     });
     if (caught) setError(explain(caught.message));
@@ -107,11 +119,11 @@ export function AuthGate() {
   }
 
   async function signUp() {
-    if (!supabase || !validEmail || !password) return;
+    if (!supabase || !target || !password) return;
     setBusy(true);
     setError(null);
     const { data, error: caught } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: target,
       password,
       options: { emailRedirectTo: authRedirectUrl() },
     });
@@ -120,6 +132,14 @@ export function AuthGate() {
     } else if (data.session) {
       // 메일 확인이 꺼져 있으면 그 자리에서 바로 들어간다.
       await load();
+    } else if (!isRealEmail(email)) {
+      /*
+       * 아이디로 만들었는데 세션이 안 왔다 = Supabase 의 Confirm email 이 켜져 있다.
+       * 받을 수 없는 메일을 기다리게 두지 말고, 고칠 사람에게 무엇을 할지 말한다.
+       */
+      setError(
+        '계정은 만들었지만 바로 들어오지 못했어요. Supabase 에서 이메일 확인(Confirm email)을 꺼야 아이디로 쓸 수 있어요. 운영진에게 알려 주세요.',
+      );
     } else {
       /*
        * 메일 확인이 켜져 있으면 세션이 안 온다. 여기서 아무 말도 안 하면
@@ -167,20 +187,31 @@ export function AuthGate() {
 
       <Card>
         <Txt variant="tiny" muted>
-          이메일
+          {mode === 'link' ? '이메일' : '아이디'}
         </Txt>
         <TextInput
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="email-address"
+          keyboardType={mode === 'link' ? 'email-address' : 'default'}
           textContentType="username"
-          placeholder="you@example.com"
+          autoComplete="username"
+          placeholder={mode === 'link' ? 'you@example.com' : mode === 'signup' ? '영문·숫자 3~20자' : '아이디'}
           placeholderTextColor={p.textFaint}
           editable={!sent}
           style={input}
         />
+        {mode !== 'link' && idProblem ? (
+          <Txt variant="tiny" color={p.danger}>
+            {idProblem}
+          </Txt>
+        ) : null}
+        {mode === 'link' && email.trim() && !isRealEmail(email) ? (
+          <Txt variant="tiny" color={p.danger}>
+            메일 링크는 이메일로 가입한 분만 쓸 수 있어요.
+          </Txt>
+        ) : null}
 
         {mode === 'link' ? null : (
           <>
@@ -221,7 +252,7 @@ export function AuthGate() {
             />
             <Row gap={space.sm}>
               <Button
-                label="이메일 수정"
+                label="이메일 고치기"
                 tone="neutral"
                 style={{ flex: 1 }}
                 onPress={() => {
@@ -271,10 +302,10 @@ export function AuthGate() {
           <>
             <Divider />
             <Txt variant="tiny" muted>
-              비밀번호가 기억나지 않으면 메일 링크로 들어올 수 있어요. 들어온 뒤
-              설정에서 새 비밀번호를 정하면 돼요.
+              비밀번호를 잊었으면 운영진에게 새 비밀번호를 받아 주세요. 예전에 이메일로
+              가입한 분은 메일 링크로도 들어올 수 있어요.
             </Txt>
-            <Button label="메일 링크로 로그인" tone="neutral" onPress={() => switchTo('link')} />
+            <Button label="이메일로 로그인 메일 받기" tone="neutral" onPress={() => switchTo('link')} />
           </>
         ) : null}
       </Card>
