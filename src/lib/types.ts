@@ -12,6 +12,13 @@ export type PositionGroup = 'GK' | 'DF' | 'MF' | 'FW';
 /** 조기축구는 나이대가 쿼터 배분과 포지션에 실제로 영향을 준다. */
 export type AgeBand = '20' | '30' | '40' | '50' | '60';
 
+/**
+ * 연령대 안의 초반·후반. 총무 명단이 "60대 후반"처럼 나눠 적는다.
+ * 나이에서 계산하지 않는다 — 이 팀은 70대도 "60대 후반", 39세도 "40대 초반"에 넣는다.
+ * 팀이 정한 칸이 곧 답이라 그대로 받는다.
+ */
+export type AgeHalf = 'early' | 'late';
+
 export type Member = {
   id: string;
   teamId: string;
@@ -35,6 +42,18 @@ export type Member = {
   positions: PositionGroup[];
   /** 30대·40대·50대·60대. 모르면 null. */
   ageBand: AgeBand | null;
+  /** 연령대 안의 초반·후반. 모르면 null. */
+  ageHalf: AgeHalf | null;
+  /** 유니폼 상의 사이즈. 'L', 'XL', '2XL' 처럼 적힌 그대로. 모르면 null. */
+  topSize: string | null;
+  /** 유니폼 하의 사이즈. 상의와 다른 사람이 실제로 있어서 따로 둔다. */
+  bottomSize: string | null;
+  /**
+   * 유니폼을 받았는지. true 받음 / false 아직(미지급) / null 모름.
+   * 모름을 따로 두는 이유 — 옮겨 온 명단에 아무 표시가 없는 사람을 "받음"으로 치면
+   * 정작 못 받은 사람이 현황에서 사라진다.
+   */
+  uniformIssued: boolean | null;
   /**
    * 감독·코치가 기억해 둘 장점 태그. 예: ['왼발', '헤딩', '체력', '빌드업'].
    * 라인업을 짤 때 이 사람을 왜 쓰는지가 한 줄로 보여야 해서 자유 문자열로 둔다.

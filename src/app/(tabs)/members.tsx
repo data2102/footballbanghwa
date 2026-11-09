@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, TextInput, View } from 'react-native';
+import { Image, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useStore } from '@/lib/store';
 import { allProfiles, type MemberProfile } from '@/lib/selectors';
@@ -15,6 +15,7 @@ import {
   Hero,
   Row,
   Screen,
+  SectionHeader,
   Segmented,
   Txt,
   radius,
@@ -22,13 +23,54 @@ import {
 } from '@/components/ui';
 import { Icon } from '@/components/icons';
 import { usePalette } from '@/theme';
-import type { AgeBand, PositionGroup } from '@/lib/types';
+import { shareMessage, shareText } from '@/lib/share';
+import {
+  UNIFORM_LABEL,
+  ageLabel,
+  duplicateNumbers,
+  groupByAge,
+  normalizeSize,
+  sizeSummaryText,
+  sizeTable,
+  uniformState,
+  type UniformState,
+} from '@/features/members/roster';
+import type { AgeBand, Member, PositionGroup } from '@/lib/types';
 
 type Sort = 'name' | 'rate' | 'age';
 
-const POSITIONS: (PositionGroup | 'ALL')[] = ['ALL', 'GK', 'DF', 'MF', 'FW'];
+/**
+ * 회원 탭의 세 메뉴. 총무 엑셀(풀리스트)이 하는 일을 그대로 나눴다 —
+ * 전체를 훑을 때, 나이대로 쿼터를 나눌 때, 유니폼을 맞출 때 보는 표가 다르다.
+ */
+type MenuKey = 'full' | 'age' | 'uniform';
+
+const MENU: { value: MenuKey; label: string }[] = [
+  { value: 'full', label: '풀명단' },
+  { value: 'age', label: '연령대별' },
+  { value: 'uniform', label: '유니폼 현황' },
+];
 
 export default function MembersScreen() {
+  const data = useStore((state) => state.data);
+  const [menu, setMenu] = useState<MenuKey>('full');
+  const members = useMemo(() => (data ? data.members.filter((member) => member.active) : []), [data]);
+
+  if (!data) return null;
+
+  return (
+    <Screen>
+      <Segmented value={menu} onChange={setMenu} options={MENU} />
+      {menu === 'full' ? <FullRoster /> : null}
+      {menu === 'age' ? <AgeRoster members={members} /> : null}
+      {menu === 'uniform' ? <UniformStatus members={members} teamName={data.team.name} /> : null}
+    </Screen>
+  );
+}
+
+const POSITIONS: (PositionGroup | 'ALL')[] = ['ALL', 'GK', 'DF', 'MF', 'FW'];
+
+function FullRoster() {
   const p = usePalette();
   const router = useRouter();
   const data = useStore((state) => state.data);
@@ -83,7 +125,7 @@ export default function MembersScreen() {
   const unpaidCount = profiles.filter((profile) => profile.outstanding > 0).length;
 
   return (
-    <Screen>
+    <>
       <Card>
         <Hero
           label="팀 평균 출석률"
@@ -215,7 +257,7 @@ export default function MembersScreen() {
           />
         </Row>
       )}
-    </Screen>
+    </>
   );
 }
 
@@ -261,7 +303,7 @@ function MemberRow({
             */}
             {member.ageBand ? (
               <Txt variant="tiny" muted>
-                {`${member.ageBand}대`}
+                {ageLabel(member.ageBand, member.ageHalf)}
               </Txt>
             ) : null}
             {member.positions.length || member.backNumber != null ? (
@@ -300,3 +342,283 @@ function MemberRow({
   );
 }
 
+
+// ------------------------------------------------------------ 연령대별 명단
+
+/**
+ * 연령대 → 후반·초반 순으로 묶는다. 쿼터를 나눌 때 "60대 후반이 몇 분 오셨나"를 먼저 본다.
+ * 한 칸에 세 명씩 놓는다 — 아흔 명을 한 줄씩 늘어놓으면 50대에 닿기 전에 손가락이 지친다.
+ */
+function AgeRoster({ members }: { members: Member[] }) {
+  const groups = useMemo(() => groupByAge(members), [members]);
+
+  if (members.length === 0) {
+    return (
+      <Card>
+        <Empty text="첫 회원을 추가해 보세요." />
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <Hero
+          label="연령대별 회원"
+          value={`${members.length}명`}
+          caption={groups.map((group) => `${ageLabel(group.band)} ${group.total}`).join(' · ')}
+        />
+      </Card>
+
+      {groups.map((group) => (
+        <View key={group.band ?? 'none'} style={{ gap: space.sm }}>
+          <SectionHeader title={`${ageLabel(group.band)} · ${group.total}명`} />
+          <Card style={{ gap: space.md }}>
+            {group.halves.map((row, index) => (
+              <View key={row.half ?? 'none'} style={{ gap: space.sm }}>
+                {index > 0 ? <Divider /> : null}
+                {/* 한 칸짜리 연령대(전부 구분 없음)면 소제목이 군더더기라 뺀다. */}
+                {group.halves.length > 1 || row.half ? (
+                  <Txt variant="tiny" muted>
+                    {`${row.half ? ageLabel(group.band, row.half) : '초반·후반 모름'} ${row.members.length}명`}
+                  </Txt>
+                ) : null}
+                <MemberGrid members={row.members} />
+              </View>
+            ))}
+          </Card>
+        </View>
+      ))}
+    </>
+  );
+}
+
+function MemberGrid({ members }: { members: Member[] }) {
+  const p = usePalette();
+  const router = useRouter();
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -space.xs }}>
+      {members.map((member) => (
+        <View key={member.id} style={{ width: '33.333%', padding: space.xs }}>
+          <Pressable
+            onPress={() => router.push(`/member/${member.id}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`${member.name} 열기`}
+            style={({ pressed }) => ({
+              backgroundColor: pressed ? p.border : p.surfaceAlt,
+              borderRadius: radius.sm,
+              paddingVertical: space.sm,
+              paddingHorizontal: space.sm,
+              gap: 2,
+              minHeight: 48,
+            })}
+          >
+            <Txt variant="small" numberOfLines={1} style={{ fontWeight: '600' }}>
+              {member.name}
+            </Txt>
+            <Txt variant="tiny" muted numberOfLines={1}>
+              {[
+                member.backNumber != null ? `${member.backNumber}번` : null,
+                member.positions[0] ?? null,
+              ]
+                .filter(Boolean)
+                .join(' · ') || '-'}
+            </Txt>
+          </Pressable>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ------------------------------------------------------------ 유니폼 현황
+
+const UNIFORM_FILTERS: { value: UniformState | 'all'; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: 'pending', label: '미지급' },
+  { value: 'unknown', label: '모름' },
+  { value: 'issued', label: '받음' },
+];
+
+/**
+ * 유니폼을 맞추고 나눠 줄 때 총무가 보는 표.
+ * 제일 알고 싶은 건 "아직 못 받은 사람이 몇 명인가"라 그걸 키운다.
+ * 사이즈 집계는 업체에 그대로 보낼 수 있게 글로 내보낸다.
+ */
+function UniformStatus({ members, teamName }: { members: Member[]; teamName: string }) {
+  const p = usePalette();
+  const router = useRouter();
+  const [filter, setFilter] = useState<UniformState | 'all'>('all');
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const table = useMemo(() => sizeTable(members), [members]);
+  const dupes = useMemo(() => duplicateNumbers(members), [members]);
+  const counts = useMemo(() => {
+    const result: Record<UniformState, number> = { issued: 0, pending: 0, unknown: 0 };
+    for (const member of members) result[uniformState(member)] += 1;
+    return result;
+  }, [members]);
+
+  // 번호 순. 유니폼은 번호로 찾는다. 번호 없는 사람은 맨 뒤에 이름 순으로.
+  const list = members
+    .filter((member) => filter === 'all' || uniformState(member) === filter)
+    .sort(
+      (a, b) =>
+        (a.backNumber ?? Number.MAX_SAFE_INTEGER) - (b.backNumber ?? Number.MAX_SAFE_INTEGER) ||
+        a.name.localeCompare(b.name, 'ko'),
+    );
+
+  const stateTone: Record<UniformState, string> = {
+    issued: p.textMuted,
+    pending: p.danger,
+    unknown: p.warn,
+  };
+
+  return (
+    <>
+      <Card>
+        <Hero
+          label="유니폼 미지급"
+          value={`${counts.pending}명`}
+          tone={counts.pending ? p.danger : undefined}
+          caption={`받음 ${counts.issued} · 모름 ${counts.unknown} · 전체 ${members.length}명`}
+        />
+      </Card>
+
+      <SectionHeader title="사이즈 집계" />
+      <Card style={{ gap: 0, paddingVertical: space.sm }}>
+        <SizeLine size="사이즈" top="상의" bottom="하의" header />
+        {table.rows.map((row) => (
+          <View key={row.size}>
+            <Divider />
+            <SizeLine size={row.size} top={String(row.top)} bottom={String(row.bottom)} />
+          </View>
+        ))}
+        {table.unknownTop || table.unknownBottom ? (
+          <View>
+            <Divider />
+            <SizeLine
+              size="모름"
+              top={String(table.unknownTop)}
+              bottom={String(table.unknownBottom)}
+              muted
+            />
+          </View>
+        ) : null}
+      </Card>
+      <Button
+        label="사이즈 집계 공유하기"
+        icon="message"
+        tone="neutral"
+        onPress={async () => {
+          const outcome = await shareText(sizeSummaryText(teamName, members), '유니폼 사이즈 집계');
+          setNotice(shareMessage(outcome));
+        }}
+      />
+      {notice ? (
+        <Txt variant="tiny" muted style={{ textAlign: 'center' }}>
+          {notice}
+        </Txt>
+      ) : null}
+
+      {dupes.length ? (
+        <>
+          <SectionHeader title="등번호가 겹쳐요" />
+          <Card style={{ gap: space.sm }}>
+            {dupes.map((dupe) => (
+              <Row key={dupe.number} gap={space.md} align="flex-start">
+                <Txt variant="h3" tabular style={{ minWidth: 40 }}>
+                  {`${dupe.number}번`}
+                </Txt>
+                <Txt variant="small" style={{ flex: 1 }}>
+                  {dupe.members.map((member) => member.name).join(', ')}
+                </Txt>
+              </Row>
+            ))}
+          </Card>
+        </>
+      ) : null}
+
+      <SectionHeader title="회원별 현황" />
+      <Row gap={space.sm} wrap>
+        {UNIFORM_FILTERS.map((item) => (
+          <Chip
+            key={item.value}
+            label={`${item.label} ${item.value === 'all' ? members.length : counts[item.value]}`}
+            selected={filter === item.value}
+            onPress={() => setFilter(item.value)}
+          />
+        ))}
+      </Row>
+      <Card style={{ padding: space.sm, gap: 0 }}>
+        {list.length === 0 ? (
+          <Empty text="여기에 해당하는 회원이 없어요." />
+        ) : (
+          list.map((member, index) => {
+            const state = uniformState(member);
+            const top = normalizeSize(member.topSize);
+            const bottom = normalizeSize(member.bottomSize);
+            return (
+              <View key={member.id}>
+                {index > 0 ? <Divider /> : null}
+                <Pressable
+                  onPress={() => router.push(`/member/${member.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${member.name} 열기`}
+                >
+                  <Row
+                    gap={space.md}
+                    style={{ paddingVertical: space.sm, paddingHorizontal: space.sm, minHeight: 44 }}
+                  >
+                    <Txt variant="h3" tabular muted={member.backNumber == null} style={{ width: 36 }}>
+                      {member.backNumber == null ? '-' : String(member.backNumber)}
+                    </Txt>
+                    <Txt variant="h3" numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
+                      {member.name}
+                    </Txt>
+                    <Txt variant="small" tabular muted={!top && !bottom}>
+                      {top || bottom ? `${top ?? '?'} / ${bottom ?? '?'}` : '사이즈 모름'}
+                    </Txt>
+                    <Txt variant="tiny" color={stateTone[state]} style={{ width: 40, textAlign: 'right' }}>
+                      {UNIFORM_LABEL[state]}
+                    </Txt>
+                  </Row>
+                </Pressable>
+              </View>
+            );
+          })
+        )}
+      </Card>
+    </>
+  );
+}
+
+function SizeLine({
+  size,
+  top,
+  bottom,
+  header,
+  muted,
+}: {
+  size: string;
+  top: string;
+  bottom: string;
+  header?: boolean;
+  muted?: boolean;
+}) {
+  const variant = header ? 'tiny' : 'h3';
+  const dim = header || muted;
+  return (
+    <Row gap={space.md} style={{ paddingVertical: space.sm, paddingHorizontal: space.sm }}>
+      <Txt variant={variant} muted={dim} style={{ flex: 1 }}>
+        {size}
+      </Txt>
+      <Txt variant={variant} muted={dim} tabular style={{ width: 56, textAlign: 'right' }}>
+        {top}
+      </Txt>
+      <Txt variant={variant} muted={dim} tabular style={{ width: 56, textAlign: 'right' }}>
+        {bottom}
+      </Txt>
+    </Row>
+  );
+}

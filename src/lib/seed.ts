@@ -50,7 +50,7 @@ const ANNUAL_DUE = 200000;
  * 시드를 의미 있게 바꿀 때마다 이 숫자를 올린다. 저장된 판이 다르면 버리고 새로 만든다.
  * 데모 데이터는 어차피 예시라 버려도 되고, 진짜 데이터는 Supabase 에 있다.
  */
-export const SEED_VERSION = 12;
+export const SEED_VERSION = 13;
 
 /**
  * 포지션과 장점은 엑셀에 없다. 총무가 센 건 미투표뿐이다.
@@ -78,6 +78,12 @@ const SECOND_POSITION: Partial<Record<PositionGroup, PositionGroup>> = {
   MF: 'DF',
   FW: 'MF',
 };
+
+/**
+ * 유니폼 사이즈도 엑셀(풀리스트)에서 본 분포를 대충 따라 돌린다. 실제 사이즈가 아니다.
+ * 유니폼 현황 화면이 데모에서도 비어 보이지 않게 하려는 것뿐이다.
+ */
+const SIZE_CYCLE = ['L', 'XL', 'L', '2XL', 'L', 'XL', '3XL', 'L', 'XL', 'L'];
 
 const VENUES = ['방화근린공원 축구장', '마곡 체육공원', '개화산 생활체육관'];
 /** 지난 경기 메모에 남기는 스코어. 승패 자동 판정이 이걸 읽는다. */
@@ -115,6 +121,11 @@ export function buildSeed(): AppData {
       // 조기축구는 한 자리만 보는 사람이 드물다. 주 포지션 옆에 볼 수 있는 자리를 하나 더 둔다.
       positions: SECOND_POSITION[position] ? [position, SECOND_POSITION[position]] : [position],
       ageBand: entry.ageBand as AgeBand,
+      ageHalf: index % 3 === 0 ? 'late' : 'early',
+      // 열에 하나꼴로 아직 못 받은 사람, 열셋에 하나꼴로 사이즈를 모르는 사람을 둔다.
+      topSize: index % 13 === 7 ? null : SIZE_CYCLE[index % SIZE_CYCLE.length],
+      bottomSize: index % 13 === 7 ? null : SIZE_CYCLE[(index + 1) % SIZE_CYCLE.length],
+      uniformIssued: index % 10 === 4 ? false : index % 13 === 7 ? null : true,
       strengths: STRENGTH_CYCLE[index % STRENGTH_CYCLE.length],
       note: null,
       photoUri: null,

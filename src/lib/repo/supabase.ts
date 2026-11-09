@@ -228,15 +228,15 @@ export class SupabaseRepo implements Repo {
   /**
    * 회원 저장.
    *
-   * `aliases` 는 나중에 더한 칸이라, 스키마를 아직 안 올린 DB 에는 없다. 그대로 보내면
-   * Postgres 가 요청을 통째로 거절해서 **이름·메모·등번호까지 하나도 안 저장된다.**
-   * 아직 없으면 그 칸만 빼고 다시 보낸다 — 별명만 못 담을 뿐 나머지는 저장된다.
+   * `aliases` 와 초반·후반·유니폼 칸은 나중에 더한 칸이라, 스키마를 아직 안 올린 DB 에는 없다.
+   * 그대로 보내면 Postgres 가 요청을 통째로 거절해서 **이름·메모·등번호까지 하나도 안 저장된다.**
+   * 없다는 칸만 하나씩 빼고 다시 보낸다 — 그 칸만 못 담을 뿐 나머지는 저장된다.
    *
    * 대비책으로 넘어가는 건 "그런 칸 없다"일 때뿐이다. 권한 오류나 네트워크 오류까지
    * 흘리면 진짜 문제가 조용히 묻힌다.
    */
   async saveMember(member: Member): Promise<void> {
-    const row = {
+    const row: Record<string, unknown> = {
       id: member.id,
       team_id: this.assertLoaded(),
       name: member.name,
@@ -252,13 +252,22 @@ export class SupabaseRepo implements Repo {
       photo_url: member.photoPath,
       joined_on: member.joinedOn,
       active: member.active,
+      aliases: member.aliases,
+      age_half: member.ageHalf,
+      top_size: member.topSize,
+      bottom_size: member.bottomSize,
+      uniform_issued: member.uniformIssued,
     };
 
-    const { error } = await this.client.from('members').upsert({ ...row, aliases: member.aliases });
-    if (!error) return;
-    if (!isMissingColumn(error, 'aliases')) throw error;
-
-    await this.run(this.client.from('members').upsert(row));
+    const optional = [...LATER_MEMBER_COLUMNS];
+    for (;;) {
+      const { error } = await this.client.from('members').upsert(row);
+      if (!error) return;
+      const missing = optional.find((column) => isMissingColumn(error, column));
+      if (!missing) throw error;
+      delete row[missing];
+      optional.splice(optional.indexOf(missing), 1);
+    }
   }
 
   removeMember = (id: string) =>
@@ -506,6 +515,9 @@ async function fetchAll<T>(
   }
 }
 
+/** 처음 스키마에 없던 회원 칸. 아직 db push 를 안 한 DB 에서는 빼고 보낸다. */
+const LATER_MEMBER_COLUMNS = ['aliases', 'age_half', 'top_size', 'bottom_size', 'uniform_issued'];
+
 function isMissingColumn(error: unknown, column: string): boolean {
   const code = (error as { code?: string })?.code;
   const message = (error as { message?: string })?.message ?? '';
@@ -535,6 +547,11 @@ const fromMemberRow = (row: Row): Member => ({
   // 예전 행에는 배열이 없고 단수 칸만 있다. 있으면 그걸 첫 칸으로 본다.
   positions: row.positions?.length ? row.positions : row.preferred_position ? [row.preferred_position] : [],
   ageBand: row.age_band ?? null,
+  // 아래 넷은 db push 를 안 한 DB 에는 없는 칸이다.
+  ageHalf: row.age_half ?? null,
+  topSize: row.top_size ?? null,
+  bottomSize: row.bottom_size ?? null,
+  uniformIssued: row.uniform_issued ?? null,
   strengths: row.strengths ?? [],
   note: row.note,
   photoUri: null,

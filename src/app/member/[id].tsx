@@ -26,12 +26,19 @@ import {
   space,
 } from '@/components/ui';
 import { usePalette } from '@/theme';
-import type { AgeBand, AttendanceStatus, MemberRole, PositionGroup } from '@/lib/types';
+import { HALF_LABEL, SIZE_ORDER, normalizeSize } from '@/features/members/roster';
+import type { AgeBand, AgeHalf, AttendanceStatus, MemberRole, PositionGroup } from '@/lib/types';
 
 const POSITIONS: PositionGroup[] = ['GK', 'DF', 'MF', 'FW'];
 
 /** 조기축구는 나이대가 쿼터 배분과 포지션에 실제로 영향을 준다. */
 const AGE_BANDS: AgeBand[] = ['20', '30', '40', '50', '60'];
+const AGE_HALVES: AgeHalf[] = ['early', 'late'];
+const UNIFORM_STATES: { value: boolean | null; label: string }[] = [
+  { value: true, label: '받았어요' },
+  { value: false, label: '아직이에요' },
+  { value: null, label: '모름' },
+];
 const ROLES: { value: MemberRole; label: string }[] = [
   { value: 'manager', label: '감독' },
   { value: 'coach', label: '코치' },
@@ -474,6 +481,19 @@ export default function MemberDetailScreen() {
               />
             ))}
           </Row>
+          {/* 팀이 정한 구분이라 나이로 계산하지 않고 고르게 한다. */}
+          <Row wrap gap={space.sm}>
+            {AGE_HALVES.map((half) => (
+              <Chip
+                key={half}
+                label={HALF_LABEL[half]}
+                selected={member.ageHalf === half}
+                onPress={() =>
+                  updateMember({ ...member, ageHalf: member.ageHalf === half ? null : half })
+                }
+              />
+            ))}
+          </Row>
 
           <Txt variant="tiny" muted>
             역할
@@ -513,6 +533,34 @@ export default function MemberDetailScreen() {
           />
         </Card>
 
+        {/* ---------------------------------------------------- 유니폼 */}
+        <SectionHeader title="유니폼" />
+        <Card>
+          <Txt variant="tiny" muted>
+            지급
+          </Txt>
+          <Row wrap gap={space.sm}>
+            {UNIFORM_STATES.map((state) => (
+              <Chip
+                key={state.label}
+                label={state.label}
+                selected={member.uniformIssued === state.value}
+                onPress={() => updateMember({ ...member, uniformIssued: state.value })}
+              />
+            ))}
+          </Row>
+          <SizePicker
+            label="상의 사이즈"
+            value={member.topSize}
+            onChange={(size) => updateMember({ ...member, topSize: size })}
+          />
+          <SizePicker
+            label="하의 사이즈"
+            value={member.bottomSize}
+            onChange={(size) => updateMember({ ...member, bottomSize: size })}
+          />
+        </Card>
+
         <Button
           label="명단에서 빼기"
           icon="trash"
@@ -526,6 +574,40 @@ export default function MemberDetailScreen() {
           기록은 그대로 남고 명단·회비 집계에서만 빠져요.
         </Txt>
       </Screen>
+    </>
+  );
+}
+
+/**
+ * 사이즈는 칩으로 고른다. 손으로 적게 하면 'xl', 'XXL', '2XL' 이 각각 다른 칸이 되어
+ * 유니폼 현황의 집계가 갈린다. 옮겨 온 값이 목록 밖이면(예: '95') 그 칩도 같이 보인다.
+ */
+function SizePicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (size: string | null) => void;
+}) {
+  const current = normalizeSize(value);
+  const options = current && !SIZE_ORDER.includes(current) ? [...SIZE_ORDER, current] : SIZE_ORDER;
+  return (
+    <>
+      <Txt variant="tiny" muted>
+        {label}
+      </Txt>
+      <Row wrap gap={space.sm}>
+        {options.map((size) => (
+          <Chip
+            key={size}
+            label={size}
+            selected={current === size}
+            onPress={() => onChange(current === size ? null : size)}
+          />
+        ))}
+      </Row>
     </>
   );
 }

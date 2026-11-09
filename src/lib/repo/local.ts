@@ -82,7 +82,14 @@ export class LocalRepo implements Repo {
     const seed = buildSeed();
     return {
       team: { ...seed.team, ...parsed.team },
-      members: parsed.members ?? [],
+      // 연령대 초반·후반과 유니폼 칸은 나중에 생겼다.
+      members: (parsed.members ?? []).map((member) => ({
+        ...member,
+        ageHalf: member.ageHalf ?? null,
+        topSize: member.topSize ?? null,
+        bottomSize: member.bottomSize ?? null,
+        uniformIssued: member.uniformIssued ?? null,
+      })),
       attendance: parsed.attendance ?? [],
       // 연납·영수증이 생기기 전에 저장된 줄에는 이 칸들이 없다.
       ledger: (parsed.ledger ?? []).map((row) => ({
